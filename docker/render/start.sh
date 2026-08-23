@@ -5,6 +5,11 @@ echo "================================================"
 echo "  LinkBus - Production Container Starting Up... "
 echo "================================================"
 
+# Configure Nginx to listen on Render's dynamic PORT environment variable (default 8080/10000)
+PORT_TO_USE="${PORT:-8080}"
+echo "Configuring Nginx to listen on port: ${PORT_TO_USE}"
+sed -i "s/listen [0-9]\+;/listen ${PORT_TO_USE};/g" /etc/nginx/nginx.conf
+
 cd /var/www/backend
 
 # Run Laravel production optimizations

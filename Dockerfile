@@ -34,11 +34,6 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 # Copy production frontend assets into Laravel's public directory
 RUN cp -r /var/www/dist/. /var/www/backend/public/
 
-# Configure PHP-FPM
-RUN sed -i 's/listen = 127.0.0.1:9000/listen = \/run\/php-fpm.sock/' /usr/local/etc/php-fpm.d/www.conf \
-    && sed -i 's/;listen.owner = www-data/listen.owner = nginx/' /usr/local/etc/php-fpm.d/www.conf \
-    && sed -i 's/;listen.group = www-data/listen.group = nginx/' /usr/local/etc/php-fpm.d/www.conf
-
 # Nginx Configuration for Render
 COPY docker/render/nginx.conf /etc/nginx/nginx.conf
 

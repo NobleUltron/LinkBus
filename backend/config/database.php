@@ -59,6 +59,8 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                // TiDB Cloud: enable SSL without CA cert verification (public endpoint)
+                PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => env('DB_SSL_VERIFY_CERT', true) === 'false' ? false : true,
             ]) : [],
         ],
 

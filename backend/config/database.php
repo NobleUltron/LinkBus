@@ -58,10 +58,17 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-                // TiDB Cloud: enable SSL without CA cert verification (public endpoint)
-                PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => env('DB_SSL_VERIFY_CERT', true) === 'false' ? false : true,
-            ]) : [],
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA') ?: (
+                    file_exists('/etc/ssl/certs/ca-certificates.crt')
+                        ? '/etc/ssl/certs/ca-certificates.crt'
+                        : (file_exists('/etc/ssl/cert.pem') ? '/etc/ssl/cert.pem' : (
+                            file_exists('/etc/pki/tls/certs/ca-bundle.crt') ? '/etc/pki/tls/certs/ca-bundle.crt' : null
+                        ))
+                ),
+                PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => env('DB_SSL_VERIFY_CERT') === null
+                    ? false
+                    : (env('DB_SSL_VERIFY_CERT') === 'true' || env('DB_SSL_VERIFY_CERT') === true),
+            ], fn($val) => $val !== null) : [],
         ],
 
         'mariadb' => [

@@ -1,0 +1,58 @@
+FROM php:8.2-fpm-alpine
+
+# Install system dependencies & PHP extensions
+RUN apk add --no-cache \
+    curl nginx libpng-dev libxml2-dev zip libzip-dev unzip \
+    oniguruma-dev icu-dev freetype-dev libjpeg-turbo-dev \
+    bash supervisor nodejs npm
+
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip intl opcache
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Set working directory
+WORKDIR /var/www
+
+# --- Build React Frontend ---
+COPY package*.json ./
+RUN npm ci --silent
+
+COPY index.html tsconfig.json tsconfig.node.json vite.config.ts postcss.config.js tailwind.config.js ./
+COPY public/ ./public/
+COPY src/ ./src/
+
+RUN npm run build
+
+# --- Install PHP/Laravel Backend ---
+COPY backend/ ./backend/
+
+WORKDIR /var/www/backend
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Copy production frontend assets into Laravel's public directory
+RUN cp -r /var/www/dist/. /var/www/backend/public/
+
+# Configure PHP-FPM
+RUN sed -i 's/listen = 127.0.0.1:9000/listen = \/run\/php-fpm.sock/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i 's/;listen.owner = www-data/listen.owner = nginx/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i 's/;listen.group = www-data/listen.group = nginx/' /usr/local/etc/php-fpm.d/www.conf
+
+# Nginx Configuration for Render
+COPY docker/render/nginx.conf /etc/nginx/nginx.conf
+
+# Supervisor: manages Nginx + PHP-FPM + Queue Worker
+COPY docker/render/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Storage permissions
+RUN chown -R www-data:www-data /var/www/backend/storage /var/www/backend/bootstrap/cache \
+    && chmod -R 775 /var/www/backend/storage /var/www/backend/bootstrap/cache
+
+# Entrypoint: migrate & start services
+COPY docker/render/start.sh /start.sh
+RUN chmod +x /start.sh
+
+EXPOSE 8080
+
+CMD ["/start.sh"]

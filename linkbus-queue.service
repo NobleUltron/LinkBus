@@ -1,0 +1,22 @@
+# ====================================================================
+# LinkBus - Systemd Queue Worker Service
+# ====================================================================
+# Place in: /etc/systemd/system/linkbus-queue.service
+# Enable: sudo systemctl enable linkbus-queue
+# Start:  sudo systemctl start linkbus-queue
+# Status: sudo systemctl status linkbus-queue
+# ====================================================================
+
+[Unit]
+Description=LinkBus Background Queue Worker
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+Restart=always
+RestartSec=5s
+ExecStart=/usr/bin/php /var/www/linkbus/backend/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+
+[Install]
+WantedBy=multi-user.target

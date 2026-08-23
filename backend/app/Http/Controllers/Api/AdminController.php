@@ -1,0 +1,491 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Advertisement;
+use App\Models\PromoCode;
+use App\Models\Role;
+use App\Models\Setting;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class AdminController extends Controller
+{
+    // ── Settings ─────────────────────────────────────────────────────
+
+    public function getSettings(): JsonResponse
+    {
+        $settings = Setting::all()->groupBy('group');
+        return response()->json(['settings' => $settings]);
+    }
+
+    public function updateSettings(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'settings' => 'required|array',
+            'settings.*.key'   => 'required|string',
+            'settings.*.value' => 'nullable|string',
+        ]);
+
+        foreach ($data['settings'] as $item) {
+            Setting::updateOrCreate(
+                ['key' => $item['key']],
+                ['value' => $item['value'] ?? '']
+            );
+        }
+
+        return response()->json(['message' => 'Settings updated.']);
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────
+
+    public function users(Request $request): JsonResponse
+    {
+        $query = User::with('role')->where('email', 'not like', 'deleted_%@linkbus.local');
+
+        if ($request->filled('role')) {
+            $query->whereHas('role', fn($q) => $q->where('slug', $request->role));
+        }
+        if ($request->filled('search')) {
+            $query->where(fn($q) => $q->where('name', 'like', '%' . $request->search . '%')
+                ->orWhere('email', 'like', '%' . $request->search . '%')
+                ->orWhere('phone', 'like', '%' . $request->search . '%'));
+        }
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date);
+        }
+        if ($request->filled('from') || $request->filled('date_from')) {
+            $from = $request->input('from', $request->input('date_from'));
+            $query->whereDate('created_at', '>=', $from);
+        }
+        if ($request->filled('to') || $request->filled('date_to')) {
+            $to = $request->input('to', $request->input('date_to'));
+            $query->whereDate('created_at', '<=', $to);
+        }
+
+        $users = $query->orderBy('name')->paginate(20);
+
+        return response()->json([
+            'users' => $users->map(fn($u) => [
+                'id'         => $u->id,
+                'name'       => $u->name,
+                'email'      => $u->email,
+                'phone'      => $u->phone,
+                'avatar'     => $u->avatar,
+                'role_id'    => $u->role_id,
+                'is_active'  => (bool) ($u->is_active ?? true),
+                'role'       => $u->role?->slug,
+                'role_name'  => $u->role?->name,
+                'is_driver'  => (bool) $u->is_driver || $u->role?->slug === 'driver',
+                'created_at' => $u->created_at?->toISOString(),
+            ]),
+            'meta' => ['total' => $users->total(), 'current_page' => $users->currentPage(), 'last_page' => $users->lastPage()],
+        ]);
+    }
+
+    public function storeUser(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name'      => 'required|string|max:100',
+            'email'     => 'required|email|max:150|unique:users,email',
+            'phone'     => 'nullable|string|max:30',
+            'role_id'   => 'required|exists:roles,id',
+            'password'  => 'nullable|string|min:6',
+            'is_active' => 'nullable|boolean',
+            'is_driver' => 'nullable|boolean',
+        ], [
+            'email.unique' => 'A user with this email address already exists.',
+            'role_id.required' => 'Please select a role for the user.',
+        ]);
+
+        $user = User::create([
+            'name'      => $data['name'],
+            'email'     => $data['email'],
+            'phone'     => $data['phone'] ?? null,
+            'role_id'   => $data['role_id'],
+            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : true,
+            'password'  => \Illuminate\Support\Facades\Hash::make($data['password'] ?? 'password'),
+        ]);
+
+        // If role is driver, ensure driver record exists
+        $role = Role::find($data['role_id']);
+        if ($role?->slug === 'driver' && !$user->driver) {
+            \App\Models\Driver::create([
+                'user_id'          => $user->id,
+                'license_number'   => 'DL-' . strtoupper(substr(md5($user->id . time()), 0, 8)),
+                'license_expiry'   => now()->addYears(3)->format('Y-m-d'),
+                'experience_years' => 1,
+                'status'           => 'active',
+                'notes'            => 'Created via Admin Portal',
+            ]);
+        }
+
+        $user->load('role', 'driver');
+
+        return response()->json([
+            'message' => 'User created successfully.',
+            'user'    => [
+                'id'         => $user->id,
+                'name'       => $user->name,
+                'email'      => $user->email,
+                'phone'      => $user->phone,
+                'avatar'     => $user->avatar,
+                'role_id'    => $user->role_id,
+                'is_active'  => (bool) ($user->is_active ?? true),
+                'role'       => $user->role?->slug,
+                'role_name'  => $user->role?->name,
+                'is_driver'  => (bool) $user->driver || $user->role?->slug === 'driver',
+                'created_at' => $user->created_at?->toISOString(),
+            ],
+            'data'    => $user,
+        ], 201);
+    }
+
+    public function updateUser(Request $request, User $user): JsonResponse
+    {
+        $data = $request->validate([
+            'name'      => 'sometimes|string|max:100',
+            'email'     => "sometimes|email|max:150|unique:users,email,{$user->id}",
+            'phone'     => 'nullable|string|max:30',
+            'avatar'    => 'nullable',
+            'role_id'   => 'sometimes|exists:roles,id',
+            'password'  => 'nullable|string|min:6',
+            'is_active' => 'nullable|boolean',
+            'is_driver' => 'nullable|boolean',
+        ]);
+
+        if (!empty($data['password'])) {
+            $data['password'] = \Illuminate\Support\Facades\Hash::make($data['password']);
+        } else {
+            unset($data['password']);
+        }
+
+        $deleteOldAvatar = function () use ($user) {
+            if ($user->avatar && str_starts_with($user->avatar, '/storage/avatars/')) {
+                $relative = str_replace('/storage/', '', $user->avatar);
+                try {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($relative);
+                } catch (\Throwable $e) {
+                    // Ignore missing files
+                }
+            }
+        };
+
+        // 1. Direct file upload support (multipart/form-data)
+        if ($request->hasFile('avatar')) {
+            $file = $request->file('avatar');
+            $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+            if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'])) {
+                $deleteOldAvatar();
+                $fileName = 'avatar_' . $user->id . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                $file->storeAs('avatars', $fileName, 'public');
+                $data['avatar'] = '/storage/avatars/' . $fileName;
+            }
+        }
+        // 2. Base64 Data-URI upload support
+        elseif (!empty($data['avatar']) && is_string($data['avatar']) && str_starts_with($data['avatar'], 'data:image')) {
+            try {
+                $parts = explode(';base64,', $data['avatar'], 2);
+                if (count($parts) === 2) {
+                    $meta = $parts[0];
+                    $base64Raw = str_replace(["\r", "\n", ' '], '', $parts[1]);
+
+                    $extension = 'jpg';
+                    if (preg_match('/data:image\/([a-zA-Z0-9\+\-]+)/i', $meta, $extMatch)) {
+                        $rawExt = strtolower($extMatch[1]);
+                        if (in_array($rawExt, ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'])) {
+                            $extension = ($rawExt === 'jpeg') ? 'jpg' : $rawExt;
+                        }
+                    }
+
+                    $imageData = base64_decode($base64Raw, true);
+                    if ($imageData !== false && strlen($imageData) > 0) {
+                        $deleteOldAvatar();
+                        $fileName = 'avatar_' . $user->id . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+                        \Illuminate\Support\Facades\Storage::disk('public')->put('avatars/' . $fileName, $imageData);
+                        $data['avatar'] = '/storage/avatars/' . $fileName;
+                    } else {
+                        unset($data['avatar']);
+                    }
+                } else {
+                    unset($data['avatar']);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Avatar save error in AdminController: " . $e->getMessage());
+                unset($data['avatar']);
+            }
+        }
+        // 3. Avatar explicitly cleared / removed
+        elseif ($request->has('avatar') && (empty($data['avatar']) || $data['avatar'] === null)) {
+            $deleteOldAvatar();
+            $data['avatar'] = null;
+        }
+
+        // Safety fallback: Never persist raw un-parsed base64 string to DB
+        if (isset($data['avatar']) && is_string($data['avatar']) && str_starts_with($data['avatar'], 'data:image')) {
+            unset($data['avatar']);
+        }
+
+        $user->update($data);
+
+        // Strict driver profile lifecycle management based on role
+        if (!empty($data['role_id'])) {
+            $role = Role::find($data['role_id']);
+            if ($role?->slug === 'driver') {
+                if (!$user->driver) {
+                    \App\Models\Driver::create([
+                        'user_id'          => $user->id,
+                        'license_number'   => 'DL-' . strtoupper(substr(md5($user->id . time()), 0, 8)),
+                        'license_expiry'   => now()->addYears(3)->format('Y-m-d'),
+                        'experience_years' => 1,
+                        'status'           => 'active',
+                        'notes'            => 'Auto-created via Driver Role assignment',
+                    ]);
+                } else {
+                    $user->driver->update(['status' => 'active']);
+                }
+            } else {
+                // If role changed away from driver, unlink/deactivate
+                if ($user->driver) {
+                    if ($user->driver->trips()->count() > 0) {
+                        $user->driver->update(['status' => 'inactive']);
+                    } else {
+                        $user->driver->delete();
+                    }
+                }
+            }
+        }
+
+        $user->load('role', 'driver');
+        return response()->json(['user' => $user]);
+    }
+
+    public function deleteUser(Request $request, User $user): JsonResponse
+    {
+        if ($request->user() && $request->user()->id === $user->id) {
+            return response()->json(['message' => 'You cannot delete your own admin account.'], 422);
+        }
+
+        try {
+            // Revoke active sessions and tokens
+            $user->tokens()->delete();
+
+            // Clean up temporary seat locks
+            \App\Models\SeatLock::where('user_id', $user->id)->delete();
+
+            // If user has historical financial or ticket records, safely deactivate & remove from active directory
+            if ($user->bookings()->exists() || ($user->driver && $user->driver->trips()->exists())) {
+                if ($user->driver) {
+                    $user->driver->update(['status' => 'inactive']);
+                }
+
+                $user->update([
+                    'is_active' => false,
+                    'email'     => 'deleted_' . $user->id . '_' . time() . '@linkbus.local',
+                    'name'      => $user->name . ' (Deactivated)',
+                    'password'  => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(32)),
+                ]);
+
+                return response()->json(['message' => 'User has historical bookings/trips. Account has been safely deactivated.']);
+            }
+
+            // If user has a driver record with no assigned trips, remove driver profile first
+            if ($user->driver) {
+                $user->driver->delete();
+            }
+
+            // Hard delete user account
+            $user->delete();
+
+            return response()->json(['message' => 'User deleted successfully.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Could not delete user: ' . $e->getMessage()], 422);
+        }
+    }
+
+    // ── Promo Codes ──────────────────────────────────────────────────
+
+    public function promoCodes(): JsonResponse
+    {
+        return response()->json(['promo_codes' => PromoCode::orderBy('created_at', 'desc')->get()]);
+    }
+
+    public function storePromoCode(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'code'               => 'required|string|unique:promo_codes,code',
+            'description'        => 'nullable|string',
+            'discount_type'      => 'required|in:percentage,fixed',
+            'discount_value'     => 'required|integer|min:1',
+            'min_booking_amount' => 'nullable|integer|min:0',
+            'max_uses'           => 'nullable|integer|min:1',
+            'expires_at'         => 'nullable|date',
+        ]);
+
+        $promo = PromoCode::create($data);
+        return response()->json(['promo_code' => $promo], 201);
+    }
+
+    public function updatePromoCode(Request $request, PromoCode $promoCode): JsonResponse
+    {
+        $data = $request->validate([
+            'is_active'  => 'sometimes|boolean',
+            'expires_at' => 'nullable|date',
+            'max_uses'   => 'sometimes|integer|min:1',
+        ]);
+
+        $promoCode->update($data);
+        return response()->json(['promo_code' => $promoCode]);
+    }
+
+    // ── Advertisements ───────────────────────────────────────────────
+
+    public function advertisements(): JsonResponse
+    {
+        $ads = Advertisement::orderBy('priority')->get();
+        return response()->json(['advertisements' => $ads]);
+    }
+
+    public function storeAdvertisement(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'title'       => 'required|string',
+            'description' => 'nullable|string',
+            'image_url'   => 'nullable|string',
+            'link_url'    => 'nullable|string',
+            'type'        => 'required|in:banner,popup,sidebar',
+            'start_date'  => 'required|date',
+            'end_date'    => 'required|date|after_or_equal:start_date',
+            'priority'    => 'nullable|integer|min:1',
+            'status'      => 'in:active,inactive',
+        ]);
+
+        $ad = Advertisement::create($data);
+        return response()->json(['advertisement' => $ad], 201);
+    }
+
+    // ── Audit Logs ───────────────────────────────────────────────────
+
+    public function auditLogs(Request $request): JsonResponse
+    {
+        $query = \App\Models\AuditLog::with('user')->orderBy('created_at', 'desc');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('action', 'like', "%{$search}%")
+                  ->orWhere('model_type', 'like', "%{$search}%")
+                  ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        $logs = $query->paginate(20);
+
+        return response()->json([
+            'logs' => $logs->items(),
+            'meta' => [
+                'current_page' => $logs->currentPage(),
+                'last_page'    => $logs->lastPage(),
+                'total'        => $logs->total(),
+            ],
+        ]);
+    }
+
+    // ── Payments & Financial Settlements ─────────────────────────────
+
+    public function payments(Request $request): JsonResponse
+    {
+        $query = \App\Models\Payment::with([
+            'booking.trip.route.originTerminal',
+            'booking.trip.route.destinationTerminal',
+            'booking.user',
+            'booking.tickets',
+        ])->orderBy('created_at', 'desc');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('method')) {
+            $query->where('method', $request->method);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('transaction_id', 'like', "%{$search}%")
+                  ->orWhereHas('booking', function ($bq) use ($search) {
+                      $bq->where('booking_number', 'like', "%{$search}%")
+                         ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%"))
+                         ->orWhereHas('tickets', fn($t) => $t->where('passenger_name', 'like', "%{$search}%")->orWhere('passenger_phone', 'like', "%{$search}%"));
+                  });
+            });
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date);
+        }
+        if ($request->filled('from') || $request->filled('date_from')) {
+            $from = $request->input('from', $request->input('date_from'));
+            $query->whereDate('created_at', '>=', $from);
+        }
+        if ($request->filled('to') || $request->filled('date_to')) {
+            $to = $request->input('to', $request->input('date_to'));
+            $query->whereDate('created_at', '<=', $to);
+        }
+
+        $perPage = (int) $request->input('per_page', 15);
+        $paginated = $query->paginate($perPage);
+
+        $items = collect($paginated->items())->map(function ($payment) {
+            $booking = $payment->booking;
+            $firstTicket = $booking?->tickets?->first();
+            $passengerName = $firstTicket?->passenger_name ?? $booking?->user?->name ?? 'Customer';
+            $origin = $booking?->trip?->route?->originTerminal?->city ?? 'Origin';
+            $dest = $booking?->trip?->route?->destinationTerminal?->city ?? 'Destination';
+
+            return [
+                'id'             => $payment->id,
+                'booking_id'     => $payment->booking_id,
+                'transaction_id' => $payment->transaction_id,
+                'method'         => $payment->method,
+                'amount'         => (float) $payment->amount,
+                'status'         => $payment->status,
+                'booking_number' => $booking?->booking_number ?? "LB-{$payment->booking_id}",
+                'passenger_name' => $passengerName,
+                'route'          => "{$origin} → {$dest}",
+                'created_at'     => $payment->created_at?->toISOString(),
+                'updated_at'     => $payment->updated_at?->toISOString(),
+            ];
+        });
+
+        return response()->json([
+            'data' => $items,
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page'    => $paginated->lastPage(),
+                'per_page'     => $paginated->perPage(),
+                'total'        => $paginated->total(),
+            ],
+        ]);
+    }
+
+    public function updatePaymentStatus(Request $request, int $id): JsonResponse
+    {
+        $request->validate([
+            'status' => 'required|in:completed,pending,failed,refunded',
+        ]);
+
+        $payment = \App\Models\Payment::findOrFail($id);
+        $payment->status = $request->status;
+        $payment->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Payment #{$payment->transaction_id} updated to {$payment->status}.",
+            'payment' => $payment,
+        ]);
+    }
+}

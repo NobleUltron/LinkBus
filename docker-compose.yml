@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # ─── 1. PHP 8.3-FPM Backend Service ──────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: linkbus_app
+    restart: unless-stopped
+    environment:
+      APP_NAME: LinkBus
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: http://localhost
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: linkbus
+      DB_USERNAME: linkbus_user
+      DB_PASSWORD: linkbus_password_2026
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - ./backend:/var/www/backend
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - linkbus_net
+
+  # ─── 2. Nginx Web Server (Frontend SPA + API Proxy) ───────────────────────────
+  web:
+    image: nginx:alpine
+    container_name: linkbus_web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:var/www/frontend
+      - ./backend:/var/www/backend
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    networks:
+      - linkbus_net
+
+  # ─── 3. MySQL 8.0 Enterprise Database ─────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: linkbus_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secret_password_2026
+      MYSQL_DATABASE: linkbus
+      MYSQL_USER: linkbus_user
+      MYSQL_PASSWORD: linkbus_password_2026
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_secret_password_2026"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - linkbus_net
+
+  # ─── 4. Redis Caching & Queue Store ───────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: linkbus_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - linkbus_net
+
+# ─── Shared Networks & Persistent Volumes ───────────────────────────────────────
+networks:
+  linkbus_net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local

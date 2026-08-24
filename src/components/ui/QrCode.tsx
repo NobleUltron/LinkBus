@@ -1,43 +1,54 @@
-import React, { useMemo } from 'react';
-import { qrMatrix } from '../../utils/qr';
+import React, { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
+
 interface QrCodeProps {
   value: string;
   size?: number;
   className?: string;
 }
+
 export function QrCode({
   value,
   size = 112,
-  className = ''
+  className = '',
 }: QrCodeProps) {
-  const matrix = useMemo(() => qrMatrix(value), [value]);
-  const modules = matrix.length;
+  const [dataUrl, setDataUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (!value) return;
+
+    QRCode.toDataURL(value, {
+      width: size * 2, // 2x for sharp retina display
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#ffffff',
+      },
+      errorCorrectionLevel: 'M',
+    })
+      .then((url) => setDataUrl(url))
+      .catch((err) => console.error('Failed to generate real QR code:', err));
+  }, [value, size]);
+
+  if (!dataUrl) {
+    return (
+      <div
+        style={{ width: size, height: size }}
+        className={`flex items-center justify-center rounded-md bg-white p-1 border border-slate-200 ${className}`}
+      >
+        <span className="text-[9px] font-mono text-slate-400 animate-pulse">Generating...</span>
+      </div>
+    );
+  }
+
   return (
-    <svg
+    <img
+      src={dataUrl}
+      alt={`QR code for ${value}`}
       width={size}
       height={size}
-      viewBox={`0 0 ${modules} ${modules}`}
-      role="img"
-      aria-label={`QR code for ${value}`}
-      className={`rounded-md bg-white p-1 ${className}`}
-      shapeRendering="crispEdges"
-      style={{ backgroundColor: '#ffffff', display: 'block' }}
-    >
-      {matrix.map((row, y) =>
-        row.map((filled, x) =>
-          filled ? (
-            <rect
-              key={`${x}-${y}`}
-              x={x}
-              y={y}
-              width={1}
-              height={1}
-              fill="#000000"
-              style={{ fill: '#000000' }}
-            />
-          ) : null
-        )
-      )}
-    </svg>
+      className={`rounded-md bg-white p-1 border border-slate-200 shadow-xs ${className}`}
+      style={{ display: 'block' }}
+    />
   );
 }

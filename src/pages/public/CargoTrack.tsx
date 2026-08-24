@@ -138,7 +138,7 @@ export function CargoTrack() {
   const currentStep = result ? getStepIndex(result.data.status) : 0;
 
   return (
-    <div className="space-y-10 pb-16">
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 space-y-10 pb-16">
       {/* ── Hero Header & Search Bar ── */}
       <section className="relative overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-surface via-surface-2 to-surface p-8 sm:p-12 shadow-sm">
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-brand-500/10 blur-3xl" />

@@ -289,41 +289,38 @@ export function Login() {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-surface text-fg selection:bg-brand-500/20 lg:grid lg:grid-cols-[1.1fr_1.2fr]">
+    <div className="relative min-h-screen w-full flex flex-col justify-between items-center py-6 sm:py-10 px-4 overflow-x-hidden bg-app text-fg selection:bg-brand-500/20">
       
-      {/* ── Ambient Background Lighting Orbs ── */}
-      <div className="pointer-events-none absolute -left-40 -top-40 h-[480px] w-[480px] rounded-full bg-brand-500/10 blur-[120px] dark:bg-brand-500/15" />
-      <div className="pointer-events-none absolute bottom-0 left-1/3 h-[380px] w-[380px] rounded-full bg-emerald-500/10 blur-[100px] dark:bg-emerald-500/10" />
+      {/* ── Ambient Background Lighting Mesh Orbs ── */}
+      <div className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-[500px] w-[800px] rounded-full bg-gradient-to-b from-brand-500/15 via-emerald-500/10 to-transparent blur-[130px]" />
+      <div className="pointer-events-none absolute bottom-10 -left-20 h-[350px] w-[350px] rounded-full bg-emerald-600/10 blur-[110px]" />
+      <div className="pointer-events-none absolute top-1/3 -right-20 h-[320px] w-[320px] rounded-full bg-cyan-500/8 blur-[100px]" />
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          LEFT COLUMN: AUTHENTICATION CONTAINER
-         ═══════════════════════════════════════════════════════════════════ */}
-      <div className="relative z-10 flex flex-col justify-between px-6 py-8 sm:px-12 lg:px-16">
-        
-        {/* Top App Bar Header */}
-        <header className="flex items-center justify-between">
+      {/* ── Top Navigation Bar Header ── */}
+      <header className="relative z-10 w-full max-w-5xl flex items-center justify-between pb-4 sm:pb-6">
+        <Link
+          to="/"
+          className="group flex items-center gap-2.5 transition-transform hover:scale-[1.02] focus:outline-none"
+          aria-label="Link Bus Services home"
+        >
+          <Logo />
+        </Link>
+
+        <div className="flex items-center gap-3">
           <Link
             to="/"
-            className="group flex items-center gap-2.5 transition-transform hover:scale-[1.02] focus:outline-none"
-            aria-label="Link Bus Services home"
+            className="hidden items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-surface-2 hover:text-fg sm:flex"
           >
-            <Logo />
+            <BusIcon className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
+            <span>Explore Routes</span>
           </Link>
+          <ThemeToggle />
+        </div>
+      </header>
 
-          <div className="flex items-center gap-3">
-            <Link
-              to="/"
-              className="hidden items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-surface-2 hover:text-fg sm:flex"
-            >
-              <BusIcon className="h-3.5 w-3.5 text-brand-600" />
-              <span>Explore Routes</span>
-            </Link>
-            <ThemeToggle />
-          </div>
-        </header>
-
-        {/* Central Sign In / Reset Form Wrapper */}
-        <main className="mx-auto my-auto w-full max-w-[420px] py-8">
+      {/* ── Central Glassmorphic Card Container ── */}
+      <main className="relative z-10 my-auto w-full max-w-[460px] py-4">
+        <div className="rounded-3xl border border-line/80 bg-surface/90 backdrop-blur-2xl p-6 sm:p-8 shadow-[0_12px_48px_-12px_rgba(0,0,0,0.08)] dark:shadow-[0_16px_56px_-12px_rgba(0,0,0,0.4)]">
           <AnimatePresence mode="wait">
             
             {/* ─────────────────────────────────────────────────────────────
@@ -452,20 +449,15 @@ export function Login() {
                       <label htmlFor="confirm-password" className="block text-xs font-bold uppercase tracking-wider text-muted">
                         Confirm New Password <span className="text-red-500">*</span>
                       </label>
-                      <div className="relative">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted">
-                          <LockIcon className="h-4 w-4" />
-                        </div>
-                        <input
-                          id="confirm-password"
-                          type={showNewPassword ? 'text' : 'password'}
-                          required
-                          placeholder="••••••••••••"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="block w-full rounded-xl border border-line bg-surface/80 pl-10 pr-4 py-3 text-sm text-fg placeholder:text-muted/60 backdrop-blur-md focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/20"
-                        />
-                      </div>
+                      <input
+                        id="confirm-password"
+                        type={showNewPassword ? 'text' : 'password'}
+                        required
+                        placeholder="••••••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="block w-full rounded-xl border border-line bg-surface/80 px-4 py-3 text-sm text-fg placeholder:text-muted/60 backdrop-blur-md focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/20"
+                      />
                     </div>
 
                     <Button
@@ -499,16 +491,16 @@ export function Login() {
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     <span>Uganda Transit & Fleet Portal</span>
                   </div>
-                  <h1 className="mt-3 text-3xl font-black tracking-tight text-fg">
+                  <h1 className="mt-3 text-2xl sm:text-3xl font-black tracking-tight text-fg">
                     Welcome back
                   </h1>
-                  <p className="mt-1 text-sm text-muted">
-                    Sign in to access your coach bookings, manifests, and system controls.
+                  <p className="mt-1 text-xs sm:text-sm text-muted leading-relaxed">
+                    Sign in to access coach bookings, manifests & fleet controls.
                   </p>
                 </div>
 
                 {/* ─── Social / Google SSO Fast Login ─── */}
-                <div className="pt-1 flex flex-col items-center justify-center">
+                <div className="pt-1 flex flex-col items-center justify-center w-full">
                   <div className="w-full flex justify-center overflow-hidden rounded-xl">
                     <GoogleLogin
                       onSuccess={handleGoogleSuccess}
@@ -523,9 +515,9 @@ export function Login() {
                 </div>
 
                 {/* Clean Horizontal Divider */}
-                <div className="relative flex items-center justify-center gap-3 py-1.5">
+                <div className="relative flex items-center justify-center gap-3 py-1">
                   <div className="h-px flex-1 bg-line" />
-                  <span className="shrink-0 whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-muted/80">
+                  <span className="shrink-0 whitespace-nowrap text-[0.6875rem] font-bold uppercase tracking-wider text-muted/75">
                     Or continue with email
                   </span>
                   <div className="h-px flex-1 bg-line" />
@@ -632,7 +624,7 @@ export function Login() {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 rounded border-line text-brand-600 focus:ring-brand-600/20 cursor-pointer"
+                      className="h-4 w-4 rounded border-line text-brand-600 focus:ring-brand-600/20 cursor-pointer accent-brand-600"
                     />
                     <label htmlFor="remember-me" className="text-xs text-muted font-medium cursor-pointer select-none">
                       Remember my email on this device
@@ -647,7 +639,7 @@ export function Login() {
                       size="lg"
                       loading={pending}
                       icon={<ArrowRightIcon className="h-4 w-4" />}
-                      className="shadow-lg shadow-brand-700/20 active:scale-[0.99] transition-transform font-bold"
+                      className="bg-gradient-to-r from-brand-600 via-emerald-600 to-brand-600 text-white font-bold shadow-lg shadow-brand-600/20 hover:brightness-105 active:scale-[0.99] transition-all h-11"
                     >
                       Sign In to Platform
                     </Button>
@@ -657,13 +649,15 @@ export function Login() {
                 {/* ─── Fast Demo Role Switcher ─── */}
                 <div className="relative rounded-2xl border border-line/80 bg-surface-2/60 p-3.5 backdrop-blur-xl transition-all hover:border-line">
                   <div className="flex items-center justify-between pb-2 border-b border-line/60">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <SparklesIcon className="h-3.5 w-3.5 text-amber-500" />
                       <span className="text-xs font-black uppercase tracking-wider text-fg">
                         Quick Demo Logins
                       </span>
                     </div>
-                    <span className="text-[0.625rem] text-muted font-medium">1-Click Test Access</span>
+                    <span className="text-[0.625rem] text-muted font-semibold bg-surface px-2 py-0.5 rounded-full border border-line">
+                      1-Click Access
+                    </span>
                   </div>
 
                   <div className="mt-2.5 grid grid-cols-2 gap-2">
@@ -677,7 +671,7 @@ export function Login() {
                           setPassword('password');
                           void signIn(account.email, 'password');
                         }}
-                        className="group flex flex-col items-start rounded-xl border border-line/70 bg-surface/90 p-2 text-left transition-all duration-150 hover:border-brand-500/50 hover:bg-surface hover:shadow-md disabled:opacity-50"
+                        className="group flex flex-col items-start rounded-xl border border-line/70 bg-surface p-2.5 text-left transition-all duration-150 hover:border-brand-500/50 hover:shadow-md active:scale-[0.98] disabled:opacity-50"
                       >
                         <div className="flex items-center justify-between w-full">
                           <span className={`inline-block rounded-md border px-1.5 py-0.5 text-[0.625rem] font-bold ${getRoleBadgeStyle(account.label)}`}>
@@ -685,7 +679,7 @@ export function Login() {
                           </span>
                           <ArrowRightIcon className="h-3 w-3 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600" />
                         </div>
-                        <span className="mt-1 block w-full truncate font-mono text-[0.6875rem] text-muted group-hover:text-fg">
+                        <span className="mt-1.5 block w-full truncate font-mono text-[0.6875rem] text-muted group-hover:text-fg font-medium">
                           {account.email}
                         </span>
                       </button>
@@ -817,97 +811,38 @@ export function Login() {
               </motion.div>
             )}
           </AnimatePresence>
-        </main>
-
-        {/* Footer info */}
-        <footer className="flex items-center justify-between border-t border-line/60 pt-4 text-[0.6875rem] text-muted">
-          <span>© {new Date().getFullYear()} Link Bus Services Ltd.</span>
-          <div className="flex items-center gap-3">
-            <Link to="/terms" className="hover:text-fg">Terms</Link>
-            <span>·</span>
-            <Link to="/privacy" className="hover:text-fg">Privacy</Link>
-            <span>·</span>
-            <Link to="/contact" className="hover:text-fg">Support</Link>
-          </div>
-        </footer>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          RIGHT COLUMN: IMMERSIVE HERO & BRAND EXPERIENCE
-         ═══════════════════════════════════════════════════════════════════ */}
-      <div className="relative hidden overflow-hidden bg-slate-950 lg:flex lg:flex-col lg:justify-between p-12">
-        
-        {/* Background Image with Dark Mesh Vignette */}
-        <img
-          src={HERO_IMAGE}
-          alt="LinkBus Luxury Cruiser on the highway"
-          className="absolute inset-0 h-full w-full object-cover object-center opacity-45 transition-transform duration-1000 hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-slate-950/30" />
-        <div className="absolute inset-0 bg-brand-950/20 mix-blend-multiply" />
-
-        {/* Top Floating Highlight Chips */}
-        <div className="relative z-10 flex flex-wrap items-center justify-end gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-bold text-white shadow-xl backdrop-blur-xl">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>98.8% On-Time Departures</span>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-bold text-white shadow-xl backdrop-blur-xl">
-            <NavigationIcon className="h-3.5 w-3.5 text-brand-400" />
-            <span>Real-Time Fleet GPS</span>
-          </div>
         </div>
 
-        {/* Bottom Testimonial Glass Card */}
-        <div className="relative z-10 max-w-lg space-y-6">
-          
-          {/* Glass Testimonial Box */}
-          <div className="rounded-3xl border border-white/20 bg-white/10 p-6 text-white shadow-2xl backdrop-blur-2xl transition-all hover:border-white/30">
-            <div className="flex items-center gap-1 text-amber-400">
-              {[...Array(5)].map((_, i) => (
-                <StarIcon key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
-              ))}
-            </div>
-
-            <blockquote className="mt-3 text-base font-semibold leading-relaxed text-slate-100">
-              “Boarding used to be a paper list and a torch. Now I open the manifest on my phone and know exactly who is missing before we pull out of the terminal.”
-            </blockquote>
-
-            <div className="mt-4 flex items-center justify-between border-t border-white/15 pt-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-sm font-black text-white shadow-md">
-                  MO
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">Moses Okello</h4>
-                  <p className="text-xs text-white/70">Senior Highway Captain</p>
-                </div>
-              </div>
-
-              <div className="rounded-lg bg-white/10 px-2.5 py-1 text-[0.6875rem] font-bold text-emerald-300 border border-white/10">
-                Kampala ➔ Fort Portal
-              </div>
-            </div>
+        {/* ── Trust & Security Signals under the card ── */}
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[0.6875rem] font-medium text-muted">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheckIcon className="h-3.5 w-3.5 text-emerald-500" />
+            <span>256-Bit TLS Security</span>
           </div>
-
-          {/* Quick Platform Security Guarantee */}
-          <div className="flex items-center gap-6 text-xs font-medium text-white/70 px-2">
-            <div className="flex items-center gap-2">
-              <CheckCircle2Icon className="h-4 w-4 text-emerald-400" />
-              <span>TLS 1.3 Encryption</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2Icon className="h-4 w-4 text-emerald-400" />
-              <span>Instant Momo & Card Auth</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2Icon className="h-4 w-4 text-emerald-400" />
-              <span>2FA Protected</span>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <SparklesIcon className="h-3.5 w-3.5 text-amber-500" />
+            <span>Instant SMS Passes</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2Icon className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
+            <span>Licensed Carrier</span>
           </div>
         </div>
-      </div>
+      </main>
+
+      {/* ── Page Footer ── */}
+      <footer className="relative z-10 w-full max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 text-xs text-muted border-t border-line/50 mt-4">
+        <span>© {new Date().getFullYear()} Link Bus Services Ltd. All rights reserved.</span>
+        <div className="flex items-center gap-4">
+          <Link to="/about" className="hover:text-fg transition-colors">About</Link>
+          <span>·</span>
+          <Link to="/terminals" className="hover:text-fg transition-colors">Terminals</Link>
+          <span>·</span>
+          <Link to="/services" className="hover:text-fg transition-colors">Fleet Services</Link>
+          <span>·</span>
+          <Link to="/contact" className="hover:text-fg transition-colors">Help & Support</Link>
+        </div>
+      </footer>
     </div>
   );
 }

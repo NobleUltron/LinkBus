@@ -54,12 +54,13 @@ class DatabaseSeeder extends Seeder
 
         // ── 3. Coach Captains (Drivers) ───────────────────────────────
         $driverSpecs = [
-            ['name' => 'John Okello',      'email' => 'john.okello@linkbus.co.ug',      'phone' => '0702000001', 'license' => 'UG-DL-2019-001', 'exp' => 8],
-            ['name' => 'Moses Mugisha',    'email' => 'moses.mugisha@linkbus.co.ug',    'phone' => '0702000002', 'license' => 'UG-DL-2021-002', 'exp' => 6],
-            ['name' => 'Charles Mugaya',   'email' => 'charles.mugaya@linkbus.co.ug',   'phone' => '0702000003', 'license' => 'UG-DL-2020-003', 'exp' => 9],
-            ['name' => 'Patrick Kato',     'email' => 'patrick.kato@linkbus.co.ug',     'phone' => '0702000004', 'license' => 'UG-DL-2022-004', 'exp' => 5],
-            ['name' => 'David Ochieng',    'email' => 'david.ochieng@linkbus.co.ug',    'phone' => '0702000005', 'license' => 'UG-DL-2018-005', 'exp' => 10],
-            ['name' => 'Ronald Ssempala',  'email' => 'ronald.ssempala@linkbus.co.ug',  'phone' => '0702000006', 'license' => 'UG-DL-2023-006', 'exp' => 4],
+            ['name' => 'John Okello (Demo)', 'email' => 'driver1@linkbus.co.ug',         'phone' => '0702000000', 'license' => 'UG-DL-2019-000', 'exp' => 10],
+            ['name' => 'John Okello',        'email' => 'john.okello@linkbus.co.ug',      'phone' => '0702000001', 'license' => 'UG-DL-2019-001', 'exp' => 8],
+            ['name' => 'Moses Mugisha',      'email' => 'moses.mugisha@linkbus.co.ug',    'phone' => '0702000002', 'license' => 'UG-DL-2021-002', 'exp' => 6],
+            ['name' => 'Charles Mugaya',     'email' => 'charles.mugaya@linkbus.co.ug',   'phone' => '0702000003', 'license' => 'UG-DL-2020-003', 'exp' => 9],
+            ['name' => 'Patrick Kato',       'email' => 'patrick.kato@linkbus.co.ug',     'phone' => '0702000004', 'license' => 'UG-DL-2022-004', 'exp' => 5],
+            ['name' => 'David Ochieng',      'email' => 'david.ochieng@linkbus.co.ug',    'phone' => '0702000005', 'license' => 'UG-DL-2018-005', 'exp' => 10],
+            ['name' => 'Ronald Ssempala',    'email' => 'ronald.ssempala@linkbus.co.ug',  'phone' => '0702000006', 'license' => 'UG-DL-2023-006', 'exp' => 4],
         ];
 
         $drivers = [];

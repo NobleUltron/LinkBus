@@ -525,7 +525,7 @@ export function Login() {
                     type="button"
                     onClick={() => handleGoogleCustomLogin()}
                     disabled={pending || socialPending !== null}
-                    className="flex w-full items-center justify-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-bold text-fg shadow-sm transition-all duration-150 hover:border-line-hover hover:bg-surface-2 active:scale-[0.99] disabled:opacity-50"
+                    className="flex w-full h-11 items-center justify-center gap-2.5 rounded-xl border border-line bg-surface hover:bg-surface-2 px-6 text-sm sm:text-base font-bold text-fg shadow-md shadow-black/5 dark:shadow-black/20 hover:border-line-hover active:scale-[0.99] transition-all disabled:opacity-50"
                   >
                     {socialPending === 'google' ? (
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
@@ -549,7 +549,7 @@ export function Login() {
                         />
                       </svg>
                     )}
-                    <span>{socialPending === 'google' ? 'Connecting to Google...' : 'Continue with Google'}</span>
+                    <span>{socialPending === 'google' ? 'Connecting to Google...' : 'Sign in with Google'}</span>
                   </button>
                 </div>
 

@@ -21,6 +21,15 @@ class AdminController extends Controller
         return response()->json(['settings' => $settings]);
     }
 
+    public function getPublicSettings(): JsonResponse
+    {
+        $settings = Setting::whereIn('group', ['company', 'booking', 'luggage', 'branding'])->get()->groupBy('group');
+        if ($settings->isEmpty()) {
+            $settings = Setting::all()->groupBy('group');
+        }
+        return response()->json(['settings' => $settings]);
+    }
+
     public function updateSettings(Request $request): JsonResponse
     {
         $data = $request->validate([

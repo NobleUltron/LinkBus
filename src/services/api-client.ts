@@ -85,7 +85,7 @@ async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promis
   }
 
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 && token && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/2fa')) {
       handleUnauthorized();
     }
     const errData = data as { message?: string; errors?: Record<string, string[]> };

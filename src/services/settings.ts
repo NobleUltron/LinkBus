@@ -17,7 +17,7 @@ export interface PublicSettings {
 /** Fetches settings from the API and normalizes them. */
 export async function getPublicSettings(): Promise<PublicSettings> {
   try {
-    const data = await api.get<{ settings: Record<string, Setting[]> }>('/admin/settings');
+    const data = await api.get<{ settings: Record<string, Setting[]> }>('/settings');
     const allSettings: Setting[] = Object.values(data.settings).flat();
 
     function val(key: string, fallback: string): string {

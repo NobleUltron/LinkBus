@@ -77,6 +77,7 @@ Route::post('/newsletter/subscribe', [NewsletterSubscriberController::class, 'su
 Route::get('/parcels/track', [ParcelController::class, 'track']);
 
 // Reference & Lookup routes (public read)
+Route::get('/settings',           [AdminController::class, 'getPublicSettings']);
 Route::get('/roles',              [RoleController::class, 'index']);
 Route::get('/terminals',          [TerminalController::class, 'index']);
 Route::get('/routes',             [RouteController::class, 'index']);

@@ -422,8 +422,8 @@ export function PublicLayout() {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-muted pb-2">
             <p>© {new Date().getFullYear()} {settings.company_name || 'LinkBus Uganda'}. All rights reserved.</p>
             <div className="flex flex-wrap gap-4">
-              <Link to="/about" className="transition-colors hover:text-fg">Terms of Travel & Carriage</Link>
-              <Link to="/about" className="transition-colors hover:text-fg">Privacy Policy</Link>
+              <Link to="/terms" className="transition-colors hover:text-fg">Terms of Travel & Carriage</Link>
+              <Link to="/privacy" className="transition-colors hover:text-fg">Privacy Policy</Link>
               <Link to="/contact" className="transition-colors hover:text-fg">Passenger Support</Link>
               <Link to="/terminals" className="transition-colors hover:text-fg">Terminal Network</Link>
             </div>

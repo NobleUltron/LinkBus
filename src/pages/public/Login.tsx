@@ -864,9 +864,9 @@ export function Login() {
         <footer className="flex items-center justify-between border-t border-line/60 pt-4 text-[0.6875rem] text-muted">
           <span>© {new Date().getFullYear()} Link Bus Services Ltd.</span>
           <div className="flex items-center gap-3">
-            <Link to="/about" className="hover:text-fg transition-colors">About</Link>
+            <Link to="/terms" className="hover:text-fg transition-colors">Terms</Link>
             <span>·</span>
-            <Link to="/terminals" className="hover:text-fg transition-colors">Terminals</Link>
+            <Link to="/privacy" className="hover:text-fg transition-colors">Privacy</Link>
             <span>·</span>
             <Link to="/contact" className="hover:text-fg transition-colors">Support</Link>
           </div>

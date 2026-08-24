@@ -33,6 +33,8 @@ import { Login } from './pages/public/Login';
 import { Register } from './pages/public/Register';
 import { Services } from './pages/public/Services';
 import { Terminals } from './pages/public/Terminals';
+import { Terms } from './pages/public/Terms';
+import { Privacy } from './pages/public/Privacy';
 import { TripSearch } from './pages/public/TripSearch';
 import { BookingsScreen } from './pages/shared/BookingsScreen';
 import { LuggageScreen } from './pages/shared/LuggageScreen';
@@ -57,6 +59,8 @@ export function App() {
                   <Route path="/about" element={<About />} />
                   <Route path="/services" element={<Services />} />
                   <Route path="/terminals" element={<Terminals />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/privacy" element={<Privacy />} />
                   <Route path="/contact" element={<Contact />} />
                 </Route>
 

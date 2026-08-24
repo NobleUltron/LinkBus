@@ -53,14 +53,6 @@ export function Login() {
     }
   }, [isAuthenticated, user, navigate]);
 
-  // Google OAuth only works from whitelisted origins (localhost / production domain).
-  // On local-network IPs (192.168.x.x etc.) it throws origin_mismatch — hide the button.
-  const isGoogleAuthAllowed = (() => {
-    if (typeof window === 'undefined') return false;
-    const h = window.location.hostname;
-    return h === 'localhost' || h === '127.0.0.1';
-  })();
-
   // Login form state
   const [email, setEmail] = useState(() => getRememberedEmail());
   const [password, setPassword] = useState('');
@@ -515,33 +507,29 @@ export function Login() {
                   </p>
                 </div>
 
-                {/* ─── Social / Google SSO Fast Login (localhost only) ─── */}
-                {isGoogleAuthAllowed && (
-                  <>
-                    <div className="pt-1 flex flex-col items-center justify-center">
-                      <div className="w-full flex justify-center overflow-hidden rounded-xl">
-                        <GoogleLogin
-                          onSuccess={handleGoogleSuccess}
-                          onError={() => toast.error('Google Sign-In failed or popup was closed.')}
-                          theme="outline"
-                          size="large"
-                          shape="rectangular"
-                          text="continue_with"
-                          width="380"
-                        />
-                      </div>
-                    </div>
+                {/* ─── Social / Google SSO Fast Login ─── */}
+                <div className="pt-1 flex flex-col items-center justify-center">
+                  <div className="w-full flex justify-center overflow-hidden rounded-xl">
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => toast.error('Google Sign-In failed or popup was closed.')}
+                      theme="outline"
+                      size="large"
+                      shape="rectangular"
+                      text="continue_with"
+                      width="380"
+                    />
+                  </div>
+                </div>
 
-                    {/* Clean Horizontal Divider */}
-                    <div className="relative flex items-center justify-center gap-3 py-1.5">
-                      <div className="h-px flex-1 bg-line" />
-                      <span className="shrink-0 whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-muted/80">
-                        Or continue with email
-                      </span>
-                      <div className="h-px flex-1 bg-line" />
-                    </div>
-                  </>
-                )}
+                {/* Clean Horizontal Divider */}
+                <div className="relative flex items-center justify-center gap-3 py-1.5">
+                  <div className="h-px flex-1 bg-line" />
+                  <span className="shrink-0 whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-muted/80">
+                    Or continue with email
+                  </span>
+                  <div className="h-px flex-1 bg-line" />
+                </div>
 
                 {/* Form Elements */}
                 <form onSubmit={submit} noValidate className="space-y-4">

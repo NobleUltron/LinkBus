@@ -35,6 +35,7 @@ import { Services } from './pages/public/Services';
 import { Terminals } from './pages/public/Terminals';
 import { Terms } from './pages/public/Terms';
 import { Privacy } from './pages/public/Privacy';
+import { CargoTrack } from './pages/public/CargoTrack';
 import { TripSearch } from './pages/public/TripSearch';
 import { BookingsScreen } from './pages/shared/BookingsScreen';
 import { LuggageScreen } from './pages/shared/LuggageScreen';
@@ -61,6 +62,8 @@ export function App() {
                   <Route path="/terminals" element={<Terminals />} />
                   <Route path="/terms" element={<Terms />} />
                   <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/parcels/track" element={<CargoTrack />} />
+                  <Route path="/track" element={<CargoTrack />} />
                   <Route path="/contact" element={<Contact />} />
                 </Route>
 

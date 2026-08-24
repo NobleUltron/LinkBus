@@ -45,16 +45,76 @@ class ParcelController extends Controller
 
     public function track(Request $request): JsonResponse
     {
-        $request->validate(['tracking_number' => 'required|string']);
-        $parcel = Parcel::with(['originTerminal', 'destinationTerminal'])
-            ->where('tracking_number', $request->tracking_number)
-            ->first();
-
-        if (!$parcel) {
-            return response()->json(['message' => 'Parcel not found.'], 404);
+        $code = trim($request->get('code', $request->get('tracking_number', '')));
+        if (empty($code)) {
+            return response()->json(['message' => 'Please enter a valid tracking number or luggage tag.'], 422);
         }
 
-        return response()->json(['parcel' => $this->formatParcel($parcel)]);
+        $cleanCode = ltrim($code, '#');
+
+        // 1. Try finding by Parcel Tracking Number
+        $parcel = Parcel::with(['originTerminal', 'destinationTerminal'])
+            ->where('tracking_number', $cleanCode)
+            ->orWhere('tracking_number', $code)
+            ->first();
+
+        if ($parcel) {
+            return response()->json([
+                'type'   => 'parcel',
+                'parcel' => $this->formatParcel($parcel),
+                'data'   => $this->formatParcel($parcel),
+            ]);
+        }
+
+        // 2. Try finding by Luggage Tag Number or Booking Number
+        $luggage = \App\Models\Luggage::with([
+            'booking.trip.route.originTerminal',
+            'booking.trip.route.destinationTerminal',
+            'booking.tickets.seat',
+            'booking.user',
+        ])
+            ->where('tag_number', $cleanCode)
+            ->orWhere('tag_number', $code)
+            ->orWhereHas('booking', fn($q) => $q->where('booking_number', $cleanCode)->orWhere('booking_number', $code))
+            ->first();
+
+        if ($luggage) {
+            $origin = $luggage->booking?->trip?->route?->originTerminal?->name ?? 'Kampala';
+            $destination = $luggage->booking?->trip?->route?->destinationTerminal?->name ?? 'Regional Terminal';
+            $passengerName = $luggage->booking?->tickets?->first()?->passenger_name ?? $luggage->booking?->user?->name ?? 'Passenger';
+
+            $mappedStatus = match ($luggage->status) {
+                'loaded'   => 'in_transit',
+                'unloaded' => 'arrived',
+                'claimed'  => 'delivered',
+                default    => 'received',
+            };
+
+            $formattedLuggage = [
+                'id'              => $luggage->id,
+                'tracking_number' => $luggage->tag_number,
+                'booking_number'  => $luggage->booking?->booking_number,
+                'passenger_name'  => $passengerName,
+                'sender_name'     => $passengerName,
+                'recipient_name'  => $passengerName,
+                'origin'          => $origin,
+                'destination'     => $destination,
+                'weight_kg'       => $luggage->weight_kg,
+                'description'     => $luggage->description ?? 'Passenger Checked Baggage',
+                'status'          => $mappedStatus,
+                'raw_status'      => $luggage->status,
+                'departure_time'  => $luggage->booking?->trip?->departure_time?->toISOString(),
+                'created_at'      => $luggage->created_at?->toISOString(),
+            ];
+
+            return response()->json([
+                'type'   => 'luggage',
+                'parcel' => $formattedLuggage,
+                'data'   => $formattedLuggage,
+            ]);
+        }
+
+        return response()->json(['message' => "No shipment or baggage found matching tracking code '{$code}'."], 404);
     }
 
     public function store(Request $request): JsonResponse

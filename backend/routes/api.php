@@ -29,6 +29,8 @@ Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/auth/reset-password',  [AuthController::class, 'resetPassword']);
 Route::post('/auth/social-login',    [AuthController::class, 'socialLogin']);
 Route::post('/auth/google',          [GoogleAuthController::class, 'authenticate']);
+Route::get('/parcels/track',         [\App\Http\Controllers\Api\ParcelController::class, 'track']);
+Route::get('/track',                 [\App\Http\Controllers\Api\ParcelController::class, 'track']);
 
 // System Health & Telemetry Check (public/admin)
 Route::get('/health', function () {

@@ -87,6 +87,12 @@ export function Login() {
 
   const from = (location.state as { from?: string } | null)?.from;
 
+  // Show Quick Demo Logins only on localhost / dev or when ?demo=true query param is present
+  const isDemoMode =
+    import.meta.env.DEV ||
+    ['localhost', '127.0.0.1'].includes(window.location.hostname) ||
+    new URLSearchParams(location.search).get('demo') === 'true';
+
   // Countdown timer for 2FA resend
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -685,46 +691,48 @@ export function Login() {
                   </div>
                 </form>
 
-                {/* ─── Fast Demo Role Switcher ─── */}
-                <div className="relative rounded-2xl border border-line/80 bg-surface-2/60 p-3.5 backdrop-blur-xl transition-all hover:border-line">
-                  <div className="flex items-center justify-between pb-2 border-b border-line/60">
-                    <div className="flex items-center gap-1.5">
-                      <SparklesIcon className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="text-xs font-black uppercase tracking-wider text-fg">
-                        Quick Demo Logins
+                {/* ─── Fast Demo Role Switcher (Hidden in production) ─── */}
+                {isDemoMode && (
+                  <div className="relative rounded-2xl border border-line/80 bg-surface-2/60 p-3.5 backdrop-blur-xl transition-all hover:border-line">
+                    <div className="flex items-center justify-between pb-2 border-b border-line/60">
+                      <div className="flex items-center gap-1.5">
+                        <SparklesIcon className="h-3.5 w-3.5 text-amber-500" />
+                        <span className="text-xs font-black uppercase tracking-wider text-fg">
+                          Quick Demo Logins
+                        </span>
+                      </div>
+                      <span className="text-[0.625rem] text-muted font-semibold bg-surface px-2 py-0.5 rounded-full border border-line">
+                        Dev / Test Access
                       </span>
                     </div>
-                    <span className="text-[0.625rem] text-muted font-semibold bg-surface px-2 py-0.5 rounded-full border border-line">
-                      1-Click Test Access
-                    </span>
-                  </div>
 
-                  <div className="mt-2.5 grid grid-cols-2 gap-2">
-                    {demoAccounts.map((account) => (
-                      <button
-                        key={account.email}
-                        type="button"
-                        disabled={pending}
-                        onClick={() => {
-                          setEmail(account.email);
-                          setPassword('password');
-                          void signIn(account.email, 'password');
-                        }}
-                        className="group flex flex-col items-start rounded-xl border border-line/70 bg-surface p-2.5 text-left transition-all duration-150 hover:border-brand-500/50 hover:shadow-md active:scale-[0.98] disabled:opacity-50"
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span className={`inline-block rounded-md border px-1.5 py-0.5 text-[0.625rem] font-bold ${getRoleBadgeStyle(account.label)}`}>
-                            {account.label}
+                    <div className="mt-2.5 grid grid-cols-2 gap-2">
+                      {demoAccounts.map((account) => (
+                        <button
+                          key={account.email}
+                          type="button"
+                          disabled={pending}
+                          onClick={() => {
+                            setEmail(account.email);
+                            setPassword('password');
+                            void signIn(account.email, 'password');
+                          }}
+                          className="group flex flex-col items-start rounded-xl border border-line/70 bg-surface p-2.5 text-left transition-all duration-150 hover:border-brand-500/50 hover:shadow-md active:scale-[0.98] disabled:opacity-50"
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className={`inline-block rounded-md border px-1.5 py-0.5 text-[0.625rem] font-bold ${getRoleBadgeStyle(account.label)}`}>
+                              {account.label}
+                            </span>
+                            <ArrowRightIcon className="h-3 w-3 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600" />
+                          </div>
+                          <span className="mt-1.5 block w-full truncate font-mono text-[0.6875rem] text-muted group-hover:text-fg font-medium">
+                            {account.email}
                           </span>
-                          <ArrowRightIcon className="h-3 w-3 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600" />
-                        </div>
-                        <span className="mt-1.5 block w-full truncate font-mono text-[0.6875rem] text-muted group-hover:text-fg font-medium">
-                          {account.email}
-                        </span>
-                      </button>
-                    ))}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Registration Link */}
                 <p className="text-center text-xs text-muted pt-0.5">

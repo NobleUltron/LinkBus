@@ -35,10 +35,10 @@ const USER_KEY = 'linkbus_user';
 
 // ─── Demo accounts (convenience for the login page) ──────────────────────────
 export const demoAccounts = [
-  { label: 'Administrator', email: 'admin@linkbus.co.ug',     role: 'admin'     as const },
-  { label: 'Counter staff', email: 'staff@linkbus.co.ug',     role: 'staff'     as const },
-  { label: 'Driver',        email: 'driver1@linkbus.co.ug',   role: 'driver'    as const },
-  { label: 'Passenger',     email: 'passenger@linkbus.co.ug', role: 'passenger' as const },
+  { label: 'Administrator', email: 'admin@linkbus.co.ug',       role: 'admin'     as const },
+  { label: 'Counter staff', email: 'staff@linkbus.co.ug',       role: 'staff'     as const },
+  { label: 'Driver',        email: 'john.okello@linkbus.co.ug', role: 'driver'    as const },
+  { label: 'Passenger',     email: 'passenger@linkbus.co.ug',   role: 'passenger' as const },
 ];
 
 // ─── Session helpers ──────────────────────────────────────────────────────────

@@ -64,7 +64,7 @@ export function NotificationBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-            className="modal-modern absolute -right-12 sm:right-0 z-50 mt-2 w-[calc(100vw-2rem)] sm:w-[22rem] max-w-[22rem] overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
+            className="modal-modern fixed inset-x-3 top-16 mx-auto sm:absolute sm:inset-auto sm:right-0 sm:mx-0 sm:mt-2 z-50 w-[calc(100vw-1.5rem)] sm:w-[22rem] max-w-[22rem] overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
           >
             {/* Header */}
             <header className="flex items-center justify-between border-b border-line px-4 py-3 bg-surface">

@@ -36,8 +36,7 @@ return [
     ],
 
     'google' => [
-        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_id' => env('GOOGLE_CLIENT_ID', '1008908020084-tn8s2fnbefb1tg9t4g4elkr8etp93413.apps.googleusercontent.com'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
     ],
-
 ];

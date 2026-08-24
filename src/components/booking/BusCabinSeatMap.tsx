@@ -34,35 +34,66 @@ export function BusCabinSeatMap({
     }));
   }, [seats]);
   const atLimit = selectedIds.length >= maxSelectable;
-  return <div>
-      <div className="mx-auto max-w-sm rounded-3xl border border-line bg-surface-2/60 p-4">
-        <div className="mb-4 flex items-center justify-between border-b border-dashed border-line pb-3">
-          <p className="eyebrow">Front</p>
-          <span className="flex items-center gap-1.5 rounded-lg bg-surface px-2 py-1 text-[0.6875rem] font-semibold text-muted">
-            <CircleDotIcon className="h-3.5 w-3.5" aria-hidden />
-            Driver
+  return (
+    <div className="w-full">
+      <div className="mx-auto w-full max-w-sm rounded-2xl sm:rounded-3xl border border-line bg-surface-2/60 p-3 sm:p-5 shadow-sm">
+        <div className="mb-3 sm:mb-4 flex items-center justify-between border-b border-dashed border-line pb-2.5 sm:pb-3">
+          <p className="eyebrow text-[0.625rem] sm:text-xs">Front of Coach</p>
+          <span className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-[0.6875rem] font-semibold text-muted shadow-2xs">
+            <CircleDotIcon className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" aria-hidden />
+            Driver Cockpit
           </span>
         </div>
 
-        <div className="space-y-2">
-          {rows.map((row) => <div key={row.rowNumber} className="flex items-center gap-2">
-              <span className="w-5 shrink-0 text-right text-[0.6875rem] font-semibold text-faint">{row.rowNumber}</span>
+        <div className="space-y-2 sm:space-y-2.5">
+          {rows.map((row) => (
+            <div key={row.rowNumber} className="flex items-center gap-1.5 sm:gap-2">
+              <span className="w-4 sm:w-5 shrink-0 text-center text-[0.6875rem] font-semibold text-faint">
+                {row.rowNumber}
+              </span>
               {row.seats.map((seat, index) => {
-            if (!seat) return <span key={index} className="h-10 flex-1" />;
-            const selected = selectedIds.includes(seat.id);
-            const held = heldIds.includes(seat.id);
-            const taken = seat.status === 'booked' || seat.status === 'locked' && !held && !selected;
-            const disabled = taken || !selected && atLimit;
-            const isVip = seat.seat_class === 'vip';
-            return <React.Fragment key={seat.id}>
-                    <button type="button" onClick={() => onToggle(seat)} disabled={disabled} aria-pressed={selected} aria-label={`Seat ${seat.seat_number}, ${isVip ? 'VIP' : 'standard'}, ${taken ? 'unavailable' : money(seatFare(fare, seat.seat_class))}`} title={taken ? 'Already taken' : `${seat.seat_number} · ${money(seatFare(fare, seat.seat_class))}`} className={['relative flex h-10 flex-1 items-center justify-center rounded-lg border text-xs font-semibold', 'transition-[background-color,border-color,transform,color] duration-150 ease-smooth', selected ? 'border-brand-600 bg-brand-600 text-white' : taken ? 'cursor-not-allowed border-line bg-surface-2 text-faint line-through' : isVip ? 'border-gold-500/60 bg-gold-500/12 text-gold-700 hover:border-gold-500 dark:text-gold-300' : 'border-line bg-surface text-fg hover:border-brand-600', disabled && !taken ? 'cursor-not-allowed opacity-50' : '', !disabled ? 'hover:-translate-y-0.5' : ''].join(' ')}>
+                if (!seat) return <span key={index} className="h-10 sm:h-11 flex-1" />;
+                const selected = selectedIds.includes(seat.id);
+                const held = heldIds.includes(seat.id);
+                const taken = seat.status === 'booked' || (seat.status === 'locked' && !held && !selected);
+                const disabled = taken || (!selected && atLimit);
+                const isVip = seat.seat_class === 'vip';
+                return (
+                  <React.Fragment key={seat.id}>
+                    <button
+                      type="button"
+                      onClick={() => onToggle(seat)}
+                      disabled={disabled}
+                      aria-pressed={selected}
+                      aria-label={`Seat ${seat.seat_number}, ${isVip ? 'VIP' : 'standard'}, ${
+                        taken ? 'unavailable' : money(seatFare(fare, seat.seat_class))
+                      }`}
+                      title={taken ? 'Already taken' : `${seat.seat_number} · ${money(seatFare(fare, seat.seat_class))}`}
+                      className={[
+                        'relative flex h-10 sm:h-11 flex-1 items-center justify-center rounded-lg sm:rounded-xl border text-xs font-bold',
+                        'transition-all duration-150 active:scale-90 touch-manipulation',
+                        selected
+                          ? 'border-brand-600 bg-brand-600 text-white shadow-md ring-2 ring-brand-500/30'
+                          : taken
+                          ? 'cursor-not-allowed border-line bg-surface-2 text-faint line-through opacity-60'
+                          : isVip
+                          ? 'border-amber-500/60 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:border-amber-500'
+                          : 'border-line bg-surface text-fg hover:border-brand-600 shadow-2xs',
+                        disabled && !taken ? 'cursor-not-allowed opacity-40' : '',
+                        !disabled ? 'hover:-translate-y-0.5' : '',
+                      ].join(' ')}
+                    >
                       {seat.seat_number}
-                      {isVip && !selected && !taken && <CrownIcon className="absolute right-0.5 top-0.5 h-2.5 w-2.5" aria-hidden />}
+                      {isVip && !selected && !taken && (
+                        <CrownIcon className="absolute right-1 top-1 h-2.5 w-2.5 text-amber-500" aria-hidden />
+                      )}
                     </button>
-                    {index === 1 && <span className="w-4 shrink-0" aria-hidden />}
-                  </React.Fragment>;
-          })}
-            </div>)}
+                    {index === 1 && <span className="w-3 sm:w-5 shrink-0" aria-hidden />}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -81,5 +112,6 @@ export function BusCabinSeatMap({
           <span className="h-3.5 w-3.5 rounded bg-surface-2 ring-1 ring-line" aria-hidden /> Taken
         </li>
       </ul>
-    </div>;
+    </div>
+  );
 }

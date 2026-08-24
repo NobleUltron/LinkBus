@@ -285,7 +285,7 @@ select.field {
 [data-theme='dark'] .skeleton::after {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
 }
-/* ---------- Scrollbar ---------- */
+/* ---------- Scrollbar & Mobile Optimizations ---------- */
 .thin-scroll::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -293,6 +293,20 @@ select.field {
 .thin-scroll::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 99px;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
+}
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
 }
 /* ---------- Print documents ---------- */
 @media print {

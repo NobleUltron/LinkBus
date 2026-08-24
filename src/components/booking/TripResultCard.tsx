@@ -143,13 +143,15 @@ export function TripResultCard({ trip, action }: TripResultCardProps) {
         </div>
 
         {/* Pricing & Seat Selection CTA */}
-        <div className="flex items-center justify-between gap-4 border-t border-line pt-4 lg:flex-col lg:items-end lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-          <div className="text-left lg:text-right">
-            <p className="text-xs font-medium text-muted">Base fare per seat</p>
-            <p className="text-2xl font-bold tracking-tight text-fg">{money(trip.fare)}</p>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-t border-line pt-4 lg:flex-col lg:items-end lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+          <div className="flex items-baseline justify-between sm:block text-left lg:text-right">
+            <div>
+              <p className="text-xs font-medium text-muted">Base fare per seat</p>
+              <p className="text-xl sm:text-2xl font-black tracking-tight text-fg">{money(trip.fare)}</p>
+            </div>
             {isVip && (
-              <p className="text-[0.6875rem] font-semibold text-amber-700 dark:text-amber-400">
-                Includes VIP lounge & front cabin
+              <p className="text-[0.6875rem] font-semibold text-amber-700 dark:text-amber-400 sm:mt-0.5">
+                VIP cabin included
               </p>
             )}
           </div>
@@ -157,7 +159,7 @@ export function TripResultCard({ trip, action }: TripResultCardProps) {
           {action ?? (
             <Link
               to={`/book/${trip.id}`}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 text-sm font-bold text-white shadow-sm shadow-brand-950/10 transition-all duration-150 ease-smooth hover:bg-brand-700 hover:shadow-md active:scale-95"
+              className="inline-flex h-11 w-full sm:w-auto shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 text-sm font-bold text-white shadow-sm transition-all duration-150 ease-smooth hover:bg-brand-700 hover:shadow-md active:scale-95 touch-manipulation"
             >
               Select Seats
               <ArrowRightIcon className="h-4 w-4" />

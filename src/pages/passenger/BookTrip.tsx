@@ -860,6 +860,28 @@ export function BookTrip() {
         </div>
       </div>
 
+      {/* ── Mobile Sticky Quick Action Bar ── */}
+      {seatStep && outboundSeats.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-line bg-surface/95 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.08)] lg:hidden">
+          <div className="mx-auto flex max-w-md items-center justify-between gap-3">
+            <div>
+              <p className="text-[0.6875rem] font-semibold text-muted">
+                {outboundSeats.length} {outboundSeats.length === 1 ? 'Seat' : 'Seats'} Selected
+              </p>
+              <p className="text-sm sm:text-base font-black text-fg">{money(fare.total)}</p>
+            </div>
+            <Button
+              size="md"
+              loading={lock.locking}
+              onClick={roundTrip ? () => setStep(1) : goToPassengerDetails}
+              className="bg-brand-600 px-5 text-white hover:bg-brand-700 shadow-md"
+            >
+              {roundTrip ? 'Choose Return ➔' : 'Continue ➔'}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ── Mobile Money USSD Push Verification Modal ── */}
       <Modal
         open={momoModalOpen}

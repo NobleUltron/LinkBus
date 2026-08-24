@@ -276,37 +276,37 @@ export function AdminDashboard() {
       </div>
 
       {/* ── 1-Click Operations Quick Actions Ribbon ── */}
-      <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-line bg-surface p-3 sm:p-4 shadow-sm">
-        <span className="text-xs font-bold uppercase tracking-wider text-muted mr-1 hidden sm:inline">
+      <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto scrollbar-none rounded-2xl border border-line bg-surface p-2.5 sm:p-4 shadow-sm">
+        <span className="text-xs font-bold uppercase tracking-wider text-muted mr-1 hidden md:inline shrink-0">
           Quick Actions:
         </span>
         <Link
           to="/admin/trips"
-          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-700 active:scale-95"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-700 active:scale-95"
         >
           <PlusIcon className="h-3.5 w-3.5" />
-          Schedule New Trip
+          Schedule Trip
         </Link>
         <Link
           to="/admin/buses"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 active:scale-95"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 active:scale-95"
         >
           <BusIcon className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
-          Manage Coach Fleet
+          Coach Fleet
         </Link>
         <Link
           to="/admin/settings"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 active:scale-95"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 active:scale-95"
         >
           <BellRingIcon className="h-3.5 w-3.5 text-amber-500" />
-          Broadcast Fare Alert
+          Broadcast Alert
         </Link>
         <Link
           to="/admin/reports"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 active:scale-95"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 active:scale-95"
         >
           <FileSpreadsheetIcon className="h-3.5 w-3.5 text-emerald-500" />
-          Daily Manifests & Reports
+          Reports
         </Link>
       </div>
 

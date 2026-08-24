@@ -173,7 +173,12 @@ export function BoardingPassModal({
           </div>
         )}
 
-        <div className="overflow-x-auto pb-2">
+        <div className="flex items-center justify-between text-[0.6875rem] text-muted sm:hidden px-1 mb-1">
+          <span>💡 Swipe pass horizontally to preview full stub</span>
+          <span>Pass {currentIndex + 1} of {ticketList.length}</span>
+        </div>
+
+        <div className="overflow-x-auto pb-2 scrollbar-none">
           {/* Horizontal Landscape Ticket Container (204mm x 75mm) */}
           <div className="print-doc print-boarding-pass w-[204mm] max-w-[204mm] mx-auto overflow-hidden rounded-2xl border-2 border-slate-300 bg-white text-slate-900 shadow-md flex flex-row">
             

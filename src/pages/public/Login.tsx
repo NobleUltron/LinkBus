@@ -42,9 +42,16 @@ import {
 import { HERO_IMAGE } from '../../data/content';
 
 export function Login() {
-  const { completeSession } = useAuth();
+  const { user, isAuthenticated, completeSession } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // If already authenticated, redirect straight to their dashboard
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      navigate(landingPathForRole(user.role), { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
   // Google OAuth only works from whitelisted origins (localhost / production domain).
   // On local-network IPs (192.168.x.x etc.) it throws origin_mismatch — hide the button.
@@ -117,7 +124,8 @@ export function Login() {
 
       completeSession(res.token, res.user);
       toast.success(`Welcome back, ${res.user.name}!`);
-      navigate(from && from !== '/login' ? from : landingPathForRole(res.user.role), {
+      const targetPath = (from && from !== '/login' && from !== '/') ? from : landingPathForRole(res.user.role);
+      navigate(targetPath, {
         replace: true,
       });
     } catch (err) {

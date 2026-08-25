@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Rounded Squircle Background -->
+  <rect width="64" height="64" rx="18" fill="url(#bgGrad)" />
+  
+  <!-- Subtle Highlight Border -->
+  <rect x="1" y="1" width="62" height="62" rx="17" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.25" />
+
+  <!-- Coach Bus Icon Vector -->
+  <g transform="translate(11, 13)" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <!-- Main Bus Body -->
+    <path d="M5 28V9C5 6.79086 6.79086 5 9 5H33C35.2091 5 37 6.79086 37 9V28" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" />
+    <path d="M5 28H37" stroke="#ffffff" />
+    
+    <!-- Front Windshield -->
+    <rect x="9" y="9" width="24" height="7.5" rx="2" fill="#ffffff" stroke="none" />
+    
+    <!-- Passenger Side Windows -->
+    <rect x="9" y="19" width="6" height="5" rx="1" fill="#ffffff" stroke="none" />
+    <rect x="18" y="19" width="6" height="5" rx="1" fill="#ffffff" stroke="none" />
+    <rect x="27" y="19" width="6" height="5" rx="1" fill="#ffffff" stroke="none" />
+    
+    <!-- Left Wheel -->
+    <circle cx="12" cy="30" r="3.5" fill="#047857" stroke="#ffffff" stroke-width="2.5" />
+    <circle cx="12" cy="30" r="1" fill="#ffffff" />
+
+    <!-- Right Wheel -->
+    <circle cx="30" cy="30" r="3.5" fill="#047857" stroke="#ffffff" stroke-width="2.5" />
+    <circle cx="30" cy="30" r="1" fill="#ffffff" />
+
+    <!-- Headlights / Indicators -->
+    <line x1="5" y1="23.5" x2="6.5" y2="23.5" stroke="#ffffff" stroke-width="2" />
+    <line x1="35.5" y1="23.5" x2="37" y2="23.5" stroke="#ffffff" stroke-width="2" />
+  </g>
+</svg>

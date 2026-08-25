@@ -3,11 +3,11 @@ FROM php:8.3-fpm-alpine
 # Install system dependencies & PHP extensions
 RUN apk add --no-cache \
     curl nginx libpng-dev libxml2-dev zip libzip-dev unzip \
-    oniguruma-dev icu-dev freetype-dev libjpeg-turbo-dev \
+    oniguruma-dev icu-dev freetype-dev libjpeg-turbo-dev sqlite-dev \
     bash supervisor nodejs npm ca-certificates
 
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip intl opcache
+    && docker-php-ext-install pdo_mysql pdo_sqlite mbstring exif pcntl bcmath gd zip intl opcache
 
 # Copy optimized OPcache configuration
 COPY docker/render/opcache.ini /usr/local/etc/php/conf.d/opcache.ini

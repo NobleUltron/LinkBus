@@ -21,12 +21,24 @@ fi
 # Ensure storage link exists
 php artisan storage:link || true
 
-# Run database migrations & seeders
+# Run database migrations & seeders with automated fallback
 echo "[1/4] Running database migrations..."
-php artisan migrate --force --no-interaction
-
-echo "[2/4] Seeding initial data (if fresh)..."
-php artisan db:seed --force --no-interaction || true
+if ! php artisan migrate --force --no-interaction; then
+    echo "⚠️  Primary database connection failed or host unreachable."
+    echo "🔄 Switching automatically to embedded SQLite database fallback..."
+    export DB_CONNECTION=sqlite
+    export DB_DATABASE=/var/www/backend/database/database.sqlite
+    mkdir -p /var/www/backend/database
+    touch /var/www/backend/database/database.sqlite
+    chown -R www-data:www-data /var/www/backend/database
+    chmod -R 775 /var/www/backend/database
+    
+    php artisan migrate --force --no-interaction
+    php artisan db:seed --force --no-interaction || true
+else
+    echo "[2/4] Seeding initial data (if fresh)..."
+    php artisan db:seed --force --no-interaction || true
+fi
 
 # Run Laravel production optimizations
 echo "[3/4] Caching configuration & routes..."

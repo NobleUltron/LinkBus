@@ -341,93 +341,71 @@ export function TripSearch() {
         </div>
       </div>
 
-      {/* ── Results & Sidebar Promo Section ── */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
-        {/* Main Departure Cards Column */}
-        <div className="space-y-4 min-w-0">
-          {loading && (
-            <div className="space-y-4" aria-live="polite" aria-busy="true">
-              {[0, 1, 2].map((index) => (
-                <div key={index} className="skeleton h-44 rounded-2xl sm:h-36" />
-              ))}
-            </div>
-          )}
-
-          {!loading && error && (
-            <Panel>
-              <ErrorState message={error} onRetry={reload} />
-            </Panel>
-          )}
-
-          {!loading && !error && data && (
-            <>
-              <div className="mb-2 flex items-center justify-between text-xs text-muted">
-                <p aria-live="polite">
-                  Showing{' '}
-                  <strong className="text-fg font-bold">
-                    {filteredAndSortedTrips.length}
-                  </strong>{' '}
-                  of {data.length} {data.length === 1 ? 'departure' : 'departures'}
-                </p>
-              </div>
-
-              {filteredAndSortedTrips.length === 0 ? (
-                <Panel>
-                  <EmptyState
-                    icon={<SearchXIcon className="h-6 w-6 text-muted" aria-hidden />}
-                    title={data.length === 0 ? 'No departures found' : 'No trips match the selected filters'}
-                    body={
-                      data.length === 0
-                        ? 'Try selecting a different date or swapping origin and destination.'
-                        : 'Try resetting your time of day or cabin class filter to view all available trips.'
-                    }
-                    action={
-                      activeFiltersCount > 0 ? (
-                        <button
-                          type="button"
-                          onClick={resetFilters}
-                          className="mt-3 inline-flex h-9 items-center rounded-xl bg-brand-600 px-4 text-xs font-bold text-white transition-colors hover:bg-brand-700"
-                        >
-                          Reset Active Filters
-                        </button>
-                      ) : undefined
-                    }
-                  />
-                </Panel>
-              ) : (
-                <div className="space-y-4">
-                  {filteredAndSortedTrips.map((trip) => (
-                    <TripResultCard key={trip.id} trip={trip} />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Right Sidebar: Promo Card & Travel Assurance */}
-        <div className="space-y-5 lg:sticky lg:top-24">
-          <AdvertisementBanner type="sidebar" />
-
-          {/* Quick Travel Perks Card */}
-          <div className="rounded-2xl border border-line bg-surface p-5 text-xs text-muted shadow-sm space-y-3">
-            <h4 className="font-bold text-fg text-sm">Why Travel With LinkBus?</h4>
-            <div className="space-y-2.5">
-              <div className="flex items-start gap-2">
-                <span className="text-brand-600 font-bold">✓</span>
-                <span><strong>25kg Free Luggage</strong> with live QR tag tracking</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-brand-600 font-bold">✓</span>
-                <span><strong>Guaranteed Seat</strong> — choose VIP front rows or window</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-brand-600 font-bold">✓</span>
-                <span><strong>Instant Boarding</strong> via WhatsApp & Apple Wallet</span>
-              </div>
-            </div>
+      {/* ── Results Container ── */}
+      <div className="mt-6">
+        {loading && (
+          <div className="space-y-4" aria-live="polite" aria-busy="true">
+            {[0, 1, 2].map((index) => (
+              <div key={index} className="skeleton h-44 rounded-2xl sm:h-36" />
+            ))}
           </div>
-        </div>
+        )}
+
+        {!loading && error && (
+          <Panel>
+            <ErrorState message={error} onRetry={reload} />
+          </Panel>
+        )}
+
+        {!loading && !error && data && (
+          <>
+            <div className="mb-4 flex items-center justify-between text-xs text-muted">
+              <p aria-live="polite">
+                Showing{' '}
+                <strong className="text-fg font-bold">
+                  {filteredAndSortedTrips.length}
+                </strong>{' '}
+                of {data.length} {data.length === 1 ? 'departure' : 'departures'}
+              </p>
+            </div>
+
+            {filteredAndSortedTrips.length === 0 ? (
+              <Panel>
+                <EmptyState
+                  icon={<SearchXIcon className="h-6 w-6 text-muted" aria-hidden />}
+                  title={data.length === 0 ? 'No departures found' : 'No trips match the selected filters'}
+                  body={
+                    data.length === 0
+                      ? 'Try selecting a different date or swapping origin and destination.'
+                      : 'Try resetting your time of day or cabin class filter to view all available trips.'
+                  }
+                  action={
+                    activeFiltersCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="mt-3 inline-flex h-9 items-center rounded-xl bg-brand-600 px-4 text-xs font-bold text-white transition-colors hover:bg-brand-700"
+                      >
+                        Reset Active Filters
+                      </button>
+                    ) : undefined
+                  }
+                />
+              </Panel>
+            ) : (
+              <div className="space-y-4">
+                {filteredAndSortedTrips.map((trip) => (
+                  <TripResultCard key={trip.id} trip={trip} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── Promotional Campaign Banner ── */}
+      <div className="mt-8">
+        <AdvertisementBanner type="sidebar" />
       </div>
 
       {/* ── Bottom Passenger Assurance & Seat Hold Notice ── */}

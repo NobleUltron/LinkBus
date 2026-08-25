@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRightIcon, MegaphoneIcon } from 'lucide-react';
+import { ArrowRightIcon, MegaphoneIcon, SparklesIcon } from 'lucide-react';
 import { getActiveAdvertisements } from '../services/settings';
 import type { Advertisement } from '../types/models';
 

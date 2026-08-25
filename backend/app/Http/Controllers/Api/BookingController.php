@@ -107,21 +107,31 @@ class BookingController extends Controller
             'amount'  => 'required|integer|min:0',
         ]);
 
-        $promo = PromoCode::where('code', strtoupper($request->code))->first();
+        $code = strtoupper(trim($request->code));
+        $promo = PromoCode::where('code', $code)->first();
 
-        if (!$promo || !$promo->isValid()) {
-            return response()->json(['message' => 'Invalid or expired promo code.'], 422);
+        if (!$promo) {
+            return response()->json(['message' => "Promo code '{$code}' does not exist."], 422);
         }
 
-        $discount = $promo->calculateDiscount($request->amount);
+        $user = $request->user();
+        $error = $promo->getValidationError($user, (int) $request->amount);
+
+        if ($error) {
+            return response()->json(['message' => $error], 422);
+        }
+
+        $discount = $promo->calculateDiscount((int) $request->amount);
 
         return response()->json([
-            'valid'          => true,
-            'code'           => $promo->code,
-            'description'    => $promo->description,
-            'discount_type'  => $promo->discount_type,
-            'discount_value' => $promo->discount_value,
-            'discount_amount'=> $discount,
+            'valid'              => true,
+            'code'               => $promo->code,
+            'description'        => $promo->description,
+            'discount_type'      => $promo->discount_type,
+            'discount_value'     => $promo->discount_value,
+            'discount_amount'    => $discount,
+            'max_uses_per_user'  => $promo->max_uses_per_user,
+            'first_booking_only' => $promo->first_booking_only,
         ]);
     }
 
@@ -159,33 +169,31 @@ class BookingController extends Controller
                 if (!$seat) {
                     abort(422, "Seat ID {$seatId} not found on this trip.");
                 }
-
-                if ($seat->status === 'booked') {
-                    abort(409, "Seat {$seat->seat_number} is already booked.");
-                }
-
-                // Check lock belongs to this user (or is expired)
-                if ($seat->status === 'locked') {
-                    $lock = SeatLock::where('seat_id', $seatId)
-                        ->where('expires_at', '>=', now())
-                        ->first();
-                    if ($lock && $lock->user_id !== $user->id) {
-                        abort(409, "Seat {$seat->seat_number} is locked by another user.");
-                    }
+                if ($seat->status !== 'available') {
+                    abort(422, "Seat {$seat->seat_number} is no longer available.");
                 }
             }
 
-            // Calculate price
-            $subtotal = $trip->fare * count($seatIds);
+            // Calculate amounts
+            $subtotal = $seats->sum('price');
             $discount = 0;
+            $appliedPromoCode = null;
 
             if (!empty($data['promo_code'])) {
-                $promo = PromoCode::where('code', strtoupper($data['promo_code']))
+                $code = strtoupper(trim($data['promo_code']));
+                $promo = PromoCode::where('code', $code)
                     ->lockForUpdate()
                     ->first();
-                if ($promo && $promo->isValid()) {
+                if ($promo) {
+                    $promoError = $promo->getValidationError($user, $subtotal);
+                    if ($promoError) {
+                        abort(422, $promoError);
+                    }
                     $discount = $promo->calculateDiscount($subtotal);
+                    $appliedPromoCode = $promo->code;
                     $promo->increment('used_count');
+                } else {
+                    abort(422, "Invalid promo code '{$code}'.");
                 }
             }
 
@@ -194,9 +202,6 @@ class BookingController extends Controller
             $total    = $subtotal - $discount + $taxAmount;
 
             // Payment and ticket status resolution
-            // Cash paid directly at physical terminal counter desk -> confirmed & completed
-            // Cash booked online by customer -> pending payment (awaiting counter settlement)
-            // Digital payment (MoMo / Card) -> confirmed & completed (via gateway authorization)
             $isCounterSale = $request->boolean('is_counter_sale') && $user->isStaff();
             $isCash = $data['payment_method'] === 'cash';
             $isPaid = !$isCash || $isCounterSale;
@@ -216,6 +221,7 @@ class BookingController extends Controller
                 'tax_amount'       => $taxAmount,
                 'total_amount'     => $total,
                 'payment_method'   => $data['payment_method'],
+                'promo_code'       => $appliedPromoCode,
             ]);
 
             // Create tickets and mark seats booked

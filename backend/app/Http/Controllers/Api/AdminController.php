@@ -330,8 +330,15 @@ class AdminController extends Controller
             'discount_value'     => 'required|integer|min:1',
             'min_booking_amount' => 'nullable|integer|min:0',
             'max_uses'           => 'nullable|integer|min:1',
+            'max_uses_per_user'  => 'nullable|integer|min:0',
+            'first_booking_only' => 'nullable|boolean',
+            'is_active'          => 'nullable|boolean',
             'expires_at'         => 'nullable|date',
         ]);
+
+        $data['code'] = strtoupper(trim($data['code']));
+        $data['max_uses_per_user'] = $data['max_uses_per_user'] ?? 1;
+        $data['first_booking_only'] = $data['first_booking_only'] ?? false;
 
         $promo = PromoCode::create($data);
         return response()->json(['promo_code' => $promo], 201);
@@ -340,9 +347,15 @@ class AdminController extends Controller
     public function updatePromoCode(Request $request, PromoCode $promoCode): JsonResponse
     {
         $data = $request->validate([
-            'is_active'  => 'sometimes|boolean',
-            'expires_at' => 'nullable|date',
-            'max_uses'   => 'sometimes|integer|min:1',
+            'description'        => 'sometimes|nullable|string',
+            'discount_type'      => 'sometimes|in:percentage,fixed',
+            'discount_value'     => 'sometimes|integer|min:1',
+            'min_booking_amount' => 'sometimes|nullable|integer|min:0',
+            'is_active'          => 'sometimes|boolean',
+            'expires_at'         => 'nullable|date',
+            'max_uses'           => 'sometimes|integer|min:1',
+            'max_uses_per_user'  => 'sometimes|nullable|integer|min:0',
+            'first_booking_only' => 'sometimes|boolean',
         ]);
 
         $promoCode->update($data);

@@ -37,10 +37,18 @@ export function PromoCodes() {
       header: 'Coupon Code & Campaign',
       render: (promo) => (
         <div className="py-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1 rounded-md border border-brand-500/30 bg-brand-500/10 px-2 py-0.5 font-mono text-xs font-bold text-brand-700 dark:text-brand-300 tracking-wider shadow-sm">
               <TagIcon className="h-3 w-3" />
               {promo.code}
+            </span>
+            {promo.first_booking_only && (
+              <span className="inline-flex items-center rounded bg-blue-500/15 border border-blue-500/30 px-1.5 py-0.5 text-[0.625rem] font-bold text-blue-700 dark:text-blue-300">
+                1st Ride Only
+              </span>
+            )}
+            <span className="inline-flex items-center rounded bg-surface-2 border border-line px-1.5 py-0.5 text-[0.625rem] font-semibold text-muted">
+              {promo.max_uses_per_user === 0 ? 'Unlimited/user' : `Max ${promo.max_uses_per_user ?? 1}/user`}
             </span>
           </div>
           <p className="text-xs text-fg font-medium mt-1">{promo.description}</p>
@@ -218,11 +226,26 @@ export function PromoCodes() {
     },
     {
       name: 'max_uses',
-      label: 'Maximum Redemption Limit (Cap)',
+      label: 'Total Campaign Redemption Cap',
       type: 'number',
       min: 1,
       required: true,
-      hint: 'Code will automatically deactivate once this usage count is reached.',
+      hint: 'Total redemptions across all passengers combined before the code exhausts.',
+    },
+    {
+      name: 'max_uses_per_user',
+      label: 'Max Redemptions Per Passenger (0 = Unlimited)',
+      type: 'number',
+      min: 0,
+      required: false,
+      placeholder: '1',
+      hint: 'Limits how many times a single customer can redeem this code (e.g. 1 for single-use).',
+    },
+    {
+      name: 'first_booking_only',
+      label: 'First-Time Passenger Only (New Riders)',
+      type: 'toggle',
+      hint: 'Restricts this promo to passengers booking their very first trip on LinkBus.',
     },
     {
       name: 'expires_at',
@@ -245,6 +268,8 @@ export function PromoCodes() {
     discount_value: Number(values.discount_value),
     min_booking_amount: Number(values.min_booking_amount),
     max_uses: Number(values.max_uses),
+    max_uses_per_user: values.max_uses_per_user !== undefined && values.max_uses_per_user !== '' ? Number(values.max_uses_per_user) : 1,
+    first_booking_only: Boolean(values.first_booking_only),
     is_active: Boolean(values.is_active),
     expires_at: String(values.expires_at),
   });

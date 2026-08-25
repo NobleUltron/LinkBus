@@ -193,6 +193,8 @@ export interface PromoCode {
   min_booking_amount: number;
   max_uses: number;
   used_count: number;
+  max_uses_per_user?: number;
+  first_booking_only?: boolean;
   is_active: boolean;
   expires_at: string;
 }

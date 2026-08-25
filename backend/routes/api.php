@@ -222,8 +222,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/promo-codes',               [AdminController::class, 'promoCodes']);
         Route::post('/admin/promo-codes',              [AdminController::class, 'storePromoCode']);
         Route::put('/admin/promo-codes/{promoCode}',   [AdminController::class, 'updatePromoCode']);
-        Route::get('/admin/advertisements',            [AdminController::class, 'advertisements']);
-        Route::post('/admin/advertisements',           [AdminController::class, 'storeAdvertisement']);
+        Route::get('/admin/advertisements',                       [AdminController::class, 'advertisements']);
+        Route::post('/admin/advertisements',                      [AdminController::class, 'storeAdvertisement']);
+        Route::put('/admin/advertisements/{advertisement}',       [AdminController::class, 'updateAdvertisement']);
+        Route::delete('/admin/advertisements/{advertisement}',    [AdminController::class, 'destroyAdvertisement']);
 
         // Notifications Gateway Management & Dispatch Testing
         Route::get('/admin/notifications/logs',          [NotificationController::class, 'logs']);

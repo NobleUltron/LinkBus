@@ -388,6 +388,30 @@ class AdminController extends Controller
         return response()->json(['advertisement' => $ad], 201);
     }
 
+    public function updateAdvertisement(Request $request, Advertisement $advertisement): JsonResponse
+    {
+        $data = $request->validate([
+            'title'       => 'sometimes|required|string',
+            'description' => 'nullable|string',
+            'image_url'   => 'nullable|string',
+            'link_url'    => 'nullable|string',
+            'type'        => 'sometimes|required|in:banner,popup,sidebar',
+            'start_date'  => 'sometimes|required|date',
+            'end_date'    => 'sometimes|required|date|after_or_equal:start_date',
+            'priority'    => 'nullable|integer|min:1',
+            'status'      => 'sometimes|in:active,inactive',
+        ]);
+
+        $advertisement->update($data);
+        return response()->json(['advertisement' => $advertisement]);
+    }
+
+    public function destroyAdvertisement(Advertisement $advertisement): JsonResponse
+    {
+        $advertisement->delete();
+        return response()->json(['message' => 'Campaign deleted successfully']);
+    }
+
     // ── Audit Logs ───────────────────────────────────────────────────
 
     public function auditLogs(Request $request): JsonResponse

@@ -45,6 +45,70 @@ export function AdvertisementBanner({
   const defaultImage =
     'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&auto=format&fit=crop&q=80';
 
+  const isSidebar = type === 'sidebar';
+
+  if (isSidebar) {
+    return (
+      <aside className={`card-surface overflow-hidden rounded-2xl border border-line shadow-sm ${className}`}>
+        <div className="relative h-36 w-full overflow-hidden bg-surface-2">
+          <img
+            src={ad.image_url || defaultImage}
+            alt={ad.title}
+            className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = defaultImage;
+            }}
+          />
+          <span className="absolute bottom-2 left-2.5 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+            <MegaphoneIcon className="h-3 w-3" />
+            Promo Card
+          </span>
+        </div>
+        <div className="p-4">
+          <h3 className="text-sm font-bold text-fg line-clamp-1">{ad.title}</h3>
+          <p className="mt-1 text-xs text-muted leading-relaxed line-clamp-2">{ad.description}</p>
+          <div className="mt-3 flex items-center justify-between">
+            {isExternal ? (
+              <a
+                href={targetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline"
+              >
+                Learn more
+                <ArrowRightIcon className="h-3.5 w-3.5" />
+              </a>
+            ) : (
+              <Link
+                to={targetUrl}
+                className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline"
+              >
+                Learn more
+                <ArrowRightIcon className="h-3.5 w-3.5" />
+              </Link>
+            )}
+
+            {ads.length > 1 && (
+              <div className="flex items-center gap-1">
+                {ads.map((item, dotIndex) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setIndex(dotIndex)}
+                    aria-label={`Show promo ${dotIndex + 1}`}
+                    className={`h-1.5 rounded-full transition-all duration-200 ${
+                      dotIndex === index % ads.length ? 'w-4 bg-brand-600' : 'w-1.5 bg-line'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside className={`card-surface relative overflow-hidden rounded-2xl border border-line shadow-sm ${className}`}>
       <div className="grid gap-0 sm:grid-cols-[1.2fr_1fr]">

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { TripResultCard } from '../../components/booking/TripResultCard';
 import { TripSearchForm } from '../../components/booking/TripSearchForm';
+import { AdvertisementBanner } from '../../components/AdvertisementBanner';
 import { Panel } from '../../components/ui/Panel';
 import { EmptyState, ErrorState } from '../../components/ui/States';
 import { useAsync } from '../../hooks/useAsync';
@@ -400,6 +401,11 @@ export function TripSearch() {
             )}
           </>
         )}
+      </div>
+
+      {/* ── Sponsored Sidebar Promo Card ── */}
+      <div className="mt-8">
+        <AdvertisementBanner type="sidebar" />
       </div>
 
       {/* ── Bottom Passenger Assurance & Seat Hold Notice ── */}

@@ -46,12 +46,14 @@ import { ProfileSettings } from './pages/shared/ProfileSettings';
 import { TicketsScreen } from './pages/shared/TicketsScreen';
 import { CheckIn } from './pages/staff/CheckIn';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
+import { AdvertisementPopup } from './components/modals/AdvertisementPopup';
 export function App() {
   return <ThemeProvider>
       <BrowserRouter>
         <AuthProvider>
           <SettingsProvider>
             <NotificationProvider>
+              <AdvertisementPopup />
               <Routes>
                 {/* Public site */}
                 <Route element={<PublicLayout />}>

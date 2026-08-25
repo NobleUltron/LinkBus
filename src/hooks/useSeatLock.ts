@@ -46,7 +46,7 @@ export function useSeatLock(): SeatLockState {
     setError(null);
     try {
       const response = await lockSeats({ user_id: userId, trip_id: tripId, seat_ids: seatIds });
-      heldSeats.current = [...heldSeats.current, ...seatIds];
+      heldSeats.current = seatIds;
       const seconds = Math.max(0, Math.round((new Date(response.expires_at).getTime() - Date.now()) / 1000));
       setSecondsLeft(seconds);
       setExpired(false);

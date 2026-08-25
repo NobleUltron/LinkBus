@@ -169,7 +169,16 @@ class BookingController extends Controller
                 if (!$seat) {
                     abort(422, "Seat ID {$seatId} not found on this trip.");
                 }
-                if ($seat->status !== 'available') {
+
+                $isHeldByCurrentUser = false;
+                if ($seat->status === 'locked') {
+                    $isHeldByCurrentUser = SeatLock::where('seat_id', $seat->id)
+                        ->where('user_id', $user->id)
+                        ->where('expires_at', '>=', now())
+                        ->exists();
+                }
+
+                if ($seat->status !== 'available' && !$isHeldByCurrentUser) {
                     abort(422, "Seat {$seat->seat_number} is no longer available.");
                 }
             }

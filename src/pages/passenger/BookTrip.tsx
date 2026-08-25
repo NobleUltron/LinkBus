@@ -256,11 +256,14 @@ export function BookTrip() {
         user_id: user?.id ?? 0,
         trip_id: trip.id,
         seat_ids: outboundSeats.map((seat) => seat.id),
-        passengers: passengers.map((passenger) => ({
-          seat_id: passenger.seatId,
-          passenger_name: passenger.name,
-          passenger_phone: passenger.phone,
-        })),
+        passengers: outboundSeats.map((seat, idx) => {
+          const p = passengers.find((item) => item.seatId === seat.id) ?? passengers[idx];
+          return {
+            seat_id: seat.id,
+            passenger_name: p?.name?.trim() || user?.name || 'Passenger',
+            passenger_phone: p?.phone?.trim() || user?.phone || '',
+          };
+        }),
         payment_method: method,
         promo_code: promo?.code ?? null,
         return_trip_id: returnTrip?.id ?? null,

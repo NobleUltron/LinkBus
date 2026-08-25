@@ -77,9 +77,10 @@ export async function updateSettings(changes: Record<string, string>): Promise<S
 
 export async function getActiveAdvertisements(type?: Advertisement['type']): Promise<Advertisement[]> {
   try {
-    const data = await api.get<{ advertisements: Advertisement[] }>('/admin/advertisements');
+    const url = type ? `/advertisements?type=${encodeURIComponent(type)}` : '/advertisements';
+    const data = await api.get<{ advertisements: Advertisement[] }>(url);
     const now = Date.now();
-    return data.advertisements
+    return (data.advertisements || [])
       .filter((ad) => ad.status === 'active')
       .filter((ad) => new Date(ad.start_date).getTime() <= now && new Date(ad.end_date).getTime() >= now)
       .filter((ad) => (type ? ad.type === type : true))

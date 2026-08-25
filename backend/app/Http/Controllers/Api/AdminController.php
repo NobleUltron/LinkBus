@@ -364,6 +364,21 @@ class AdminController extends Controller
 
     // ── Advertisements ───────────────────────────────────────────────
 
+    public function getPublicAdvertisements(Request $request): JsonResponse
+    {
+        $now = now();
+        $query = Advertisement::where('status', 'active')
+            ->where('start_date', '<=', $now)
+            ->where('end_date', '>=', $now)
+            ->orderBy('priority', 'asc');
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+
+        return response()->json(['advertisements' => $query->get()]);
+    }
+
     public function advertisements(): JsonResponse
     {
         $ads = Advertisement::orderBy('priority')->get();

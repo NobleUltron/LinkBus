@@ -37,15 +37,31 @@ Route::get('/health', function () {
     $start = microtime(true);
     $dbOk = false;
     $dbLatency = 0;
+    $dbError = null;
     try {
         \Illuminate\Support\Facades\DB::select('SELECT 1');
         $dbLatency = round((microtime(true) - $start) * 1000, 2);
         $dbOk = true;
     } catch (\Throwable $e) {
         $dbOk = false;
+        $dbError = $e->getMessage();
     }
 
     $storageLinked = is_dir(public_path('storage')) || file_exists(public_path('storage'));
+
+    $telemetry = [];
+    if ($dbOk) {
+        try {
+            $telemetry = [
+                'terminals'    => \App\Models\Terminal::count(),
+                'routes'       => \App\Models\BusRoute::count(),
+                'active_buses' => \App\Models\Bus::where('status', 'active')->count(),
+                'trips_today'  => \App\Models\Trip::whereDate('departure_time', now()->toDateString())->count(),
+            ];
+        } catch (\Throwable $e) {
+            $telemetry['error'] = $e->getMessage();
+        }
+    }
 
     return response()->json([
         'status'          => $dbOk ? 'healthy' : 'degraded',
@@ -58,18 +74,14 @@ Route::get('/health', function () {
             'latency_ms' => $dbLatency,
             'driver'     => config('database.default'),
             'database'   => config('database.connections.mysql.database'),
+            'error'      => $dbError,
         ],
         'storage'         => [
             'public_link' => $storageLinked,
             'writable'    => is_writable(storage_path('app/public')),
         ],
-        'telemetry'       => [
-            'terminals'    => \App\Models\Terminal::count(),
-            'routes'       => \App\Models\BusRoute::count(),
-            'active_buses' => \App\Models\Bus::where('status', 'active')->count(),
-            'trips_today'  => \App\Models\Trip::whereDate('departure_time', now()->toDateString())->count(),
-        ],
-    ]);
+        'telemetry'       => $telemetry,
+    ], $dbOk ? 200 : 503);
 });
 
 // Newsletter & Fare Alerts Subscription (public)

@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
-import { CircleDotIcon, CrownIcon } from 'lucide-react';
+import { CircleDotIcon, CrownIcon, LockIcon } from 'lucide-react';
 import type { TripSeat } from '../../types/models';
 import { money } from '../../utils/format';
 import { seatFare } from '../../utils/fare';
+
 interface BusCabinSeatMapProps {
   seats: TripSeat[];
   selectedIds: number[];
@@ -11,7 +12,9 @@ interface BusCabinSeatMapProps {
   fare: number;
   heldIds?: number[];
 }
+
 const LETTERS = ['A', 'B', 'C', 'D'];
+
 export function BusCabinSeatMap({
   seats,
   selectedIds,
@@ -33,7 +36,9 @@ export function BusCabinSeatMap({
       seats: LETTERS.map((letter) => rowSeats.find((seat) => seat.seat_number.endsWith(letter)) ?? null)
     }));
   }, [seats]);
+
   const atLimit = selectedIds.length >= maxSelectable;
+
   return (
     <div className="w-full">
       <div className="mx-auto w-full max-w-sm rounded-2xl sm:rounded-3xl border border-line bg-surface-2/60 p-3 sm:p-5 shadow-sm">
@@ -53,11 +58,19 @@ export function BusCabinSeatMap({
               </span>
               {row.seats.map((seat, index) => {
                 if (!seat) return <span key={index} className="h-10 sm:h-11 flex-1" />;
-                const selected = selectedIds.includes(seat.id);
-                const held = heldIds.includes(seat.id);
-                const taken = seat.status === 'booked' || (seat.status === 'locked' && !held && !selected);
-                const disabled = taken || (!selected && atLimit);
+                const selected = selectedIds.includes(seat.id) || (seat.locked_by_me && !selectedIds.length);
+                const isMyHold = Boolean(seat.locked_by_me) || heldIds.includes(seat.id);
+                const isOtherHold = seat.status === 'locked' && !isMyHold && !selected;
+                const isBooked = seat.status === 'booked';
+                const unavailable = isBooked || isOtherHold;
+                const disabled = unavailable || (!selected && atLimit);
                 const isVip = seat.seat_class === 'vip';
+
+                let seatTitle = `${seat.seat_number} · ${money(seatFare(fare, seat.seat_class))}`;
+                if (isBooked) seatTitle = `Seat ${seat.seat_number} · Confirmed Booked`;
+                else if (isOtherHold) seatTitle = `Seat ${seat.seat_number} · Held in checkout (releasing soon if unpaid)`;
+                else if (isMyHold) seatTitle = `Seat ${seat.seat_number} · Held by you`;
+
                 return (
                   <React.Fragment key={seat.id}>
                     <button
@@ -66,26 +79,33 @@ export function BusCabinSeatMap({
                       disabled={disabled}
                       aria-pressed={selected}
                       aria-label={`Seat ${seat.seat_number}, ${isVip ? 'VIP' : 'standard'}, ${
-                        taken ? 'unavailable' : money(seatFare(fare, seat.seat_class))
+                        unavailable ? 'unavailable' : money(seatFare(fare, seat.seat_class))
                       }`}
-                      title={taken ? 'Already taken' : `${seat.seat_number} · ${money(seatFare(fare, seat.seat_class))}`}
+                      title={seatTitle}
                       className={[
                         'relative flex h-10 sm:h-11 flex-1 items-center justify-center rounded-lg sm:rounded-xl border text-xs font-bold',
                         'transition-all duration-150 active:scale-90 touch-manipulation',
                         selected
                           ? 'border-brand-600 bg-brand-600 text-white shadow-md ring-2 ring-brand-500/30'
-                          : taken
+                          : isMyHold
+                          ? 'border-amber-500 bg-amber-500/20 text-amber-900 dark:text-amber-200 ring-2 ring-amber-500/40 animate-pulse'
+                          : isOtherHold
+                          ? 'cursor-not-allowed border-dashed border-amber-500/40 bg-amber-500/5 text-amber-700/60 dark:text-amber-300/60 opacity-60'
+                          : isBooked
                           ? 'cursor-not-allowed border-line bg-surface-2 text-faint line-through opacity-60'
                           : isVip
                           ? 'border-amber-500/60 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:border-amber-500'
                           : 'border-line bg-surface text-fg hover:border-brand-600 shadow-2xs',
-                        disabled && !taken ? 'cursor-not-allowed opacity-40' : '',
+                        disabled && !unavailable ? 'cursor-not-allowed opacity-40' : '',
                         !disabled ? 'hover:-translate-y-0.5' : '',
                       ].join(' ')}
                     >
                       {seat.seat_number}
-                      {isVip && !selected && !taken && (
+                      {isVip && !selected && !unavailable && (
                         <CrownIcon className="absolute right-1 top-1 h-2.5 w-2.5 text-amber-500" aria-hidden />
+                      )}
+                      {isOtherHold && (
+                        <LockIcon className="absolute right-1 top-1 h-2.5 w-2.5 text-amber-500/70" aria-hidden />
                       )}
                     </button>
                     {index === 1 && <span className="w-3 sm:w-5 shrink-0" aria-hidden />}
@@ -102,14 +122,17 @@ export function BusCabinSeatMap({
           <span className="h-3.5 w-3.5 rounded border border-line bg-surface" aria-hidden /> Standard {money(fare)}
         </li>
         <li className="flex items-center gap-1.5">
-          <span className="h-3.5 w-3.5 rounded border border-gold-500/60 bg-gold-500/20" aria-hidden /> VIP{' '}
+          <span className="h-3.5 w-3.5 rounded border border-amber-500/60 bg-amber-500/20" aria-hidden /> VIP{' '}
           {money(seatFare(fare, 'vip'))}
         </li>
         <li className="flex items-center gap-1.5">
           <span className="h-3.5 w-3.5 rounded bg-brand-600" aria-hidden /> Selected
         </li>
         <li className="flex items-center gap-1.5">
-          <span className="h-3.5 w-3.5 rounded bg-surface-2 ring-1 ring-line" aria-hidden /> Taken
+          <span className="h-3.5 w-3.5 rounded border border-dashed border-amber-500/60 bg-amber-500/10" aria-hidden /> Held in Checkout
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span className="h-3.5 w-3.5 rounded bg-surface-2 ring-1 ring-line line-through" aria-hidden /> Booked
         </li>
       </ul>
     </div>

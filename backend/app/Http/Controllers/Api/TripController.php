@@ -168,12 +168,33 @@ class TripController extends Controller
             ];
         });
 
+        self::cleanupExpiredLocks($trip->id);
+
+        $activeLocks = \App\Models\SeatLock::with(['seat', 'user'])
+            ->where('trip_id', $trip->id)
+            ->where('expires_at', '>=', now())
+            ->get()
+            ->map(function ($lock) {
+                return [
+                    'id'               => $lock->id,
+                    'seat_id'          => $lock->seat_id,
+                    'seat_number'      => $lock->seat?->seat_number ?? '—',
+                    'seat_class'       => $lock->seat?->seat_class ?? 'standard',
+                    'user_id'          => $lock->user_id,
+                    'user_name'        => $lock->user?->name ?? 'Guest Passenger',
+                    'user_phone'       => $lock->user?->phone ?? '—',
+                    'expires_at'       => $lock->expires_at?->toISOString(),
+                    'remaining_seconds'=> max(0, (int) now()->diffInSeconds($lock->expires_at, false)),
+                ];
+            });
+
         return response()->json([
-            'trip'     => $this->formatTrip($trip),
-            'manifest' => $formattedTickets,
-            'data'     => $formattedTickets,
-            'total'    => $formattedTickets->count(),
-            'boarded'  => $formattedTickets->filter(fn($t) => $t['status'] === 'used' || !empty($t['boarded_at']))->count(),
+            'trip'       => $this->formatTrip($trip),
+            'manifest'   => $formattedTickets,
+            'data'       => $formattedTickets,
+            'held_seats' => $activeLocks,
+            'total'      => $formattedTickets->count(),
+            'boarded'    => $formattedTickets->filter(fn($t) => $t['status'] === 'used' || !empty($t['boarded_at']))->count(),
         ]);
     }
 
@@ -422,25 +443,55 @@ class TripController extends Controller
         return response()->json(['trip' => $this->formatTrip($trip)]);
     }
 
+    public static function cleanupExpiredLocks(?int $tripId = null): void
+    {
+        $query = \App\Models\SeatLock::where('expires_at', '<', now());
+        if ($tripId) {
+            $query->where('trip_id', $tripId);
+        }
+        $expiredSeatIds = $query->pluck('seat_id')->all();
+
+        if (!empty($expiredSeatIds)) {
+            \App\Models\SeatLock::whereIn('seat_id', $expiredSeatIds)->delete();
+            \App\Models\TripSeat::whereIn('id', $expiredSeatIds)
+                ->where('status', 'locked')
+                ->update(['status' => 'available']);
+        }
+
+        // Also safeguard any TripSeat marked 'locked' that has no active SeatLock record
+        $orphanedSeatIds = \App\Models\TripSeat::where('status', 'locked')
+            ->when($tripId, fn($q) => $q->where('trip_id', $tripId))
+            ->whereDoesntHave('seatLock', fn($q) => $q->where('expires_at', '>=', now()))
+            ->pluck('id')
+            ->all();
+
+        if (!empty($orphanedSeatIds)) {
+            \App\Models\TripSeat::whereIn('id', $orphanedSeatIds)
+                ->update(['status' => 'available']);
+        }
+    }
+
     /**
      * Get seat map for a trip.
      */
     public function seats(Trip $trip): JsonResponse
     {
-        // Clean up expired locks first
-        \App\Models\SeatLock::where('trip_id', $trip->id)
-            ->where('expires_at', '<', now())
-            ->delete();
+        self::cleanupExpiredLocks($trip->id);
 
-        $seats = $trip->seats()->with('seatLock')->get();
+        $user = request()->user();
+        $seats = $trip->seats()->with(['seatLock.user'])->get();
 
         return response()->json([
             'seats' => $seats->map(fn($s) => [
-                'id'          => $s->id,
-                'seat_number' => $s->seat_number,
-                'seat_class'  => $s->seat_class,
-                'status'      => $s->status,
-                'locked_by_me'=> $s->seatLock && $s->seatLock->user_id === request()->user()?->id,
+                'id'              => $s->id,
+                'trip_id'         => $s->trip_id,
+                'seat_number'     => $s->seat_number,
+                'seat_class'      => $s->seat_class,
+                'status'          => $s->status,
+                'locked_by_me'    => $s->seatLock && $user && $s->seatLock->user_id === $user->id,
+                'lock_expires_at' => $s->seatLock?->expires_at?->toISOString(),
+                'locked_by_name'  => ($user && $user->isStaff() && $s->seatLock) ? $s->seatLock->user?->name : null,
+                'locked_by_phone' => ($user && $user->isStaff() && $s->seatLock) ? $s->seatLock->user?->phone : null,
             ]),
         ]);
     }

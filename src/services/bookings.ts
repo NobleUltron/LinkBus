@@ -165,6 +165,14 @@ export async function releaseSeats(seatIds: number[]): Promise<void> {
   }
 }
 
+export async function releaseTripLocks(tripId: number): Promise<void> {
+  await api.post(`/trips/${tripId}/release-holds`);
+}
+
+export async function adminReleaseSeatLock(seatId: number): Promise<void> {
+  await api.post(`/seats/${seatId}/release-lock`);
+}
+
 // ─── Promo codes ──────────────────────────────────────────────────────────────
 
 export async function validatePromoCode(payload: {

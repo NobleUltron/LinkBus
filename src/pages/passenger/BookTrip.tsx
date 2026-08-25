@@ -31,7 +31,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { errorMessage, useAsync } from '../../hooks/useAsync';
 import { useSeatLock } from '../../hooks/useSeatLock';
-import { createBooking, validatePromoCode, verifyMomoPayment } from '../../services/bookings';
+import { createBooking, releaseTripLocks, validatePromoCode, verifyMomoPayment } from '../../services/bookings';
 import { getTrip, searchTrips } from '../../services/trips';
 import type { BookingDetail, PromoValidation, TripDetail } from '../../types/api';
 import type { PaymentMethod, TripSeat } from '../../types/models';
@@ -123,6 +123,22 @@ export function BookTrip() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<BookingDetail[] | null>(null);
+  const [activeHoldBanner, setActiveHoldBanner] = useState(false);
+
+  // Detect and restore existing active holds for this user on page load/refresh
+  useEffect(() => {
+    if (!trip?.seats || outboundSeats.length > 0) return;
+    const myHeld = trip.seats.filter((s) => s.locked_by_me);
+    if (myHeld.length > 0) {
+      setOutboundSeats(myHeld);
+      setActiveHoldBanner(true);
+      lock.hold({
+        userId: user?.id ?? 0,
+        tripId: trip.id,
+        seatIds: myHeld.map((s) => s.id),
+      }).catch(() => undefined);
+    }
+  }, [trip, user?.id]);
 
   const maxSeats = settings.max_seats_per_booking;
   const steps = roundTrip
@@ -235,6 +251,26 @@ export function BookTrip() {
     setPassengers(initialPassengers);
     if (!momoPhone) setMomoPhone(initialPassengers[0]?.phone || user?.phone || '');
     setStep(roundTrip ? 2 : 1);
+  };
+
+  const handleCancelHold = async () => {
+    if (!trip) return;
+    try {
+      await releaseTripLocks(trip.id);
+      lock.release();
+      setOutboundSeats([]);
+      setPassengers([]);
+      setActiveHoldBanner(false);
+      toast.info('Seat hold cancelled. Seats are now available again.');
+      reload();
+    } catch (err) {
+      toast.error('Failed to cancel hold: ' + errorMessage(err));
+    }
+  };
+
+  const handleResumeBooking = () => {
+    setActiveHoldBanner(false);
+    goToPassengerDetails();
   };
 
   const validatePassengers = (): boolean => {
@@ -454,6 +490,55 @@ export function BookTrip() {
       <Panel bodyClassName="px-5 py-4">
         <WizardSteps steps={steps} current={step} />
       </Panel>
+
+      {/* Active Reservation Hold Resume Banner */}
+      {activeHoldBanner && outboundSeats.length > 0 && (
+        <div className="relative overflow-hidden rounded-2xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-surface-2 p-4 sm:p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm">
+                <LockIcon className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-extrabold text-sm text-fg">
+                    Active Hold: Seat{outboundSeats.length > 1 ? 's' : ''}{' '}
+                    <span className="text-amber-600 dark:text-amber-400 font-black">
+                      {outboundSeats.map((s) => s.seat_number).join(', ')}
+                    </span>
+                  </h3>
+                  {lock.secondsLeft > 0 && (
+                    <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[0.6875rem] font-bold text-amber-800 dark:text-amber-300">
+                      ⏱️ {countdownLabel(lock.secondsLeft)} remaining
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted mt-0.5">
+                  You previously started booking this trip. These seats are held for you.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancelHold}
+                className="text-xs border-line hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-600"
+              >
+                Cancel Hold & Pick Other Seats
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleResumeBooking}
+                className="text-xs bg-amber-600 hover:bg-amber-700 text-white shadow-sm font-bold"
+              >
+                Resume Booking ➔
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] lg:items-start">
         {/* Left Column: Step Views */}

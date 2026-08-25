@@ -98,6 +98,38 @@ class BookingController extends Controller
     }
 
     /**
+     * Release all active locks held by the current user on a trip.
+     */
+    public function releaseUserTripLocks(Request $request, Trip $trip): JsonResponse
+    {
+        $user = $request->user();
+        $seatIds = SeatLock::where('trip_id', $trip->id)
+            ->where('user_id', $user->id)
+            ->pluck('seat_id')
+            ->all();
+
+        if (!empty($seatIds)) {
+            SeatLock::whereIn('seat_id', $seatIds)->delete();
+            TripSeat::whereIn('id', $seatIds)
+                ->where('status', 'locked')
+                ->update(['status' => 'available']);
+        }
+
+        return response()->json(['message' => 'Seats released successfully.']);
+    }
+
+    /**
+     * Admin/Staff manual release of an abandoned seat lock.
+     */
+    public function adminReleaseLock(Request $request, TripSeat $seat): JsonResponse
+    {
+        SeatLock::where('seat_id', $seat->id)->delete();
+        $seat->update(['status' => 'available']);
+
+        return response()->json(['message' => "Hold on seat {$seat->seat_number} released successfully."]);
+    }
+
+    /**
      * Validate a promo code.
      */
     public function validatePromo(Request $request): JsonResponse

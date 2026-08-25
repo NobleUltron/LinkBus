@@ -120,13 +120,42 @@ export async function checkInFromManifest(ticketId: number, tripId?: number): Pr
   return res.ticket;
 }
 
-/** GET /api/trips/{trip}/manifest */
-export async function getTripManifest(tripId: number): Promise<TicketDetail[]> {
+export interface ManifestHeldSeat {
+  id: number;
+  seat_id: number;
+  seat_number: string;
+  seat_class: 'standard' | 'vip';
+  user_id: number;
+  user_name: string;
+  user_phone: string;
+  expires_at: string;
+  remaining_seconds: number;
+}
+
+export interface TripManifestData {
+  tickets: TicketDetail[];
+  held_seats: ManifestHeldSeat[];
+}
+
+/** GET /api/trips/{trip}/manifest (with tickets & held_seats) */
+export async function getTripManifestWithHolds(tripId: number): Promise<TripManifestData> {
   try {
-    const res = await api.get<{ manifest?: TicketDetail[]; data?: TicketDetail[] }>(`/trips/${tripId}/manifest`);
-    return res.manifest || res.data || [];
+    const res = await api.get<{ manifest?: TicketDetail[]; data?: TicketDetail[]; held_seats?: ManifestHeldSeat[] }>(`/trips/${tripId}/manifest`);
+    return {
+      tickets: res.manifest || res.data || [],
+      held_seats: res.held_seats || [],
+    };
   } catch {
     const list = await listTickets({});
-    return list.data.filter((t) => t.trip.id === tripId);
+    return {
+      tickets: list.data.filter((t) => t.trip.id === tripId),
+      held_seats: [],
+    };
   }
+}
+
+/** GET /api/trips/{trip}/manifest */
+export async function getTripManifest(tripId: number): Promise<TicketDetail[]> {
+  const data = await getTripManifestWithHolds(tripId);
+  return data.tickets;
 }

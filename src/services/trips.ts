@@ -277,7 +277,28 @@ export async function getTripSeats(tripId: number): Promise<Array<{
   return data.seats;
 }
 
+export interface ManifestHeldSeat {
+  id: number;
+  seat_id: number;
+  seat_number: string;
+  seat_class: 'standard' | 'vip';
+  user_id: number;
+  user_name: string;
+  user_phone: string;
+  expires_at: string;
+  remaining_seconds: number;
+}
+
+export interface TripManifestResponse {
+  trip: TripDetail;
+  manifest: any[];
+  data: any[];
+  held_seats?: ManifestHeldSeat[];
+  total: number;
+  boarded: number;
+}
+
 /** GET /api/trips/{trip}/manifest */
-export async function getTripManifest(tripId: number) {
-  return api.get(`/trips/${tripId}/manifest`);
+export async function getTripManifest(tripId: number): Promise<TripManifestResponse> {
+  return api.get<TripManifestResponse>(`/trips/${tripId}/manifest`);
 }

@@ -140,6 +140,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/bookings/{booking}/cancel',        [BookingController::class, 'cancel']);
     Route::post('/bookings/lock-seat',               [BookingController::class, 'lockSeat']);
     Route::post('/bookings/unlock-seat',             [BookingController::class, 'unlockSeat']);
+    Route::post('/trips/{trip}/release-holds',       [BookingController::class, 'releaseUserTripLocks']);
     Route::post('/bookings/validate-promo',          [BookingController::class, 'validatePromo']);
     Route::post('/payments/verify-momo',             [BookingController::class, 'verifyMomo']);
     Route::get('/tickets/verify',                    [BookingController::class, 'verifyTicket']);
@@ -161,6 +162,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin,staff')->group(function () {
         // Cash payment collection desk
         Route::post('/bookings/{booking}/confirm-payment', [BookingController::class, 'confirmPayment']);
+        Route::post('/seats/{seat}/release-lock',          [BookingController::class, 'adminReleaseLock']);
 
         // Luggage & Cargo desks
         Route::post('/luggage',            [LuggageController::class, 'store']);

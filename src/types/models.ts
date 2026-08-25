@@ -101,6 +101,10 @@ export interface TripSeat {
   seat_number: string;
   seat_class: SeatClass;
   status: SeatStatus;
+  locked_by_me?: boolean;
+  lock_expires_at?: string | null;
+  locked_by_name?: string | null;
+  locked_by_phone?: string | null;
 }
 
 export interface SeatLock {

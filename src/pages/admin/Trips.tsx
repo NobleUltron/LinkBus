@@ -1,13 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import {
+  AlertTriangleIcon,
   BusIcon,
   CalendarDaysIcon,
   CheckCircle2Icon,
   ClockIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
+  LockIcon,
   PrinterIcon,
   SearchIcon,
+  UnlockIcon,
   UsersIcon,
   XIcon,
 } from 'lucide-react';
@@ -20,12 +23,13 @@ import { Button } from '../../components/ui/Button';
 import { Panel } from '../../components/ui/Panel';
 import { EmptyState, ErrorState, SkeletonTable } from '../../components/ui/States';
 import { StatusPill } from '../../components/ui/StatusPill';
-import { useAsync } from '../../hooks/useAsync';
+import { errorMessage, useAsync } from '../../hooks/useAsync';
+import { adminReleaseSeatLock } from '../../services/bookings';
 import { getReferenceData, routeName } from '../../services/reference';
-import { getTripManifest, type TicketDetail } from '../../services/tickets';
+import { getTripManifestWithHolds, type ManifestHeldSeat, type TicketDetail } from '../../services/tickets';
 import { createTrip, deleteTrip, listTrips, updateTrip } from '../../services/trips';
 import type { TripDetail } from '../../types/api';
-import { formatDateTime, formatTime, money, titleCase, toDateTimeInput } from '../../utils/format';
+import { countdownLabel, formatDateTime, formatTime, money, titleCase, toDateTimeInput } from '../../utils/format';
 import { printTripManifest } from '../../utils/printManifest';
 
 /** Highlights matching substrings in yellow */
@@ -63,19 +67,34 @@ export function Trips() {
   const reference = useAsync(() => getReferenceData(), []);
   const [manifestTrip, setManifestTrip] = useState<TripDetail | null>(null);
   const [manifest, setManifest] = useState<TicketDetail[] | null>(null);
+  const [heldSeats, setHeldSeats] = useState<ManifestHeldSeat[]>([]);
   const [manifestLoading, setManifestLoading] = useState(false);
-  const [manifestFilter, setManifestFilter] = useState<'all' | 'boarded' | 'pending'>('all');
+  const [manifestFilter, setManifestFilter] = useState<'all' | 'boarded' | 'pending' | 'holds'>('all');
   const [manifestSearch, setManifestSearch] = useState('');
 
   const openManifest = async (trip: TripDetail) => {
     setManifestTrip(trip);
     setManifest(null);
+    setHeldSeats([]);
     setManifestLoading(true);
     setManifestFilter('all');
     setManifestSearch('');
-    const rows = await getTripManifest(trip.id).catch(() => []);
-    setManifest(rows);
+    const res = await getTripManifestWithHolds(trip.id).catch(() => ({ tickets: [], held_seats: [] }));
+    setManifest(res.tickets);
+    setHeldSeats(res.held_seats || []);
     setManifestLoading(false);
+  };
+
+  const handleReleaseSeatHold = async (heldSeat: ManifestHeldSeat) => {
+    try {
+      await adminReleaseSeatLock(heldSeat.seat_id);
+      toast.success(`Seat ${heldSeat.seat_number} hold released. It is now available.`);
+      if (manifestTrip) {
+        openManifest(manifestTrip);
+      }
+    } catch (err) {
+      toast.error('Failed to release seat hold: ' + errorMessage(err));
+    }
   };
 
   const handleExportManifestCsv = () => {
@@ -551,6 +570,20 @@ export function Trips() {
                 {f === 'all' ? `All (${totalBookedCount})` : f === 'boarded' ? `Boarded (${boardedCount})` : `Pending (${totalBookedCount - boardedCount})`}
               </button>
             ))}
+            {heldSeats.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setManifestFilter('holds')}
+                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
+                  manifestFilter === 'holds'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 hover:bg-amber-500/25'
+                }`}
+              >
+                <LockIcon className="h-3 w-3" />
+                Checkout Holds ({heldSeats.length})
+              </button>
+            )}
             {manifestSearch && filteredManifest.length > 0 && (
               <span className="ml-auto text-[0.6875rem] text-muted">{filteredManifest.length} result{filteredManifest.length !== 1 ? 's' : ''}</span>
             )}
@@ -558,11 +591,73 @@ export function Trips() {
 
           {manifestLoading && <SkeletonTable rows={6} columns={4} />}
 
-          {!manifestLoading && manifest?.length === 0 && (
+          {!manifestLoading && manifestFilter === 'holds' && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+                <AlertTriangleIcon className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                <p>
+                  These seats are temporarily held by passengers in checkout. Locks auto-expire in 10 minutes, or you can release them immediately to make them available again.
+                </p>
+              </div>
+
+              {heldSeats.length === 0 ? (
+                <EmptyState compact title="No active holds" body="There are no unpaid checkout locks on this departure right now." />
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-line text-left text-xs text-muted">
+                      <th scope="col" className="px-2 py-2 font-semibold">Seat</th>
+                      <th scope="col" className="px-2 py-2 font-semibold">Held By</th>
+                      <th scope="col" className="px-2 py-2 font-semibold">Phone</th>
+                      <th scope="col" className="px-2 py-2 font-semibold">Hold Expires</th>
+                      <th scope="col" className="px-2 py-2 text-right font-semibold">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {heldSeats.map((h) => (
+                      <tr key={h.id} className="border-b border-line last:border-0 hover:bg-surface-2/40">
+                        <td className="px-2 py-2.5">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-xs font-bold text-amber-800 dark:text-amber-300 font-mono">
+                            <LockIcon className="h-3 w-3" />
+                            {h.seat_number}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2.5 font-semibold text-fg">
+                          {h.user_name}
+                        </td>
+                        <td className="px-2 py-2.5 text-muted">
+                          {h.user_phone}
+                        </td>
+                        <td className="px-2 py-2.5 text-xs text-muted">
+                          <span className="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400">
+                            <ClockIcon className="h-3 w-3" />
+                            {h.remaining_seconds > 0 ? countdownLabel(h.remaining_seconds) : 'Expiring…'}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2.5 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleReleaseSeatHold(h)}
+                            className="text-xs border-line hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-600"
+                          >
+                            <UnlockIcon className="h-3 w-3 mr-1" />
+                            Release Hold
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {!manifestLoading && manifestFilter !== 'holds' && manifest?.length === 0 && (
             <EmptyState compact title="No passengers booked" body="This departure has no confirmed tickets yet." />
           )}
 
-          {!manifestLoading && filteredManifest.length > 0 && (
+          {!manifestLoading && manifestFilter !== 'holds' && filteredManifest.length > 0 && (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs text-muted">

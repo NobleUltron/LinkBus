@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRightIcon, SparklesIcon, XIcon, ZapIcon } from 'lucide-react';
 import { getActiveAdvertisements } from '../../services/settings';
+import { handleClaimOffer } from '../../utils/promoHelper';
 import type { Advertisement } from '../../types/models';
 
 export function AdvertisementPopup() {
@@ -102,7 +103,10 @@ export function AdvertisementPopup() {
                 href={targetUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={handleDismiss}
+                onClick={() => {
+                  handleClaimOffer(popup);
+                  handleDismiss();
+                }}
                 className="inline-flex w-full sm:flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-brand-700 active:scale-95"
               >
                 <SparklesIcon className="h-4 w-4" />
@@ -112,7 +116,10 @@ export function AdvertisementPopup() {
             ) : (
               <Link
                 to={targetUrl}
-                onClick={handleDismiss}
+                onClick={() => {
+                  handleClaimOffer(popup);
+                  handleDismiss();
+                }}
                 className="inline-flex w-full sm:flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-brand-700 active:scale-95"
               >
                 <SparklesIcon className="h-4 w-4" />

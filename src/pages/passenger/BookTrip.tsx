@@ -31,7 +31,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { errorMessage, useAsync } from '../../hooks/useAsync';
 import { useSeatLock } from '../../hooks/useSeatLock';
-import { createBooking, verifyMomoPayment } from '../../services/bookings';
+import { createBooking, validatePromoCode, verifyMomoPayment } from '../../services/bookings';
 import { getTrip, searchTrips } from '../../services/trips';
 import type { BookingDetail, PromoValidation, TripDetail } from '../../types/api';
 import type { PaymentMethod, TripSeat } from '../../types/models';
@@ -152,6 +152,22 @@ export function BookTrip() {
       setMomoPhone(passengers[0]?.phone || user?.phone || '');
     }
   }, [passengers, user, momoPhone]);
+
+  // Auto-apply promo code claimed from an advertisement banner or popup
+  useEffect(() => {
+    const pendingCode = sessionStorage.getItem('linkbus_pending_promo');
+    if (pendingCode && fare.subtotal > 0 && !promo) {
+      validatePromoCode({ code: pendingCode, subtotal: fare.subtotal })
+        .then((validated) => {
+          setPromo(validated);
+          toast.success(`🎟️ Promo code "${validated.code}" applied automatically! Discount: ${money(validated.discount)}`);
+          sessionStorage.removeItem('linkbus_pending_promo');
+        })
+        .catch(() => {
+          // If the promo minimum amount isn't reached yet or code expired, keep it in session until next step
+        });
+    }
+  }, [fare.subtotal, promo]);
 
   // Load return options once passenger opts into a round trip
   useEffect(() => {

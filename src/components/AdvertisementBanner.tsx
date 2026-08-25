@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRightIcon, MegaphoneIcon, SparklesIcon } from 'lucide-react';
 import { getActiveAdvertisements } from '../services/settings';
+import { handleClaimOffer } from '../utils/promoHelper';
 import type { Advertisement } from '../types/models';
 
 /** Rotates through the active banner campaigns. */
@@ -92,6 +93,7 @@ export function AdvertisementBanner({
               href={targetUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => handleClaimOffer(ad)}
               className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 text-xs sm:text-sm font-black text-white shadow-[0_4px_20px_rgba(16,185,129,0.45)] transition-all hover:from-emerald-400 hover:to-emerald-500 hover:shadow-[0_6px_28px_rgba(16,185,129,0.65)] hover:scale-[1.02] active:scale-95"
             >
               <span>Claim Offer & Book</span>
@@ -100,6 +102,7 @@ export function AdvertisementBanner({
           ) : (
             <Link
               to={targetUrl}
+              onClick={() => handleClaimOffer(ad)}
               className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 text-xs sm:text-sm font-black text-white shadow-[0_4px_20px_rgba(16,185,129,0.45)] transition-all hover:from-emerald-400 hover:to-emerald-500 hover:shadow-[0_6px_28px_rgba(16,185,129,0.65)] hover:scale-[1.02] active:scale-95"
             >
               <span>Claim Offer & Book</span>

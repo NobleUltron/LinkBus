@@ -36,6 +36,7 @@ import {
   ZapIcon,
 } from 'lucide-react';
 import { TripSearchForm } from '../../components/booking/TripSearchForm';
+import { AdvertisementBanner } from '../../components/AdvertisementBanner';
 import { landingPathForRole, useAuth } from '../../contexts/AuthContext';
 import { HERO_IMAGE, homeFeatures, popularCorridors, testimonials } from '../../data/content';
 import { durationLabel, money } from '../../utils/format';
@@ -213,6 +214,13 @@ export function Home() {
               </div>
             ))}
           </dl>
+        </div>
+      </section>
+
+      {/* ── Active Promotional Campaign Banners ── */}
+      <section className="bg-surface border-b border-line py-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <AdvertisementBanner />
         </div>
       </section>
 

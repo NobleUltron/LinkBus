@@ -20,9 +20,6 @@ class TripController extends Controller
      */
     public function search(Request $request): JsonResponse
     {
-        self::ensureUpcomingTrips();
-        self::cleanupExpiredLocks();
-
         $request->validate([
             'origin_id'      => 'nullable|integer|exists:terminals,id',
             'destination_id' => 'nullable|integer|exists:terminals,id',
@@ -50,16 +47,16 @@ class TripController extends Controller
             $query->whereDate('departure_time', $request->date);
         } else {
             // Default: show trips from now onwards
-            $query->where('departure_time', '>=', now());
+            $query->where('departure_time', '>=', now()->subHours(2));
         }
 
-        $trips = $query->with('seats')->orderBy('departure_time', 'asc')->limit(50)->get();
+        $trips = $query->orderBy('departure_time', 'asc')->limit(50)->get();
 
         // If specific date had 0 results, fallback to any upcoming trips on the same route
         if ($trips->isEmpty() && $request->filled('origin_id') && $request->filled('destination_id')) {
             $trips = Trip::with(['route.originTerminal', 'route.destinationTerminal', 'bus', 'driver.user'])
                 ->whereIn('status', ['scheduled', 'boarding'])
-                ->where('departure_time', '>=', now())
+                ->where('departure_time', '>=', now()->subHours(2))
                 ->whereHas('route', function ($q) use ($request) {
                     $q->where('status', 'active')
                       ->whereHas('originTerminal', fn($t) => $t->where('status', 'active'))
@@ -67,15 +64,13 @@ class TripController extends Controller
                       ->where('origin_terminal_id', $request->origin_id)
                       ->where('destination_terminal_id', $request->destination_id);
                 })
-                ->where('departure_time', '>=', now()->subDay())
                 ->orderBy('departure_time', 'asc')
                 ->limit(20)
-                ->with('seats')
                 ->get();
         }
 
         return response()->json([
-            'trips' => $trips->map(fn($t) => $this->formatTrip($t, true)),
+            'trips' => $trips->map(fn($t) => $this->formatTrip($t, false)),
         ]);
     }
 

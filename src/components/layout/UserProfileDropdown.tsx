@@ -92,7 +92,7 @@ export function UserProfileDropdown() {
             <button type="button" role="menuitem" onClick={() => {
           setOpen(false);
           logout();
-          navigate('/login');
+          navigate('/login', { replace: true, state: null });
         }} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-red-600 transition-colors duration-150 hover:bg-red-500/10 dark:text-red-300">
               <LogOutIcon className="h-4 w-4" aria-hidden />
               Sign out

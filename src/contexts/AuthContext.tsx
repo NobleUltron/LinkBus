@@ -29,6 +29,21 @@ export function landingPathForRole(role: RoleSlug): string {
   if (role === 'driver') return '/driver';
   return '/passenger/dashboard';
 }
+
+export function getSafeRedirectPath(from: string | undefined | null, role: RoleSlug): string {
+  const defaultPath = landingPathForRole(role);
+  if (!from || from === '/login' || from === '/' || from === '/register') {
+    return defaultPath;
+  }
+
+  // Prevent cross-role redirect traps (e.g. driver redirected to passenger dashboard)
+  if (from.startsWith('/admin') && role !== 'admin') return defaultPath;
+  if (from.startsWith('/staff') && role !== 'staff' && role !== 'admin') return defaultPath;
+  if (from.startsWith('/driver') && role !== 'driver' && role !== 'admin') return defaultPath;
+  if (from.startsWith('/passenger') && role !== 'passenger' && role !== 'admin') return defaultPath;
+
+  return from;
+}
 export function AuthProvider({
   children
 

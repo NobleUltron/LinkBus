@@ -23,7 +23,7 @@ import { Button } from '../../components/ui/Button';
 import { Logo } from '../../components/ui/Brand';
 import { InlineError } from '../../components/ui/States';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
-import { landingPathForRole, useAuth } from '../../contexts/AuthContext';
+import { getSafeRedirectPath, landingPathForRole, useAuth } from '../../contexts/AuthContext';
 import { errorMessage } from '../../hooks/useAsync';
 import {
   demoAccounts,
@@ -122,7 +122,7 @@ export function Login() {
 
       completeSession(res.token, res.user);
       toast.success(`Welcome back, ${res.user.name}!`);
-      const targetPath = (from && from !== '/login' && from !== '/') ? from : landingPathForRole(res.user.role);
+      const targetPath = getSafeRedirectPath(from, res.user.role);
       navigate(targetPath, {
         replace: true,
       });
@@ -167,7 +167,7 @@ export function Login() {
 
         completeSession(res.token, res.user);
         toast.success(`Welcome back, ${res.user.name}!`);
-        navigate(from && from !== '/login' ? from : landingPathForRole(res.user.role), {
+        navigate(getSafeRedirectPath(from, res.user.role), {
           replace: true,
         });
       } catch (err) {
@@ -196,7 +196,7 @@ export function Login() {
 
       completeSession(res.token, res.user);
       toast.success(`Signed in with ${provider === 'google' ? 'Google' : 'Apple'}!`);
-      navigate(from && from !== '/login' ? from : landingPathForRole(res.user.role), {
+      navigate(getSafeRedirectPath(from, res.user.role), {
         replace: true,
       });
     } catch (err) {
@@ -221,7 +221,7 @@ export function Login() {
       const authRes = await verifyTwoFactor(challenge.challenge_token, cleanCode);
       completeSession(authRes.token, authRes.user);
       toast.success('Identity verified successfully!');
-      navigate(from && from !== '/login' ? from : landingPathForRole(authRes.user.role), {
+      navigate(getSafeRedirectPath(from, authRes.user.role), {
         replace: true,
       });
     } catch (err) {

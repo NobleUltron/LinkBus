@@ -73,7 +73,7 @@ export function App() {
                 <Route path="/register" element={<Register />} />
 
                 {/* Passenger portal */}
-                <Route element={<ProtectedRoute>
+                <Route element={<ProtectedRoute allowedRoles={['admin', 'passenger']}>
                       <PortalShell portal={passengerPortal} />
                     </ProtectedRoute>}>
                   <Route path="/passenger/dashboard" element={<PassengerDashboard />} />

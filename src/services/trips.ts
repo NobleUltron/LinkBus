@@ -39,6 +39,7 @@ interface ApiTrip {
     seat_class: 'standard' | 'vip';
     status: 'available' | 'locked' | 'booked';
     locked_by_me?: boolean;
+    lock_expires_at?: string;
   }>;
 }
 
@@ -122,6 +123,8 @@ function mapTrip(t: ApiTrip): TripDetail {
       seat_number: s.seat_number,
       seat_class: s.seat_class,
       status: s.status,
+      locked_by_me: Boolean(s.locked_by_me),
+      lock_expires_at: s.lock_expires_at ?? null,
     })),
   };
 }

@@ -291,7 +291,8 @@ class TripController extends Controller
 
     public function show(Trip $trip): JsonResponse
     {
-        $trip->load(['route.originTerminal', 'route.destinationTerminal', 'bus', 'driver.user', 'seats']);
+        self::cleanupExpiredLocks($trip->id);
+        $trip->load(['route.originTerminal', 'route.destinationTerminal', 'bus', 'driver.user', 'seats.seatLock']);
         return response()->json(['trip' => $this->formatTrip($trip, true)]);
     }
 
@@ -539,11 +540,15 @@ class TripController extends Controller
         ];
 
         if ($withSeats) {
+            $user = auth('sanctum')->user() ?? request()->user();
             $data['seats'] = $trip->seats?->map(fn($s) => [
-                'id'          => $s->id,
-                'seat_number' => $s->seat_number,
-                'seat_class'  => $s->seat_class,
-                'status'      => $s->status,
+                'id'              => $s->id,
+                'trip_id'         => $s->trip_id,
+                'seat_number'     => $s->seat_number,
+                'seat_class'      => $s->seat_class,
+                'status'          => $s->status,
+                'locked_by_me'    => (bool) ($s->seatLock && $user && $s->seatLock->user_id === $user->id && $s->seatLock->expires_at >= now()),
+                'lock_expires_at' => $s->seatLock?->expires_at?->toISOString(),
             ]);
         }
 

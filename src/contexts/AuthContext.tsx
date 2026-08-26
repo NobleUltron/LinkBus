@@ -2,6 +2,9 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { RoleSlug, User } from '../types/models';
 import { clearSession, fetchCurrentUser, login as loginRequest, logout as logoutRequest, persistSession, readStoredSession, register as registerRequest } from '../services/auth';
 import { registerUnauthorizedHandler } from '../services/session';
+
+/** Written synchronously on intentional logout so ProtectedRoute can suppress the `from` state. */
+export const INTENTIONAL_LOGOUT_KEY = 'lb_intentional_logout';
 interface AuthContextValue {
   user: User | null;
   token: string | null;
@@ -79,6 +82,9 @@ export function AuthProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const logout = useCallback(() => {
+    // Stamp the flag BEFORE clearing state so ProtectedRoute reads it on the next render
+    // and knows NOT to save `from` — distinguishing intentional logout from session expiry.
+    sessionStorage.setItem(INTENTIONAL_LOGOUT_KEY, '1');
     logoutRequest().catch(() => undefined);
     clearSession();
     setUser(null);

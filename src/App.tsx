@@ -47,9 +47,12 @@ import { TicketsScreen } from './pages/shared/TicketsScreen';
 import { CheckIn } from './pages/staff/CheckIn';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
 import { AdvertisementPopup } from './components/modals/AdvertisementPopup';
+import { ScrollToTop } from './components/layout/ScrollToTop';
+
 export function App() {
   return <ThemeProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <SettingsProvider>
             <NotificationProvider>

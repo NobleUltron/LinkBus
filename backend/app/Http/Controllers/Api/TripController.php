@@ -20,6 +20,9 @@ class TripController extends Controller
      */
     public function search(Request $request): JsonResponse
     {
+        self::ensureUpcomingTrips();
+        self::cleanupExpiredLocks();
+
         $request->validate([
             'origin_id'      => 'nullable|integer|exists:terminals,id',
             'destination_id' => 'nullable|integer|exists:terminals,id',
@@ -442,6 +445,89 @@ class TripController extends Controller
         }
 
         return response()->json(['trip' => $this->formatTrip($trip)]);
+    }
+
+    public static function ensureUpcomingTrips(): void
+    {
+        $upcomingCount = Trip::where('departure_time', '>=', now())
+            ->whereIn('status', ['scheduled', 'boarding'])
+            ->count();
+
+        if ($upcomingCount >= 30) {
+            return;
+        }
+
+        $routes = \App\Models\BusRoute::where('status', 'active')->get();
+        $buses = \App\Models\Bus::where('status', 'active')->get();
+        $drivers = \App\Models\Driver::where('status', 'active')->get();
+
+        if ($routes->isEmpty() || $buses->isEmpty() || $drivers->isEmpty()) {
+            return;
+        }
+
+        $schedules = [
+            ['hour' => 6,  'min' => 30],
+            ['hour' => 8,  'min' => 00],
+            ['hour' => 10, 'min' => 00],
+            ['hour' => 12, 'min' => 30],
+            ['hour' => 14, 'min' => 00],
+            ['hour' => 16, 'min' => 30],
+        ];
+
+        for ($day = 0; $day <= 7; $day++) {
+            $date = now()->addDays($day)->startOfDay();
+            foreach ($routes as $rIndex => $route) {
+                $sched = $schedules[$rIndex % count($schedules)];
+                $dep = $date->copy()->setTime($sched['hour'], $sched['min'], 0);
+                if ($dep->isPast()) {
+                    continue;
+                }
+                $arr = $dep->copy()->addMinutes($route->estimated_duration_minutes ?: 240);
+                $bus = $buses[$rIndex % $buses->count()];
+                $driver = $drivers[$rIndex % $drivers->count()];
+
+                $exists = Trip::where('route_id', $route->id)
+                    ->whereDate('departure_time', $dep->toDateString())
+                    ->whereTime('departure_time', $dep->toTimeString())
+                    ->exists();
+
+                if (!$exists) {
+                    $fare = $route->distance_km > 300 ? 35000 : ($route->distance_km > 150 ? 25000 : 20000);
+                    $trip = Trip::create([
+                        'route_id'        => $route->id,
+                        'bus_id'          => $bus->id,
+                        'driver_id'       => $driver->id,
+                        'departure_time'  => $dep,
+                        'arrival_time'    => $arr,
+                        'fare'            => $fare,
+                        'status'          => 'scheduled',
+                        'available_seats' => $bus->capacity,
+                    ]);
+
+                    $capacity = $bus->capacity;
+                    $seatClass = $bus->bus_type === 'vip' ? 'vip' : 'standard';
+                    $seats = [];
+                    $row = 1;
+                    $generated = 0;
+                    while ($generated < $capacity) {
+                        foreach (['A', 'B', 'C', 'D'] as $letter) {
+                            if ($generated >= $capacity) break;
+                            $seats[] = [
+                                'trip_id'     => $trip->id,
+                                'seat_number' => "{$row}{$letter}",
+                                'seat_class'  => $seatClass,
+                                'status'      => 'available',
+                                'created_at'  => now(),
+                                'updated_at'  => now(),
+                            ];
+                            $generated++;
+                        }
+                        $row++;
+                    }
+                    \App\Models\TripSeat::insert($seats);
+                }
+            }
+        }
     }
 
     public static function cleanupExpiredLocks(?int $tripId = null): void

@@ -11,6 +11,7 @@ import {
   PrinterIcon,
   RefreshCwIcon,
   SearchIcon,
+  SparklesIcon,
   TrendingUpIcon,
   UsersIcon,
   WalletIcon,
@@ -150,23 +151,61 @@ export function Reports() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (!data || !data.rows || data.rows.length === 0) {
+      toast.info('No corridor report rows to export.');
+      return;
+    }
+
+    const headers = [
+      'Corridor Name',
+      'Scheduled Departures',
+      'Total Passengers',
+      'Seat Load Factor (%)',
+      'Gross Revenue (UGX)',
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...data.rows.map((r) =>
+        [
+          `"${r.route}"`,
+          r.departures,
+          r.passengers,
+          r.occupancy,
+          r.revenue,
+        ].join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `LinkBus-CorridorReport-${applied.date_from}-to-${applied.date_to}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success('Corridor analytics ledger exported to CSV.');
+  };
+
   const columns: Column<ReportRow & { id: number }>[] = [
     {
       key: 'route',
       header: 'Corridor Name',
-      render: (row) => <span className="font-bold text-fg">{row.route}</span>,
+      render: (row) => <span className="font-extrabold text-fg text-sm">{row.route}</span>,
     },
     {
       key: 'departures',
       header: 'Departures',
       align: 'right',
-      render: (row) => <span className="tabular-nums text-fg">{row.departures}</span>,
+      render: (row) => <span className="tabular-nums font-bold text-fg">{row.departures}</span>,
     },
     {
       key: 'passengers',
       header: 'Passengers',
       align: 'right',
-      render: (row) => <span className="tabular-nums text-fg">{row.passengers}</span>,
+      render: (row) => <span className="tabular-nums font-bold text-fg">{row.passengers}</span>,
     },
     {
       key: 'occupancy',
@@ -190,7 +229,7 @@ export function Reports() {
                 style={{ width: `${Math.min(pct, 100)}%` }}
               />
             </div>
-            <span className={`tabular-nums font-bold text-xs ${colorClass.split(' ').slice(1).join(' ')}`}>
+            <span className={`tabular-nums font-black text-xs ${colorClass.split(' ').slice(1).join(' ')}`}>
               {pct}%
             </span>
           </div>
@@ -202,7 +241,7 @@ export function Reports() {
       header: 'Gross Revenue',
       align: 'right',
       render: (row) => (
-        <span className="font-extrabold tabular-nums text-fg">{money(row.revenue)}</span>
+        <span className="font-black tabular-nums text-fg text-sm">{money(row.revenue)}</span>
       ),
     },
   ];
@@ -246,24 +285,32 @@ export function Reports() {
       : 0;
 
   return (
-    <div className="space-y-5">
-      {/* ── Executive Header & Unified Date Filter Bar (Hidden in Print) ── */}
-      <div className="no-print print:hidden flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+    <div className="space-y-6">
+      {/* ── Executive Header & Unified Export Actions (Hidden in Print) ── */}
+      <div className="no-print print:hidden flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
-            Reports & Network Analytics
+            Reports &amp; Network Analytics
           </h1>
-          <p className="text-xs text-muted mt-1">
-            Revenue reconciliation, corridor load factors, and multi-channel payment settlements
+          <p className="mt-1 text-xs text-muted max-w-xl">
+            Multi-corridor revenue reconciliation, fleet seat load factor metrics, and multi-channel payment gateway settlement analytics.
           </p>
         </div>
 
         {/* Global Export & Print Actions */}
-        <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            icon={<FileTextIcon className="h-4 w-4" />}
+            disabled={!data || loading}
+            onClick={handleExportCSV}
+          >
+            Export CSV
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
             icon={<FileSpreadsheetIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
             disabled={!data || loading || isExporting}
             loading={isExporting}
@@ -273,7 +320,6 @@ export function Reports() {
           </Button>
           <Button
             variant="outline"
-            size="sm"
             icon={<PrinterIcon className="h-4 w-4 text-brand-600 dark:text-brand-400" />}
             disabled={!data || loading}
             onClick={() => window.print()}
@@ -370,7 +416,7 @@ export function Reports() {
       )}
 
       {!error && (
-        <div className="print-doc space-y-5">
+        <div className="print-doc space-y-6">
           {/* Printable Document Header (Visible ONLY when printing) */}
           <div className="hidden print:block mb-6 border-b-2 border-slate-900 pb-4">
             <div className="flex items-start justify-between">
@@ -383,7 +429,7 @@ export function Reports() {
                     LinkBus Services Ltd
                   </h1>
                   <p className="text-xs font-semibold text-slate-600">
-                    Executive Operational & Financial Ledger Report
+                    Executive Operational &amp; Financial Ledger Report
                   </p>
                 </div>
               </div>
@@ -414,7 +460,7 @@ export function Reports() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {/* Gross Revenue */}
-              <div className="card-surface relative overflow-hidden rounded-2xl border border-line p-4 sm:p-5 shadow-sm ring-1 ring-brand-600/20">
+              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover-lift transition-all ring-1 ring-brand-600/20">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted">
@@ -427,14 +473,14 @@ export function Reports() {
                       {applied.date_from} → {applied.date_to}
                     </p>
                   </div>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-600/20 shadow-inner">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-600/20 shadow-inner font-bold">
                     <WalletIcon className="h-5 w-5" />
                   </span>
                 </div>
               </div>
 
               {/* Bookings */}
-              <div className="card-surface rounded-2xl border border-line p-4 sm:p-5 shadow-sm">
+              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover-lift transition-all">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted">
@@ -450,14 +496,14 @@ export function Reports() {
                       · {data?.summary.cancellations ?? 0} refunded
                     </p>
                   </div>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-inner">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-inner font-bold">
                     <FileTextIcon className="h-5 w-5" />
                   </span>
                 </div>
               </div>
 
               {/* Passengers */}
-              <div className="card-surface rounded-2xl border border-line p-4 sm:p-5 shadow-sm">
+              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover-lift transition-all">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted">
@@ -473,14 +519,14 @@ export function Reports() {
                       avg fleet load factor
                     </p>
                   </div>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-inner">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-inner font-bold">
                     <UsersIcon className="h-5 w-5" />
                   </span>
                 </div>
               </div>
 
               {/* Average Fare */}
-              <div className="card-surface rounded-2xl border border-line p-4 sm:p-5 shadow-sm">
+              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover-lift transition-all">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted">
@@ -491,7 +537,7 @@ export function Reports() {
                     </p>
                     <p className="mt-1 text-xs text-muted">Per seat reservation</p>
                   </div>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-inner">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-inner font-bold">
                     <TrendingUpIcon className="h-5 w-5" />
                   </span>
                 </div>
@@ -884,7 +930,7 @@ export function Reports() {
           {/* Printable Signature & Audit Block (Visible ONLY in print) */}
           <div className="hidden print:flex items-end justify-between mt-10 pt-6 border-t-2 border-slate-300 text-xs text-slate-700">
             <div className="space-y-1">
-              <p className="font-bold text-slate-900">Prepared & Audited By:</p>
+              <p className="font-bold text-slate-900">Prepared &amp; Audited By:</p>
               <p>Sarah Nakato — Director of Transit Operations</p>
               <p className="text-[0.6875rem] text-slate-500">LinkBus Services Central Operations</p>
             </div>

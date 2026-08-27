@@ -6,14 +6,20 @@ import {
   CheckCircle2Icon,
   ClockIcon,
   CreditCardIcon,
+  DownloadIcon,
   EyeIcon,
+  FileSpreadsheetIcon,
   MessageSquareIcon,
   PhoneIcon,
   PrinterIcon,
   ReceiptTextIcon,
+  RotateCcwIcon,
   SmartphoneIcon,
+  SparklesIcon,
   TicketIcon,
+  TrendingUpIcon,
   UserCheckIcon,
+  XCircleIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable, type Column } from '../../components/data/DataTable';
@@ -159,6 +165,68 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
     toast.success(`WhatsApp reservation link generated for #${booking.booking_number}`);
   };
 
+  const handleExportCSV = () => {
+    const rows = state.rows || [];
+    if (rows.length === 0) {
+      toast.info('No booking records to export.');
+      return;
+    }
+
+    const headers = [
+      'Booking Ref',
+      'Created Date',
+      'Primary Passenger',
+      'Phone Number',
+      'Route Origin',
+      'Route Destination',
+      'Departure Time',
+      'Assigned Seats',
+      'Payment Method',
+      'Subtotal (UGX)',
+      'Discount (UGX)',
+      'Tax (UGX)',
+      'Total Amount (UGX)',
+      'Booking Status',
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((b) => {
+        const firstTicket = b.tickets[0];
+        const name = firstTicket?.passenger_name ?? b.passenger?.name ?? '';
+        const phone = firstTicket?.passenger_phone ?? b.passenger?.phone ?? '';
+        const seats = b.seats.map((s) => s.seat_number).join('; ');
+
+        return [
+          `"${b.booking_number}"`,
+          `"${formatDateTime(b.created_at)}"`,
+          `"${name.replace(/"/g, '""')}"`,
+          `"${phone}"`,
+          `"${b.trip?.origin?.city ?? ''}"`,
+          `"${b.trip?.destination?.city ?? ''}"`,
+          `"${b.trip?.departure_time ? formatDateTime(b.trip.departure_time) : ''}"`,
+          `"${seats}"`,
+          `"${b.payment_method}"`,
+          b.subtotal || 0,
+          b.discount_amount || 0,
+          b.tax_amount || 0,
+          b.total_amount || 0,
+          `"${b.status}"`,
+        ].join(',');
+      }),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `LinkBus-Bookings-${toDateInput(new Date())}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success('Bookings ledger exported to CSV.');
+  };
+
   const renderPaymentIcon = (method: PaymentMethod | string) => {
     switch (method) {
       case 'mtn_mobile_money':
@@ -179,10 +247,17 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
       header: 'Booking Ref & Date',
       render: (booking) => (
         <div className="py-1">
-          <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line shadow-sm">
-            <TicketIcon className="h-3 w-3 text-brand-600" />
-            #{booking.booking_number}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 font-mono text-xs font-black text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line shadow-2xs">
+              <TicketIcon className="h-3 w-3 text-brand-600" />
+              #{booking.booking_number}
+            </span>
+            {booking.linked_booking && (
+              <span className="inline-flex items-center rounded bg-purple-500/15 border border-purple-500/30 px-1 py-0.2 text-[0.625rem] font-bold text-purple-700 dark:text-purple-300">
+                Round Trip
+              </span>
+            )}
+          </div>
           <p className="text-[0.6875rem] text-muted font-mono mt-0.5">
             {formatDateTime(booking.created_at)}
           </p>
@@ -222,7 +297,7 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
       render: (booking) => (
         <div>
           <p className="font-bold text-fg text-xs">
-            {booking.trip?.origin?.city ?? '—'} ➔ {booking.trip?.destination?.city ?? '—'}
+            {booking.trip?.origin?.city ?? '—'} <span className="text-brand-600">➔</span> {booking.trip?.destination?.city ?? '—'}
           </p>
           <p className="text-[0.6875rem] text-muted flex items-center gap-1 mt-0.5">
             <CalendarClockIcon className="h-3 w-3 text-brand-600" />
@@ -243,7 +318,7 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
               seatsList.map((sn) => (
                 <span
                   key={sn}
-                  className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md bg-brand-600 px-1.5 font-mono text-xs font-bold text-white shadow-sm"
+                  className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md bg-brand-600 px-1.5 font-mono text-xs font-bold text-white shadow-2xs"
                 >
                   {sn}
                 </span>
@@ -257,7 +332,7 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
     },
     {
       key: 'payment',
-      header: 'Payment Method',
+      header: 'Payment Channel',
       hideBelow: 'sm',
       render: (booking) => (
         <div className="flex items-center gap-1.5 text-xs font-semibold text-fg">
@@ -276,9 +351,16 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
       header: 'Total Paid',
       align: 'right',
       render: (booking) => (
-        <span className="font-extrabold tabular-nums text-fg text-sm">
-          {money(booking.total_amount)}
-        </span>
+        <div>
+          <span className="font-extrabold tabular-nums text-fg text-sm block">
+            {money(booking.total_amount)}
+          </span>
+          {booking.discount_amount > 0 && (
+            <span className="text-[0.625rem] font-bold text-emerald-600 block">
+              −{money(booking.discount_amount)} voucher
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -292,7 +374,7 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
               type="button"
               onClick={() => setCashModalBooking(booking)}
               title="Collect cash payment & activate tickets"
-              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-2 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 transition-colors shadow-sm"
+              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-2 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 transition-colors shadow-2xs"
             >
               <BanknoteIcon className="h-3.5 w-3.5" />
               Collect Cash
@@ -317,14 +399,16 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
             <ReceiptTextIcon className="h-4 w-4" aria-hidden />
           </button>
 
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => open(booking)}
+            className="text-xs font-semibold"
+            icon={<EyeIcon className="h-3.5 w-3.5" />}
             title={`View booking #${booking.booking_number}`}
-            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-brand-600"
           >
-            <EyeIcon className="h-4 w-4" aria-hidden />
-          </button>
+            Manage
+          </Button>
         </div>
       ),
     },
@@ -355,14 +439,23 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
   return (
     <div className="space-y-6">
       {/* ── Page Header ── */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
-            Bookings &amp; Reservations
+            Bookings &amp; Passenger Reservations
           </h1>
-          <p className="text-xs text-muted">
-            Manage passenger reservations, payment receipts, status adjustments, and refund operations.
+          <p className="mt-1 text-xs text-muted max-w-xl">
+            Manage passenger reservations, collect POS counter cash, print official settlement receipts, manage seat allocations, and process cancellations &amp; refunds.
           </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="outline"
+            icon={<FileSpreadsheetIcon className="h-4 w-4" />}
+            onClick={handleExportCSV}
+          >
+            Export Bookings CSV
+          </Button>
         </div>
       </div>
 
@@ -435,56 +528,80 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
 
       {/* ── KPI Scorecards ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Total Bookings */}
         <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
               <ReceiptTextIcon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Total Bookings</span>
+            <span className="text-xs font-bold text-fg uppercase tracking-wider">
+              Total Bookings
+            </span>
           </div>
-          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
+          <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
             {metrics.totalCount.toLocaleString()}
           </p>
-          <p className="text-[0.6875rem] text-muted">All Registered Reservations</p>
+          <p className="text-[0.6875rem] text-muted">All registered reservations</p>
         </div>
 
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+        {/* Confirmed & Paid */}
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold">
               <CheckCircle2Icon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Confirmed &amp; Paid</span>
+            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider">
+              Confirmed &amp; Paid
+            </span>
           </div>
-          <p className="mt-2 font-extrabold text-xl text-emerald-600 dark:text-emerald-400 tabular-nums">
+          <p className="mt-2 font-extrabold text-2xl text-emerald-950 dark:text-emerald-100 tabular-nums">
             {metrics.confirmedCount.toLocaleString()}
           </p>
-          <p className="text-[0.6875rem] text-muted">Active Confirmed Journeys</p>
+          <p className="text-[0.6875rem] text-emerald-800 dark:text-emerald-300">Active confirmed passenger seats</p>
         </div>
 
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+        {/* Pending Payment */}
+        <div className={`rounded-2xl border p-4 shadow-sm hover-lift transition-all ${
+          metrics.pendingCount > 0 ? 'border-amber-500/30 bg-amber-500/10' : 'border-line bg-surface'
+        }`}>
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+              metrics.pendingCount > 0 ? 'bg-amber-600 text-white' : 'bg-slate-500/10 text-slate-500'
+            }`}>
               <ClockIcon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Pending Payment</span>
+            <span className={`text-xs font-bold ${
+              metrics.pendingCount > 0 ? 'text-amber-950 dark:text-amber-200 uppercase tracking-wider' : 'text-fg uppercase tracking-wider'
+            }`}>
+              Pending Payment
+            </span>
           </div>
-          <p className="mt-2 font-extrabold text-xl text-amber-600 dark:text-amber-400 tabular-nums">
+          <p className={`mt-2 font-extrabold text-2xl tabular-nums ${
+            metrics.pendingCount > 0 ? 'text-amber-950 dark:text-amber-100' : 'text-fg'
+          }`}>
             {metrics.pendingCount.toLocaleString()}
           </p>
-          <p className="text-[0.6875rem] text-muted">Awaiting Counter / MoMo Pay</p>
+          <p className={`text-[0.6875rem] ${
+            metrics.pendingCount > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-muted'
+          }`}>
+            Awaiting counter cash or MoMo push
+          </p>
         </div>
 
+        {/* Settled Revenue */}
         <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
               <BanknoteIcon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Settled Volume</span>
+            <span className="text-xs font-bold text-fg uppercase tracking-wider">
+              Settled Volume
+            </span>
           </div>
-          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
+          <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
             {money(metrics.settledVolume)}
           </p>
-          <p className="text-[0.6875rem] text-muted">Paid Booking Receipts</p>
+          <p className="text-[0.6875rem] text-muted">Paid booking receipts</p>
         </div>
       </div>
 
@@ -497,7 +614,7 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
           filters={[
             {
               key: 'status',
-              label: 'Any status',
+              label: 'All booking statuses',
               options: statusOptions,
             },
             {

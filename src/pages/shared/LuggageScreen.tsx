@@ -29,7 +29,7 @@ import { ShiftOpenModal } from '../../components/modals/ShiftOpenModal';
 import { useSettings } from '../../contexts/SettingsContext';
 import { errorMessage } from '../../hooks/useAsync';
 import { usePaginated } from '../../hooks/usePaginated';
-import { hasActiveShift } from '../../services/reconciliations';
+import { hasActiveShift, recordLuggageToActiveShift } from '../../services/reconciliations';
 import {
   createLuggage,
   deleteLuggage,
@@ -182,6 +182,10 @@ export function LuggageScreen({
         notes: addForm.notes,
       });
       if (excessFee > 0) {
+        recordLuggageToActiveShift({
+          amount: excessFee,
+          payment_method: addForm.payment_method || 'cash',
+        });
         toast.success(`Luggage Tag #${created.tag_number} issued. Excess fee of ${money(excessFee)} collected & added to Payments ledger.`);
       } else {
         toast.success(`Luggage Tag #${created.tag_number} issued (Within free allowance).`);

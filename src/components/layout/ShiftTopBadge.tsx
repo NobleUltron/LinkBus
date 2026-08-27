@@ -34,6 +34,19 @@ export function ShiftTopBadge() {
   const shift = activeShift.data;
   const isOpen = Boolean(shift && shift.status === 'open');
 
+  // Listen for real-time shift transactions and updates
+  useEffect(() => {
+    const handleUpdate = () => {
+      activeShift.reload();
+    };
+    window.addEventListener('shift_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('shift_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
   // Calculate live elapsed shift time
   useEffect(() => {
     if (!isOpen || !shift?.opened_at) {

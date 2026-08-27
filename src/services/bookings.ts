@@ -1,7 +1,7 @@
 import type { BookingDetail, Paginated, PromoValidation } from '../types/api';
 import type { Booking, BookingStatus, PaymentMethod } from '../types/models';
 import { api } from './api-client';
-import { hasActiveShift } from './reconciliations';
+import { hasActiveShift, recordBookingToActiveShift } from './reconciliations';
 
 export interface PassengerInput {
   seat_id: number;
@@ -259,7 +259,16 @@ export async function posBook(payload: {
     is_counter_sale: true,
   });
 
-  return mapBooking(data.booking);
+  const booked = mapBooking(data.booking);
+
+  // Automatically sync transaction into the active shift revenue ledger
+  recordBookingToActiveShift({
+    amount: payload.amount_paid || booked.total_amount,
+    payment_method: payload.payment_method,
+    ticket_count: payload.seat_ids.length,
+  });
+
+  return booked;
 }
 
 // ─── List & get bookings ──────────────────────────────────────────────────────

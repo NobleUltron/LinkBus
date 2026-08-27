@@ -112,6 +112,19 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
     state.reload();
   }, [applied.date_from, applied.date_to]);
 
+  React.useEffect(() => {
+    const handleUpdate = () => {
+      activeMetrics.reload();
+      state.reload();
+    };
+    window.addEventListener('shift_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('shift_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
   // Scorecards computation for audited ledger
   const ledgerMetrics = useMemo(() => {
     const rows = state.rows || [];

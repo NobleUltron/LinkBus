@@ -36,7 +36,7 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { ShiftOpenModal } from '../../components/modals/ShiftOpenModal';
 import { useAsync, errorMessage } from '../../hooks/useAsync';
 import { usePaginated } from '../../hooks/usePaginated';
-import { hasActiveShift } from '../../services/reconciliations';
+import { hasActiveShift, recordParcelToActiveShift } from '../../services/reconciliations';
 import {
   createParcel,
   deleteParcel,
@@ -240,6 +240,11 @@ export function ParcelsScreen() {
         status: 'received',
         description: addForm.description.trim(),
         notes: addForm.notes.trim(),
+      });
+
+      recordParcelToActiveShift({
+        amount: price,
+        payment_method: addForm.payment_method || 'cash',
       });
 
       toast.success(`Waybill #${created.tracking_number} issued. Freight of ${money(price)} collected & logged to Payments.`);

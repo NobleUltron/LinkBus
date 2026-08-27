@@ -629,5 +629,110 @@ export async function submitShiftCloseout(input: ShiftCloseoutInput): Promise<Sh
   items.unshift(record);
   localStorage.setItem(RECONCILIATIONS_KEY, JSON.stringify(items));
   localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify({ status: 'closed' }));
+  notifyShiftUpdated();
   return record;
+}
+
+export function notifyShiftUpdated() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('shift_updated'));
+  }
+}
+
+/**
+ * Increments the active shift metrics when a ticket booking is sold.
+ */
+export function recordBookingToActiveShift(params: {
+  amount: number;
+  payment_method: string;
+  ticket_count?: number;
+}): void {
+  const shift = getStoredActiveShift();
+  if (!shift || shift.status !== 'open') return;
+
+  const count = params.ticket_count || 1;
+  const amt = Number(params.amount) || 0;
+
+  if (params.payment_method === 'cash') {
+    shift.ticket_sales_cash = (shift.ticket_sales_cash || 0) + amt;
+    shift.system_expected_cash = (shift.system_expected_cash || 0) + amt;
+  } else if (params.payment_method === 'mtn_mobile_money') {
+    shift.ticket_sales_momo = (shift.ticket_sales_momo || 0) + amt;
+    shift.system_expected_momo = (shift.system_expected_momo || 0) + amt;
+  } else if (params.payment_method === 'airtel_money') {
+    shift.ticket_sales_airtel = (shift.ticket_sales_airtel || 0) + amt;
+    shift.system_expected_airtel = (shift.system_expected_airtel || 0) + amt;
+  } else if (params.payment_method === 'card') {
+    shift.ticket_sales_card = (shift.ticket_sales_card || 0) + amt;
+    shift.system_expected_card = (shift.system_expected_card || 0) + amt;
+  }
+
+  shift.ticket_sales_total = (shift.ticket_sales_total || 0) + amt;
+  shift.ticket_count = (shift.ticket_count || 0) + count;
+  shift.system_expected_total = (shift.system_expected_total || 0) + amt;
+
+  localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(shift));
+  notifyShiftUpdated();
+}
+
+/**
+ * Increments active shift metrics when excess luggage fees are collected.
+ */
+export function recordLuggageToActiveShift(params: {
+  amount: number;
+  payment_method: string;
+}): void {
+  const shift = getStoredActiveShift();
+  if (!shift || shift.status !== 'open') return;
+
+  const amt = Number(params.amount) || 0;
+
+  if (params.payment_method === 'cash') {
+    shift.luggage_fees_cash = (shift.luggage_fees_cash || 0) + amt;
+    shift.system_expected_cash = (shift.system_expected_cash || 0) + amt;
+  } else if (params.payment_method === 'mtn_mobile_money') {
+    shift.luggage_fees_momo = (shift.luggage_fees_momo || 0) + amt;
+    shift.system_expected_momo = (shift.system_expected_momo || 0) + amt;
+  } else if (params.payment_method === 'airtel_money') {
+    shift.luggage_fees_airtel = (shift.luggage_fees_airtel || 0) + amt;
+    shift.system_expected_airtel = (shift.system_expected_airtel || 0) + amt;
+  }
+
+  shift.luggage_fees_total = (shift.luggage_fees_total || 0) + amt;
+  shift.luggage_count = (shift.luggage_count || 0) + 1;
+  shift.system_expected_total = (shift.system_expected_total || 0) + amt;
+
+  localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(shift));
+  notifyShiftUpdated();
+}
+
+/**
+ * Increments active shift metrics when a parcel waybill is issued.
+ */
+export function recordParcelToActiveShift(params: {
+  amount: number;
+  payment_method: string;
+}): void {
+  const shift = getStoredActiveShift();
+  if (!shift || shift.status !== 'open') return;
+
+  const amt = Number(params.amount) || 0;
+
+  if (params.payment_method === 'cash') {
+    shift.parcel_fees_cash = (shift.parcel_fees_cash || 0) + amt;
+    shift.system_expected_cash = (shift.system_expected_cash || 0) + amt;
+  } else if (params.payment_method === 'mtn_mobile_money') {
+    shift.parcel_fees_momo = (shift.parcel_fees_momo || 0) + amt;
+    shift.system_expected_momo = (shift.system_expected_momo || 0) + amt;
+  } else if (params.payment_method === 'airtel_money') {
+    shift.parcel_fees_airtel = (shift.parcel_fees_airtel || 0) + amt;
+    shift.system_expected_airtel = (shift.system_expected_airtel || 0) + amt;
+  }
+
+  shift.parcel_fees_total = (shift.parcel_fees_total || 0) + amt;
+  shift.parcel_count = (shift.parcel_count || 0) + 1;
+  shift.system_expected_total = (shift.system_expected_total || 0) + amt;
+
+  localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(shift));
+  notifyShiftUpdated();
 }

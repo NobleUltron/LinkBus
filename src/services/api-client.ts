@@ -49,8 +49,13 @@ async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promis
   let url = endpoint.startsWith('http') ? endpoint : `${base}${endpoint}`;
 
   if (params) {
+    let effectiveParams = params;
+    if (effectiveParams && typeof effectiveParams === 'object' && 'params' in effectiveParams && typeof (effectiveParams as any).params === 'object') {
+      effectiveParams = (effectiveParams as any).params;
+    }
+
     const searchParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
+    Object.entries(effectiveParams).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         searchParams.set(key, String(value));
       }

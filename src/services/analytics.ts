@@ -299,7 +299,7 @@ export async function listPayments(query: {
         per_page: number;
         total: number;
       };
-    }>('/admin/payments', { params });
+    }>('/admin/payments', params);
 
     return {
       data: res.data ?? [],

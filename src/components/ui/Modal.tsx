@@ -10,7 +10,7 @@ interface ModalProps {
   subtitle?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   bodyClassName?: string;
 }
 
@@ -19,6 +19,7 @@ const widths = {
   md: 'max-w-xl',
   lg: 'max-w-3xl',
   xl: 'max-w-5xl',
+  '2xl': 'max-w-7xl',
 };
 
 export function Modal({
@@ -95,7 +96,7 @@ export function Modal({
               ease: [0.23, 1, 0.32, 1],
             }}
           >
-            <header data-modal-header="true" className="flex items-center justify-between gap-4 border-b border-line px-5 py-3.5 bg-surface rounded-t-2xl">
+            <header data-modal-header="true" className="flex items-center justify-between gap-4 border-b border-line px-4 sm:px-5 py-3 sm:py-3.5 bg-surface rounded-t-2xl sm:rounded-t-2xl shrink-0">
               <div className="min-w-0">
                 <h2 className="truncate text-[0.9375rem] font-semibold leading-6 text-fg">
                   {title}
@@ -110,7 +111,7 @@ export function Modal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="-mr-1.5 shrink-0 rounded-lg p-1.5 text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg"
+                className="-mr-1.5 shrink-0 flex h-9 w-9 items-center justify-center rounded-xl text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg active:scale-95"
               >
                 <XIcon className="h-4.5 w-4.5" aria-hidden />
               </button>
@@ -121,7 +122,7 @@ export function Modal({
             </div>
 
             {footer && (
-              <footer data-modal-footer="true" className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3.5 bg-surface rounded-b-2xl">
+              <footer data-modal-footer="true" className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-4 sm:px-5 py-3 sm:py-3.5 bg-surface rounded-b-none sm:rounded-b-2xl pb-[max(env(safe-area-inset-bottom),0.75rem)] shrink-0">
                 {footer}
               </footer>
             )}

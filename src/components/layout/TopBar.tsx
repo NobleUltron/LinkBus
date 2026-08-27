@@ -15,13 +15,13 @@ export function TopBar({
   onOpenMenu,
   onOpenCommandPalette
 }: TopBarProps) {
-  return <header className="portal-top-bar flex h-16 items-center gap-2.5 px-4 sm:px-6">
-      <button type="button" onClick={onOpenMenu} aria-label="Open navigation" className="flex h-9 w-9 items-center justify-center rounded-xl border border-line text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg lg:hidden">
+  return <header className="portal-top-bar flex h-16 items-center gap-1.5 sm:gap-2.5 px-3 sm:px-6">
+      <button type="button" onClick={onOpenMenu} aria-label="Open navigation" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-line text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg active:scale-95 lg:hidden">
         <MenuIcon className="h-4 w-4" aria-hidden />
       </button>
 
-      <div className="min-w-0 flex-1">
-        <h1 className="truncate text-[0.9375rem] font-semibold leading-6 text-fg sm:text-[1.0625rem]">{title}</h1>
+      <div className="min-w-0 flex-1 px-1">
+        <h1 className="truncate text-sm sm:text-base font-bold leading-6 text-fg">{title}</h1>
         {subtitle && <p className="hidden truncate text-xs leading-4 text-muted sm:block">{subtitle}</p>}
       </div>
 

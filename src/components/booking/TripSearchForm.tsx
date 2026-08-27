@@ -71,9 +71,20 @@ export function TripSearchForm({ initial, variant = 'panel', onSubmitted }: Trip
       }`}
     >
       <div className="min-w-0">
-        <label htmlFor="search-origin" className={`mb-1.5 block text-xs font-semibold ${labelTone}`}>
-          From
-        </label>
+        <div className="mb-1.5 flex items-center justify-between">
+          <label htmlFor="search-origin" className={`block text-xs font-semibold ${labelTone}`}>
+            From
+          </label>
+          <button
+            type="button"
+            onClick={swap}
+            aria-label="Swap route origin and destination"
+            className="inline-flex items-center gap-1 text-[0.6875rem] font-bold text-brand-600 dark:text-brand-400 hover:underline lg:hidden"
+          >
+            <ArrowLeftRightIcon className="h-3 w-3" aria-hidden />
+            Swap
+          </button>
+        </div>
         <IconSelect
           id="search-origin"
           className="w-full"
@@ -91,7 +102,7 @@ export function TripSearchForm({ initial, variant = 'panel', onSubmitted }: Trip
           onClick={swap}
           aria-label="Swap origin and destination"
           title="Swap origin and destination"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-surface text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-surface text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg active:scale-95"
         >
           <ArrowLeftRightIcon className="h-4 w-4" aria-hidden />
         </button>

@@ -241,12 +241,17 @@ export function DriverTripDetail() {
       align: 'right',
       render: (ticket) => (
         <Button
-          variant={ticket.status === 'used' ? 'ghost' : 'outline'}
+          variant={ticket.status === 'used' ? 'ghost' : ticket.status === 'active' ? 'primary' : 'outline'}
           size="sm"
           disabled={ticket.status !== 'active'}
           loading={boardingId === ticket.id}
           icon={ticket.status === 'active' ? <UserCheckIcon className="h-3.5 w-3.5" /> : undefined}
           onClick={() => board(ticket)}
+          className={
+            ticket.status === 'active'
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold min-h-[36px] px-3.5 active:scale-95 shadow-sm'
+              : 'min-h-[36px]'
+          }
         >
           {ticket.status === 'used' ? 'Boarded' : ticket.status === 'cancelled' ? 'Voided' : 'Check In'}
         </Button>

@@ -79,12 +79,12 @@ export function PublicLayout() {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             <ThemeToggle />
             {isAuthenticated && user ? (
               <Link
                 to={landingPathForRole(user.role)}
-                className="inline-flex h-9 items-center rounded-xl bg-brand-600 px-3.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-brand-700"
+                className="inline-flex h-9 items-center rounded-xl bg-brand-600 px-2.5 sm:px-3.5 text-xs sm:text-sm font-semibold text-white transition-colors duration-150 hover:bg-brand-700 active:scale-95"
               >
                 My portal
               </Link>
@@ -92,15 +92,16 @@ export function PublicLayout() {
               <>
                 <Link
                   to="/login"
-                  className="hidden h-9 items-center rounded-xl border border-line px-3.5 text-sm font-semibold text-fg transition-colors duration-150 hover:bg-surface-2 sm:inline-flex"
+                  className="hidden h-9 items-center rounded-xl border border-line px-3 text-xs sm:text-sm font-semibold text-fg transition-colors duration-150 hover:bg-surface-2 sm:inline-flex"
                 >
                   Sign in
                 </Link>
                 <Link
                   to="/register"
-                  className="inline-flex h-9 items-center rounded-xl bg-brand-600 px-3.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-brand-700"
+                  className="inline-flex h-9 items-center rounded-xl bg-brand-600 px-2.5 sm:px-3.5 text-xs sm:text-sm font-semibold text-white transition-colors duration-150 hover:bg-brand-700 active:scale-95 whitespace-nowrap"
                 >
-                  Create account
+                  <span className="hidden sm:inline">Create account</span>
+                  <span className="sm:hidden">Sign up</span>
                 </Link>
               </>
             )}
@@ -109,7 +110,7 @@ export function PublicLayout() {
               onClick={() => setOpen((value) => !value)}
               aria-label={open ? 'Close menu' : 'Open menu'}
               aria-expanded={open}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-line text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg lg:hidden"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-line text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg lg:hidden active:scale-95"
             >
               {open ? <XIcon className="h-4 w-4" aria-hidden /> : <MenuIcon className="h-4 w-4" aria-hidden />}
             </button>
@@ -117,21 +118,41 @@ export function PublicLayout() {
         </div>
 
         {open && (
-          <nav aria-label="Mobile" className="border-t border-line px-4 pb-3 pt-2 lg:hidden">
+          <nav aria-label="Mobile Navigation" className="border-t border-line px-4 pb-4 pt-2 lg:hidden space-y-1 bg-surface/98 backdrop-blur-md">
             {links.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
-                    isActive ? 'bg-surface-2 text-fg' : 'text-muted hover:bg-surface-2 hover:text-fg'
+                  `flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 ${
+                    isActive ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400 font-bold' : 'text-muted hover:bg-surface-2 hover:text-fg'
                   }`
                 }
               >
-                {link.label}
+                <span>{link.label}</span>
+                <ArrowRightIcon className="h-3.5 w-3.5 opacity-40" />
               </NavLink>
             ))}
+
+            {!isAuthenticated && (
+              <div className="pt-2 border-t border-line mt-2 grid grid-cols-2 gap-2">
+                <Link
+                  to="/login"
+                  onClick={() => setOpen(false)}
+                  className="flex h-10 items-center justify-center rounded-xl border border-line bg-surface text-xs font-bold text-fg hover:bg-surface-2"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setOpen(false)}
+                  className="flex h-10 items-center justify-center rounded-xl bg-brand-600 text-xs font-bold text-white hover:bg-brand-700"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
           </nav>
         )}
       </header>

@@ -37,13 +37,13 @@ export function Toolbar({
   children,
 }: ToolbarProps) {
   return (
-    <div className="thin-scroll flex flex-wrap items-center gap-3 overflow-x-auto border-b border-line px-5 py-3.5 sm:flex-nowrap">
+    <div className="thin-scroll flex flex-wrap items-center gap-2.5 sm:gap-3 overflow-x-auto border-b border-line px-4 sm:px-5 py-3 sm:py-3.5 sm:flex-nowrap">
       <SearchInput
         value={search}
         onChange={onSearch}
         placeholder={searchPlaceholder}
         loading={searching}
-        className={FIELD_WIDTH.search}
+        className="w-full sm:w-64 min-w-[150px]"
       />
 
       {filters.length > 0 &&

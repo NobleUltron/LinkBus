@@ -1,27 +1,40 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ArrowRightIcon,
   CheckCircle2Icon,
   ClockIcon,
-  ExternalLinkIcon,
+  DollarSignIcon,
+  FileSpreadsheetIcon,
   MapPinIcon,
   PackageCheckIcon,
   PackageIcon,
+  PencilIcon,
   PhoneIcon,
+  PlusIcon,
   PrinterIcon,
   ScaleIcon,
+  SearchIcon,
+  ShieldCheckIcon,
+  Trash2Icon,
+  TrendingUpIcon,
   TruckIcon,
   UserIcon,
 } from 'lucide-react';
-import { ResourceScreen } from '../../components/data/ResourceScreen';
-import type { Column } from '../../components/data/DataTable';
-import type { FieldConfig, FieldValue } from '../../components/data/ResourceModal';
+import { toast } from 'sonner';
+import { DataTable, type Column } from '../../components/data/DataTable';
+import { Pagination } from '../../components/data/Pagination';
+import { Toolbar } from '../../components/data/Toolbar';
 import { ParcelTagModal } from '../../components/modals/ParcelTagModal';
 import { Button } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { DateInput } from '../../components/ui/Inputs';
+import { SelectField, TextAreaField, TextField } from '../../components/ui/Field';
+import { Modal } from '../../components/ui/Modal';
 import { Panel } from '../../components/ui/Panel';
-import { ErrorState, SkeletonTable } from '../../components/ui/States';
+import { EmptyState, ErrorState, SkeletonTable } from '../../components/ui/States';
 import { StatusPill } from '../../components/ui/StatusPill';
-import { useAsync } from '../../hooks/useAsync';
+import { useAsync, errorMessage } from '../../hooks/useAsync';
+import { usePaginated } from '../../hooks/usePaginated';
 import {
   createParcel,
   deleteParcel,
@@ -30,43 +43,358 @@ import {
   type ParcelDetail,
 } from '../../services/operations';
 import { getActiveTerminals } from '../../services/trips';
-import { formatDate, money } from '../../utils/format';
+import { formatDateTime, money, toDateInput } from '../../utils/format';
+
+const presets = [
+  { label: 'Today', days: 1 },
+  { label: '7 days', days: 7 },
+  { label: '30 days', days: 30 },
+  { label: '90 days', days: 90 },
+];
+
+function shiftDays(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - (days - 1));
+  return toDateInput(date);
+}
 
 const statusOptions = [
   { value: 'received', label: 'Received at Station Desk' },
   { value: 'in_transit', label: 'In Coach Cargo Bay' },
-  { value: 'arrived', label: 'Arrived at Destination Station' },
+  { value: 'arrived', label: 'Arrived at Destination Hub' },
   { value: 'delivered', label: 'Collected by Recipient' },
   { value: 'lost', label: 'Reported Lost / Damaged' },
 ];
 
 export function ParcelsScreen() {
   const [selectedTag, setSelectedTag] = useState<ParcelDetail | null>(null);
+  const [deleting, setDeleting] = useState<ParcelDetail | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
+
+  // Add Parcel State
+  const [addOpen, setAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({
+    sender_name: '',
+    sender_phone: '',
+    recipient_name: '',
+    recipient_phone: '',
+    origin_terminal_id: '',
+    destination_terminal_id: '',
+    weight_kg: '5.0',
+    price: '15000',
+    payment_method: 'cash',
+    description: '',
+    notes: '',
+  });
+  const [addErrors, setAddErrors] = useState<Record<string, string>>({});
+  const [adding, setAdding] = useState(false);
+
+  // Edit Parcel State
+  const [editingItem, setEditingItem] = useState<ParcelDetail | null>(null);
+  const [editForm, setEditForm] = useState({
+    sender_name: '',
+    sender_phone: '',
+    recipient_name: '',
+    recipient_phone: '',
+    origin_terminal_id: '',
+    destination_terminal_id: '',
+    weight_kg: '',
+    price: '',
+    status: 'received' as ParcelDetail['status'],
+    description: '',
+    notes: '',
+  });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [editPending, setEditPending] = useState(false);
+
+  // Terminal Reference Data
   const terminals = useAsync(() => getActiveTerminals(), []);
 
-  if (terminals.loading) {
-    return (
-      <Panel bodyClassName="">
-        <SkeletonTable rows={8} columns={6} />
-      </Panel>
-    );
-  }
+  // Date Range State
+  const [range, setRange] = useState({
+    date_from: shiftDays(30),
+    date_to: toDateInput(new Date()),
+  });
+  const [applied, setApplied] = useState(range);
 
-  if (terminals.error || !terminals.data) {
-    return (
-      <Panel>
-        <ErrorState
-          message={terminals.error ?? 'Terminals could not be loaded.'}
-          onRetry={terminals.reload}
-        />
-      </Panel>
-    );
-  }
+  // Paginated Parcels State
+  const state = usePaginated<ParcelDetail>(({ page, perPage, search, filters }) =>
+    listParcels({
+      page,
+      perPage,
+      search,
+      status: filters.status,
+      date_from: applied.date_from,
+      date_to: applied.date_to,
+    })
+  );
 
-  const terminalOptions = terminals.data.map((terminal) => ({
-    value: String(terminal.id),
-    label: `${terminal.city} — ${terminal.name}`,
-  }));
+  React.useEffect(() => {
+    state.reload();
+  }, [applied.date_from, applied.date_to]);
+
+  const terminalOptions = useMemo(() => {
+    if (!terminals.data) return [];
+    return terminals.data.map((t) => ({
+      value: String(t.id),
+      label: `${t.city} — ${t.name}`,
+    }));
+  }, [terminals.data]);
+
+  // Set default terminals when data loads
+  React.useEffect(() => {
+    if (terminalOptions.length >= 2 && !addForm.origin_terminal_id) {
+      setAddForm((prev) => ({
+        ...prev,
+        origin_terminal_id: terminalOptions[0]?.value || '',
+        destination_terminal_id: terminalOptions[1]?.value || '',
+      }));
+    }
+  }, [terminalOptions]);
+
+  // Operational & Financial Metrics
+  const metrics = useMemo(() => {
+    const rows = state.rows;
+    const totalVolume = rows.reduce((acc, r) => acc + (r.price || 0), 0);
+    const receivedCount = rows.filter((r) => r.status === 'received').length;
+    const inTransitCount = rows.filter((r) => r.status === 'in_transit' || r.status === 'arrived').length;
+    const deliveredCount = rows.filter((r) => r.status === 'delivered').length;
+
+    return {
+      totalVolume,
+      totalCount: state.meta.total || rows.length,
+      receivedCount,
+      inTransitCount,
+      deliveredCount,
+    };
+  }, [state.rows, state.meta.total]);
+
+  // Auto calculate freight price based on weight
+  const handleWeightChange = (rawWeight: string, isEdit = false) => {
+    const num = parseFloat(rawWeight);
+    const calculatedFee = !isNaN(num) && num > 0 ? Math.max(10000, Math.round(num * 2500)) : 10000;
+
+    if (isEdit) {
+      setEditForm((prev) => ({
+        ...prev,
+        weight_kg: rawWeight,
+        price: String(calculatedFee),
+      }));
+    } else {
+      setAddForm((prev) => ({
+        ...prev,
+        weight_kg: rawWeight,
+        price: String(calculatedFee),
+      }));
+    }
+  };
+
+  const submitAddParcel = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const errors: Record<string, string> = {};
+    if (!addForm.sender_name.trim()) errors.sender_name = 'Sender name is required.';
+    if (!addForm.sender_phone.trim()) errors.sender_phone = 'Sender phone number is required.';
+    if (!addForm.recipient_name.trim()) errors.recipient_name = 'Recipient name is required.';
+    if (!addForm.recipient_phone.trim()) errors.recipient_phone = 'Recipient phone is required.';
+    if (!addForm.origin_terminal_id) errors.origin_terminal_id = 'Select origin station.';
+    if (!addForm.destination_terminal_id) errors.destination_terminal_id = 'Select destination hub.';
+    if (addForm.origin_terminal_id === addForm.destination_terminal_id) {
+      errors.destination_terminal_id = 'Origin and destination hubs must be different.';
+    }
+    const weight = parseFloat(addForm.weight_kg);
+    if (!addForm.weight_kg || isNaN(weight) || weight <= 0) {
+      errors.weight_kg = 'Enter valid scale weight.';
+    }
+    const price = parseFloat(addForm.price);
+    if (!addForm.price || isNaN(price) || price <= 0) {
+      errors.price = 'Enter valid freight price.';
+    }
+    if (!addForm.description.trim()) {
+      errors.description = 'Describe parcel contents and packaging.';
+    }
+
+    setAddErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setAdding(true);
+    try {
+      const created = await createParcel({
+        sender_name: addForm.sender_name.trim(),
+        sender_phone: addForm.sender_phone.trim(),
+        recipient_name: addForm.recipient_name.trim(),
+        recipient_phone: addForm.recipient_phone.trim(),
+        origin_terminal_id: Number(addForm.origin_terminal_id),
+        destination_terminal_id: Number(addForm.destination_terminal_id),
+        weight_kg: weight,
+        price: price,
+        status: 'received',
+        description: addForm.description.trim(),
+        notes: addForm.notes.trim(),
+      });
+
+      toast.success(`Waybill #${created.tracking_number} issued. Freight of ${money(price)} collected & logged to Payments.`);
+      setAddOpen(false);
+      setAddForm({
+        sender_name: '',
+        sender_phone: '',
+        recipient_name: '',
+        recipient_phone: '',
+        origin_terminal_id: terminalOptions[0]?.value || '',
+        destination_terminal_id: terminalOptions[1]?.value || '',
+        weight_kg: '5.0',
+        price: '15000',
+        payment_method: 'cash',
+        description: '',
+        notes: '',
+      });
+      setSelectedTag(created);
+      state.reload();
+    } catch (error) {
+      setAddErrors({ description: errorMessage(error) });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const openEditModal = (parcel: ParcelDetail) => {
+    setEditingItem(parcel);
+    setEditForm({
+      sender_name: parcel.sender_name,
+      sender_phone: parcel.sender_phone,
+      recipient_name: parcel.recipient_name,
+      recipient_phone: parcel.recipient_phone,
+      origin_terminal_id: String(parcel.origin_terminal_id),
+      destination_terminal_id: String(parcel.destination_terminal_id),
+      weight_kg: String(parcel.weight_kg),
+      price: String(parcel.price),
+      status: parcel.status,
+      description: parcel.description,
+      notes: parcel.notes || '',
+    });
+    setEditErrors({});
+  };
+
+  const submitEditParcel = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingItem) return;
+    const errors: Record<string, string> = {};
+    if (!editForm.sender_name.trim()) errors.sender_name = 'Sender name is required.';
+    if (!editForm.recipient_name.trim()) errors.recipient_name = 'Recipient name is required.';
+    const weight = parseFloat(editForm.weight_kg);
+    if (!editForm.weight_kg || isNaN(weight) || weight <= 0) errors.weight_kg = 'Valid weight required.';
+    const price = parseFloat(editForm.price);
+    if (!editForm.price || isNaN(price) || price <= 0) errors.price = 'Valid price required.';
+    if (!editForm.description.trim()) errors.description = 'Description is required.';
+
+    setEditErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setEditPending(true);
+    try {
+      await updateParcel(editingItem.id, {
+        sender_name: editForm.sender_name.trim(),
+        sender_phone: editForm.sender_phone.trim(),
+        recipient_name: editForm.recipient_name.trim(),
+        recipient_phone: editForm.recipient_phone.trim(),
+        origin_terminal_id: Number(editForm.origin_terminal_id),
+        destination_terminal_id: Number(editForm.destination_terminal_id),
+        weight_kg: weight,
+        price: price,
+        status: editForm.status,
+        description: editForm.description.trim(),
+        notes: editForm.notes.trim(),
+      });
+      toast.success(`Waybill #${editingItem.tracking_number} updated successfully.`);
+      setEditingItem(null);
+      state.reload();
+    } catch (error) {
+      setEditErrors({ description: errorMessage(error) });
+    } finally {
+      setEditPending(false);
+    }
+  };
+
+  const handleQuickStatusChange = async (parcel: ParcelDetail, nextStatus: ParcelDetail['status']) => {
+    try {
+      await updateParcel(parcel.id, {
+        sender_name: parcel.sender_name,
+        sender_phone: parcel.sender_phone,
+        recipient_name: parcel.recipient_name,
+        recipient_phone: parcel.recipient_phone,
+        origin_terminal_id: parcel.origin_terminal_id,
+        destination_terminal_id: parcel.destination_terminal_id,
+        weight_kg: parcel.weight_kg,
+        price: parcel.price,
+        description: parcel.description,
+        notes: parcel.notes || '',
+        status: nextStatus,
+      });
+      toast.success(`Waybill #${parcel.tracking_number} status updated to ${nextStatus.toUpperCase()}`);
+      state.reload();
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDeletePending(true);
+    try {
+      await deleteParcel(deleting.id);
+      toast.success(`Waybill #${deleting.tracking_number} removed.`);
+      setDeleting(null);
+      state.reload();
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setDeletePending(false);
+    }
+  };
+
+  const handleExportCsv = () => {
+    if (!state.rows.length) {
+      toast.error('No parcel shipments to export');
+      return;
+    }
+    const headers = [
+      'Waybill Tracking #',
+      'Origin Station',
+      'Destination Hub',
+      'Sender Name',
+      'Sender Phone',
+      'Recipient Name',
+      'Recipient Phone',
+      'Weight (kg)',
+      'Freight Fee (UGX)',
+      'Status',
+      'Accepted Date',
+    ];
+
+    const csvRows = state.rows.map((p) => [
+      `"${p.tracking_number}"`,
+      `"${p.origin_city}"`,
+      `"${p.destination_city}"`,
+      `"${p.sender_name}"`,
+      `"${p.sender_phone}"`,
+      `"${p.recipient_name}"`,
+      `"${p.recipient_phone}"`,
+      p.weight_kg,
+      p.price,
+      `"${p.status}"`,
+      `"${p.created_at}"`,
+    ]);
+
+    const csvContent = [headers.join(','), ...csvRows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `linkbus_freight_manifest_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Parcel manifest exported to CSV');
+  };
 
   const columns: Column<ParcelDetail>[] = [
     {
@@ -79,7 +407,7 @@ export function ParcelsScreen() {
             {parcel.tracking_number}
           </span>
           <p className="text-[0.6875rem] text-muted mt-0.5">
-            Accepted {formatDate(parcel.created_at)}
+            {formatDateTime(parcel.created_at)}
           </p>
         </div>
       ),
@@ -117,299 +445,636 @@ export function ParcelsScreen() {
     },
     {
       key: 'recipient',
-      header: 'Recipient Details',
+      header: 'Recipient & PIN',
       hideBelow: 'md',
       render: (parcel) => (
         <div>
           <p className="font-bold text-fg text-xs">{parcel.recipient_name}</p>
-          <a
-            href={`tel:${parcel.recipient_phone}`}
-            className="inline-flex items-center gap-1 font-mono text-[0.6875rem] text-brand-600 dark:text-brand-400 hover:underline"
-          >
-            <PhoneIcon className="h-2.5 w-2.5" />
-            {parcel.recipient_phone}
-          </a>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <a
+              href={`tel:${parcel.recipient_phone}`}
+              className="inline-flex items-center gap-1 font-mono text-[0.6875rem] text-brand-600 dark:text-brand-400 hover:underline"
+            >
+              <PhoneIcon className="h-2.5 w-2.5" />
+              {parcel.recipient_phone}
+            </a>
+            <span className="rounded bg-emerald-500/10 border border-emerald-500/30 px-1 py-0.2 text-[0.5625rem] font-bold text-emerald-800 dark:text-emerald-300">
+              SMS PIN
+            </span>
+          </div>
         </div>
       ),
     },
     {
       key: 'weight',
-      header: 'Weight',
+      header: 'Scale Weight',
       align: 'right',
       hideBelow: 'sm',
       render: (parcel) => (
-        <span className="tabular-nums font-bold text-fg text-xs">
+        <span className="tabular-nums font-extrabold text-fg text-xs">
           {parcel.weight_kg} kg
         </span>
       ),
-    },
-    {
-      key: 'status',
-      header: 'Tracking Status',
-      render: (parcel) => <StatusPill status={parcel.status} />,
     },
     {
       key: 'price',
       header: 'Freight Fee',
       align: 'right',
       render: (parcel) => (
-        <span className="font-extrabold tabular-nums text-fg text-xs">
-          {money(parcel.price)}
-        </span>
+        <div className="text-right">
+          <span className="font-extrabold tabular-nums text-fg text-sm">
+            {money(parcel.price)}
+          </span>
+          <span className="block text-[0.625rem] font-bold text-emerald-600 dark:text-emerald-400">
+            ✓ Paid
+          </span>
+        </div>
       ),
+    },
+    {
+      key: 'status',
+      header: 'Delivery Status',
+      render: (parcel) => <StatusPill status={parcel.status} />,
     },
     {
       key: 'actions',
       header: '',
       align: 'right',
       render: (parcel) => (
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-xs"
-          icon={<PrinterIcon className="h-3.5 w-3.5" />}
-          onClick={() => setSelectedTag(parcel)}
-        >
-          Tag Slip
-        </Button>
+        <div className="flex items-center justify-end gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            icon={<PrinterIcon className="h-3.5 w-3.5" />}
+            onClick={() => setSelectedTag(parcel)}
+          >
+            Tag Slip
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            icon={<PencilIcon className="h-3.5 w-3.5" />}
+            onClick={() => openEditModal(parcel)}
+          >
+            Edit
+          </Button>
+
+          <select
+            aria-label={`Status for ${parcel.tracking_number}`}
+            value={parcel.status}
+            onChange={(event) =>
+              handleQuickStatusChange(parcel, event.target.value as ParcelDetail['status'])
+            }
+            className="field !h-8 w-auto text-xs font-semibold"
+          >
+            {statusOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={() => setDeleting(parcel)}
+            aria-label={`Remove ${parcel.tracking_number}`}
+            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-red-500/15 hover:text-red-600"
+          >
+            <Trash2Icon className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
       ),
     },
   ];
 
-  const fields: FieldConfig[] = [
-    {
-      name: 'sender_name',
-      label: 'Sender Full Name',
-      required: true,
-      placeholder: 'e.g. Samuel Kigozi',
-    },
-    {
-      name: 'sender_phone',
-      label: 'Sender Phone Number',
-      type: 'tel',
-      required: true,
-      placeholder: '0772 123456',
-    },
-    {
-      name: 'recipient_name',
-      label: 'Recipient Full Name',
-      required: true,
-      placeholder: 'e.g. Agnes Atuhaire',
-    },
-    {
-      name: 'recipient_phone',
-      label: 'Recipient Phone Number (SMS Notification)',
-      type: 'tel',
-      required: true,
-      placeholder: '0701 987654',
-      hint: 'Recipient receives an automated SMS with pickup PIN once parcel arrives at destination station.',
-    },
-    {
-      name: 'origin_terminal_id',
-      label: 'Origin Acceptance Station',
-      type: 'select',
-      options: terminalOptions,
-      required: true,
-    },
-    {
-      name: 'destination_terminal_id',
-      label: 'Destination Station (Pickup Hub)',
-      type: 'select',
-      options: terminalOptions,
-      required: true,
-    },
-    {
-      name: 'weight_kg',
-      label: 'Package Weight (kg)',
-      type: 'number',
-      step: '0.1',
-      min: 0,
-      required: true,
-      placeholder: 'e.g. 5.5',
-    },
-    {
-      name: 'price',
-      label: 'Freight Fee (UGX)',
-      type: 'number',
-      min: 0,
-      required: true,
-      placeholder: 'e.g. 15000',
-      hint: 'Standard freight fee collected at the parcel counter.',
-    },
-    {
-      name: 'status',
-      label: 'Delivery Status',
-      type: 'select',
-      options: statusOptions,
-      required: true,
-    },
-    {
-      name: 'description',
-      label: 'Package Contents & Dimensions',
-      type: 'textarea',
-      required: true,
-      placeholder: 'e.g. Sealed cardboard box with spare automotive parts',
-      span: 2,
-    },
-    {
-      name: 'notes',
-      label: 'Handling & Fragile Instructions',
-      type: 'textarea',
-      placeholder: 'e.g. Do not stack heavy luggage on top, contains electronics',
-      span: 2,
-    },
-  ];
+  if (terminals.loading) {
+    return (
+      <Panel bodyClassName="">
+        <SkeletonTable rows={8} columns={6} />
+      </Panel>
+    );
+  }
 
-  const toPayload = (values: Record<string, FieldValue>) => ({
-    sender_name: String(values.sender_name),
-    sender_phone: String(values.sender_phone),
-    recipient_name: String(values.recipient_name),
-    recipient_phone: String(values.recipient_phone),
-    origin_terminal_id: Number(values.origin_terminal_id),
-    destination_terminal_id: Number(values.destination_terminal_id),
-    weight_kg: Number(values.weight_kg),
-    price: Number(values.price),
-    status: String(values.status) as ParcelDetail['status'],
-    description: String(values.description),
-    notes: String(values.notes ?? ''),
-  });
+  if (terminals.error || !terminals.data) {
+    return (
+      <Panel>
+        <ErrorState
+          message={terminals.error ?? 'Terminals could not be loaded.'}
+          onRetry={terminals.reload}
+        />
+      </Panel>
+    );
+  }
 
   return (
-    <>
-      <ResourceScreen<ParcelDetail>
-        title="Same-Day Courier & Parcels"
-        subtitle="Track freight shipments moving between regional terminals with automated recipient SMS pickup PINs."
-        singular="Parcel"
-        plural="Parcels"
-        searchPlaceholder="Search tracking number, sender, recipient or city…"
-        emptyTitle="No parcels registered"
-        emptyBody="Accept a parcel at the freight counter to generate an automated tracking number."
-        columns={columns}
-        fields={fields}
-        filters={[
-          {
-            key: 'status',
-            label: 'Any status',
-            options: statusOptions,
-          },
-        ]}
-        load={({ page, perPage, search, filters }) =>
-          listParcels({
-            page,
-            perPage,
-            search,
-            status: filters.status,
-            date: filters.date,
-            date_from: filters.date_from,
-            date_to: filters.date_to,
-          })
+    <div className="space-y-6">
+      {/* ── Page Header ── */}
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+            Same-Day Courier &amp; Freight Logistics
+          </h1>
+          <p className="text-xs text-muted">
+            Live tracking of regional freight consignments, automatic recipient SMS pickup PINs, and freight fee revenue.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            icon={<FileSpreadsheetIcon className="h-4 w-4" />}
+            onClick={handleExportCsv}
+          >
+            Export Manifest CSV
+          </Button>
+          <Button
+            icon={<PlusIcon className="h-4 w-4" />}
+            onClick={() => setAddOpen(true)}
+          >
+            + Accept &amp; Tag New Parcel
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Financial & Operational KPI Scorecards ── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Gross Freight Volume */}
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold">
+              <TrendingUpIcon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider">
+              Freight Takings
+            </span>
+          </div>
+          <p className="mt-2 font-extrabold text-2xl text-emerald-950 dark:text-emerald-100 tabular-nums">
+            {money(metrics.totalVolume)}
+          </p>
+          <p className="text-[0.6875rem] text-emerald-800 dark:text-emerald-300">
+            Total courier fee revenue on active ledger
+          </p>
+        </div>
+
+        {/* Accepted at Station Desk */}
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <PackageCheckIcon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-fg">Accepted at Desk</span>
+          </div>
+          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
+            {metrics.receivedCount} Packages
+          </p>
+          <p className="text-[0.6875rem] text-muted">
+            Staged at station awaiting coach dispatch
+          </p>
+        </div>
+
+        {/* In Transit En Route */}
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <TruckIcon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-fg">In Transit &amp; Hubs</span>
+          </div>
+          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
+            {metrics.inTransitCount} Shipments
+          </p>
+          <p className="text-[0.6875rem] text-muted">
+            En route in coach bays or at destination hub
+          </p>
+        </div>
+
+        {/* Claimed & Delivered */}
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2Icon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-fg">Delivered &amp; Paid</span>
+          </div>
+          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
+            {metrics.deliveredCount} Consignments
+          </p>
+          <p className="text-[0.6875rem] text-muted">
+            Verified with recipient SMS PIN
+          </p>
+        </div>
+      </div>
+
+      {/* ── Unified Date Range Filter Toolbar ── */}
+      <div className="rounded-2xl border border-line bg-surface p-3.5 sm:p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-xs font-bold uppercase tracking-wider text-muted hidden sm:inline-block">
+              Presets:
+            </span>
+            {presets.map((preset) => {
+              const active =
+                applied.date_from === shiftDays(preset.days) &&
+                applied.date_to === toDateInput(new Date());
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    const next = {
+                      date_from: shiftDays(preset.days),
+                      date_to: toDateInput(new Date()),
+                    };
+                    setRange(next);
+                    setApplied(next);
+                  }}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                    active
+                      ? 'bg-brand-600 text-white shadow-sm'
+                      : 'border border-line bg-surface text-muted hover:bg-surface-2 hover:text-fg'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted">From</span>
+              <DateInput
+                id="parcel-from"
+                value={range.date_from}
+                max={range.date_to}
+                onChange={(e) => setRange({ ...range, date_from: e.target.value })}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted">To</span>
+              <DateInput
+                id="parcel-to"
+                value={range.date_to}
+                min={range.date_from}
+                max={toDateInput(new Date())}
+                onChange={(e) => setRange({ ...range, date_to: e.target.value })}
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setApplied(range)}
+              loading={state.loading}
+            >
+              Apply Filter
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Parcels Data Table ── */}
+      <Panel bodyClassName="">
+        <Toolbar
+          search={state.search}
+          onSearch={state.setSearch}
+          searchPlaceholder="Search waybill #, sender, recipient, phone or city..."
+          filters={[
+            {
+              key: 'status',
+              label: 'Any status',
+              options: statusOptions,
+            },
+          ]}
+          values={state.filters}
+          onFilter={state.setFilter}
+          onClear={state.clearFilters}
+          activeFilterCount={state.activeFilterCount}
+        />
+        <DataTable<ParcelDetail>
+          columns={columns}
+          rows={state.rows}
+          rowKey={(parcel) => parcel.id}
+          loading={state.loading}
+          error={state.error}
+          onRetry={state.reload}
+          caption="Courier Shipments"
+          empty={
+            <EmptyState
+              icon={<PackageIcon className="h-6 w-6 text-brand-600" aria-hidden />}
+              title={
+                state.activeFilterCount > 0
+                  ? 'No packages match those filters'
+                  : 'No courier shipments recorded yet'
+              }
+              body={
+                state.activeFilterCount > 0
+                  ? 'Try clearing the search query or status filter.'
+                  : 'Accept a parcel at the station freight desk to issue an official waybill.'
+              }
+              action={
+                state.activeFilterCount > 0 ? (
+                  <Button variant="outline" onClick={state.clearFilters}>
+                    Clear filters
+                  </Button>
+                ) : undefined
+              }
+            />
+          }
+        />
+        <Pagination meta={state.meta} onPageChange={state.setPage} label="parcels" />
+      </Panel>
+
+      {/* ── Accept & Tag New Parcel Modal ── */}
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Accept &amp; Dispatch New Parcel"
+        subtitle="Issue official courier waybill tag with automated recipient SMS PIN"
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setAddOpen(false)} disabled={adding}>
+              Cancel
+            </Button>
+            <Button type="submit" form="add-parcel-form" loading={adding}>
+              Accept Parcel &amp; Generate Waybill
+            </Button>
+          </>
         }
-        withDateRange={true}
-        renderCards={({ rows, meta }) => {
-          const totalCount = meta.total || rows.length;
-          const received = rows.filter((p) => p.status === 'received');
-          const inTransit = rows.filter((p) => p.status === 'in_transit' || p.status === 'arrived');
-          const delivered = rows.filter((p) => p.status === 'delivered');
+      >
+        <form id="add-parcel-form" onSubmit={submitAddParcel} noValidate className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField
+              id="parcel-sender-name"
+              label="Sender Full Name"
+              required
+              placeholder="e.g. Samuel Kigozi"
+              value={addForm.sender_name}
+              error={addErrors.sender_name}
+              onChange={(e) => setAddForm({ ...addForm, sender_name: e.target.value })}
+            />
+            <TextField
+              id="parcel-sender-phone"
+              label="Sender Phone Number"
+              type="tel"
+              required
+              placeholder="0772 123456"
+              value={addForm.sender_phone}
+              error={addErrors.sender_phone}
+              onChange={(e) => setAddForm({ ...addForm, sender_phone: e.target.value })}
+            />
+          </div>
 
-          return (
-            <>
-              <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <PackageIcon className="h-4 w-4" />
-                  </span>
-                  <span className="text-xs font-bold text-fg">Total Parcels</span>
-                </div>
-                <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-                  {totalCount.toLocaleString()}
-                </p>
-                <p className="text-[0.6875rem] text-muted">All Courier Waybills</p>
-              </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField
+              id="parcel-recipient-name"
+              label="Recipient Full Name"
+              required
+              placeholder="e.g. Agnes Atuhaire"
+              value={addForm.recipient_name}
+              error={addErrors.recipient_name}
+              onChange={(e) => setAddForm({ ...addForm, recipient_name: e.target.value })}
+            />
+            <TextField
+              id="parcel-recipient-phone"
+              label="Recipient Phone (For SMS Pickup PIN)"
+              type="tel"
+              required
+              placeholder="0701 987654"
+              value={addForm.recipient_phone}
+              error={addErrors.recipient_phone}
+              hint="Recipient automatically receives SMS with tracking # and secret pickup PIN."
+              onChange={(e) => setAddForm({ ...addForm, recipient_phone: e.target.value })}
+            />
+          </div>
 
-              <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    <PackageCheckIcon className="h-4 w-4" />
-                  </span>
-                  <span className="text-xs font-bold text-fg">Accepted / Desk</span>
-                </div>
-                <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-                  {received.length.toLocaleString()}
-                </p>
-                <p className="text-[0.6875rem] text-muted">Awaiting Coach Dispatch</p>
-              </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField
+              id="parcel-origin-terminal"
+              label="Origin Station (Acceptance Desk)"
+              required
+              value={addForm.origin_terminal_id}
+              error={addErrors.origin_terminal_id}
+              options={terminalOptions}
+              onChange={(e) => setAddForm({ ...addForm, origin_terminal_id: e.target.value })}
+            />
+            <SelectField
+              id="parcel-dest-terminal"
+              label="Destination Hub (Pickup Terminal)"
+              required
+              value={addForm.destination_terminal_id}
+              error={addErrors.destination_terminal_id}
+              options={terminalOptions}
+              onChange={(e) => setAddForm({ ...addForm, destination_terminal_id: e.target.value })}
+            />
+          </div>
 
-              <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                    <TruckIcon className="h-4 w-4" />
-                  </span>
-                  <span className="text-xs font-bold text-fg">In Transit &amp; Hub</span>
-                </div>
-                <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-                  {inTransit.length.toLocaleString()}
-                </p>
-                <p className="text-[0.6875rem] text-muted">En Route / At Terminal</p>
-              </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <TextField
+              id="parcel-weight"
+              label="Scale Weight (kg)"
+              type="number"
+              step="0.1"
+              min={0}
+              required
+              placeholder="e.g. 5.5"
+              value={addForm.weight_kg}
+              error={addErrors.weight_kg}
+              onChange={(e) => handleWeightChange(e.target.value, false)}
+            />
+            <TextField
+              id="parcel-price"
+              label="Freight Fee (UGX)"
+              type="number"
+              min={0}
+              required
+              placeholder="e.g. 15000"
+              value={addForm.price}
+              error={addErrors.price}
+              onChange={(e) => setAddForm({ ...addForm, price: e.target.value })}
+            />
+            <SelectField
+              id="parcel-payment-method"
+              label="Payment Method"
+              value={addForm.payment_method}
+              options={[
+                { value: 'cash', label: 'Station Cash (Default)' },
+                { value: 'mtn_mobile_money', label: 'MTN Mobile Money' },
+                { value: 'airtel_money', label: 'Airtel Money' },
+                { value: 'card', label: 'Visa / POS Card' },
+              ]}
+              onChange={(e) => setAddForm({ ...addForm, payment_method: e.target.value })}
+            />
+          </div>
 
-              <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2Icon className="h-4 w-4" />
-                  </span>
-                  <span className="text-xs font-bold text-fg">Delivered &amp; Paid</span>
-                </div>
-                <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-                  {delivered.length.toLocaleString()}
-                </p>
-                <p className="text-[0.6875rem] text-muted">Collected by Recipient</p>
-              </div>
-            </>
-          );
-        }}
-        toFormValues={(parcel) => ({
-          sender_name: parcel?.sender_name ?? '',
-          sender_phone: parcel?.sender_phone ?? '',
-          recipient_name: parcel?.recipient_name ?? '',
-          recipient_phone: parcel?.recipient_phone ?? '',
-          origin_terminal_id: String(
-            parcel?.origin_terminal_id ?? terminalOptions[0]?.value ?? ''
-          ),
-          destination_terminal_id: String(
-            parcel?.destination_terminal_id ?? terminalOptions[1]?.value ?? ''
-          ),
-          weight_kg: parcel?.weight_kg ?? '',
-          price: parcel?.price ?? '',
-          status: parcel?.status ?? 'received',
-          description: parcel?.description ?? '',
-          notes: parcel?.notes ?? '',
-        })}
-        onCreate={async (values) => {
-          const created = await createParcel(toPayload(values));
-          setSelectedTag(created);
-        }}
-        onUpdate={async (parcel, values) => {
-          await updateParcel(parcel.id, toPayload(values));
-        }}
-        onDelete={async (parcel) => {
-          await deleteParcel(parcel.id);
-        }}
-        deleteConsequence={(parcel) =>
-          `Waybill #${parcel.tracking_number} will be removed. The sender and recipient will no longer be able to track this shipment.`
+          <TextAreaField
+            id="parcel-description"
+            label="Package Description & Contents"
+            required
+            placeholder="e.g. Sealed carton containing electrical spares and accessories"
+            value={addForm.description}
+            error={addErrors.description}
+            onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
+          />
+
+          <TextAreaField
+            id="parcel-notes"
+            label="Handling & Fragile Instructions (Optional)"
+            placeholder="e.g. Fragile glassware, keep upright in coach bay"
+            value={addForm.notes}
+            onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })}
+          />
+        </form>
+      </Modal>
+
+      {/* ── Edit Parcel Modal ── */}
+      <Modal
+        open={Boolean(editingItem)}
+        onClose={() => setEditingItem(null)}
+        title="Edit Courier Waybill Record"
+        subtitle={editingItem ? `Waybill #${editingItem.tracking_number}` : undefined}
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditingItem(null)} disabled={editPending}>
+              Cancel
+            </Button>
+            <Button type="submit" form="edit-parcel-form" loading={editPending}>
+              Save &amp; Update Waybill
+            </Button>
+          </>
         }
-        headerActions={
-          <span className="hidden items-center gap-1.5 text-xs text-muted sm:flex">
-            <PackageIcon className="h-4 w-4 text-brand-600" aria-hidden />
-            Automated Waybills with Recipient SMS Verification
-          </span>
-        }
-      />
+      >
+        <form id="edit-parcel-form" onSubmit={submitEditParcel} noValidate className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField
+              id="edit-parcel-sender-name"
+              label="Sender Full Name"
+              required
+              value={editForm.sender_name}
+              error={editErrors.sender_name}
+              onChange={(e) => setEditForm({ ...editForm, sender_name: e.target.value })}
+            />
+            <TextField
+              id="edit-parcel-sender-phone"
+              label="Sender Phone Number"
+              type="tel"
+              required
+              value={editForm.sender_phone}
+              error={editErrors.sender_phone}
+              onChange={(e) => setEditForm({ ...editForm, sender_phone: e.target.value })}
+            />
+          </div>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField
+              id="edit-parcel-recipient-name"
+              label="Recipient Full Name"
+              required
+              value={editForm.recipient_name}
+              error={editErrors.recipient_name}
+              onChange={(e) => setEditForm({ ...editForm, recipient_name: e.target.value })}
+            />
+            <TextField
+              id="edit-parcel-recipient-phone"
+              label="Recipient Phone Number"
+              type="tel"
+              required
+              value={editForm.recipient_phone}
+              error={editErrors.recipient_phone}
+              onChange={(e) => setEditForm({ ...editForm, recipient_phone: e.target.value })}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField
+              id="edit-parcel-origin"
+              label="Origin Station"
+              value={editForm.origin_terminal_id}
+              options={terminalOptions}
+              onChange={(e) => setEditForm({ ...editForm, origin_terminal_id: e.target.value })}
+            />
+            <SelectField
+              id="edit-parcel-dest"
+              label="Destination Hub"
+              value={editForm.destination_terminal_id}
+              options={terminalOptions}
+              onChange={(e) => setEditForm({ ...editForm, destination_terminal_id: e.target.value })}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <TextField
+              id="edit-parcel-weight"
+              label="Scale Weight (kg)"
+              type="number"
+              step="0.1"
+              min={0}
+              required
+              value={editForm.weight_kg}
+              error={editErrors.weight_kg}
+              onChange={(e) => handleWeightChange(e.target.value, true)}
+            />
+            <TextField
+              id="edit-parcel-price"
+              label="Freight Fee (UGX)"
+              type="number"
+              min={0}
+              required
+              value={editForm.price}
+              error={editErrors.price}
+              onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+            />
+            <SelectField
+              id="edit-parcel-status"
+              label="Courier Status"
+              value={editForm.status}
+              options={statusOptions}
+              onChange={(e) => setEditForm({ ...editForm, status: e.target.value as ParcelDetail['status'] })}
+            />
+          </div>
+
+          <TextAreaField
+            id="edit-parcel-description"
+            label="Package Description"
+            required
+            value={editForm.description}
+            error={editErrors.description}
+            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+          />
+
+          <TextAreaField
+            id="edit-parcel-notes"
+            label="Handling Instructions"
+            value={editForm.notes}
+            onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+          />
+        </form>
+      </Modal>
+
+      {/* ── Printable Waybill Tag Modal ── */}
       <ParcelTagModal
         item={selectedTag}
         open={Boolean(selectedTag)}
         onClose={() => setSelectedTag(null)}
       />
-    </>
+
+      {/* ── Delete Confirmation Dialog ── */}
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        title="Remove this courier waybill?"
+        consequence={
+          deleting
+            ? `Waybill #${deleting.tracking_number} for ${deleting.sender_name} ➔ ${deleting.recipient_name} will be permanently removed. Senders and recipients will no longer be able to track it.`
+            : ''
+        }
+        confirmLabel="Remove Record"
+        pending={deletePending}
+        onConfirm={confirmDelete}
+        onClose={() => setDeleting(null)}
+      />
+    </div>
   );
 }

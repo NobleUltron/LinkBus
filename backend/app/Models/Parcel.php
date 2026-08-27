@@ -9,8 +9,8 @@ class Parcel extends Model
 {
     protected $fillable = [
         'sender_name', 'sender_phone', 'recipient_name', 'recipient_phone',
-        'origin_terminal_id', 'destination_terminal_id',
-        'weight_kg', 'description', 'tracking_number', 'status', 'price', 'notes',
+        'origin_terminal_id', 'destination_terminal_id', 'shift_id',
+        'weight_kg', 'description', 'tracking_number', 'status', 'payment_method', 'price', 'notes',
     ];
 
     protected function casts(): array
@@ -19,6 +19,11 @@ class Parcel extends Model
             'weight_kg' => 'float',
             'price'     => 'integer',
         ];
+    }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class);
     }
 
     public function originTerminal(): BelongsTo

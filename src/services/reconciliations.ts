@@ -25,7 +25,7 @@ export function calculateCountedCash(denominations: CashDenominations): number {
   );
 }
 
-// Local mock storage keys
+// Local storage cache keys
 const RECONCILIATIONS_KEY = 'linkbus_shift_reconciliations';
 const ACTIVE_SHIFT_KEY = 'linkbus_active_shift_state';
 
@@ -91,69 +91,17 @@ function getStoredReconciliations(): ShiftReconciliation[] {
       system_expected_card: 350000,
       system_expected_total: 4150000,
       denominations: {
-        notes_50k: 40, // 2,000,000
-        notes_20k: 15, // 300,000
-        notes_10k: 4,  // 40,000
-        notes_5k: 3,   // 15,000
+        notes_50k: 40,
+        notes_20k: 15,
+        notes_10k: 4,
+        notes_5k: 3,
         notes_2k: 0,
-        notes_1k: 1,   // 1,000
+        notes_1k: 1,
         coins: 0,
       },
       actual_counted_cash: 2356000,
       variance_cash: 0,
       closing_notes: 'Morning shift balanced cleanly. Float and receipt paper expense accounted for.',
-    },
-    {
-      id: 2,
-      shift_code: 'SHF-260826-002',
-      terminal_id: 3,
-      terminal_name: 'Mbarara Main Terminal',
-      terminal_city: 'Mbarara',
-      cashier_id: 3,
-      cashier_name: 'David Tumusiime',
-      supervisor_name: 'Agnes Kyomugisha',
-      shift_date: '2026-08-26',
-      opened_at: '2026-08-26T07:00:00Z',
-      closed_at: '2026-08-26T15:00:00Z',
-      status: 'reconciled',
-      opening_float: 50000,
-      cash_in_total: 0,
-      cash_out_expenses: 0,
-      safe_drops_total: 0,
-      cash_refunds_total: 0,
-      ticket_sales_cash: 920000,
-      ticket_sales_momo: 650000,
-      ticket_sales_airtel: 280000,
-      ticket_sales_card: 0,
-      ticket_sales_total: 1850000,
-      ticket_count: 42,
-      luggage_fees_cash: 64000,
-      luggage_fees_momo: 16000,
-      luggage_fees_airtel: 0,
-      luggage_fees_total: 80000,
-      luggage_count: 10,
-      parcel_fees_cash: 135000,
-      parcel_fees_momo: 45000,
-      parcel_fees_airtel: 20000,
-      parcel_fees_total: 200000,
-      parcel_count: 12,
-      system_expected_cash: 1169000, // 50k + 920k + 64k + 135k
-      system_expected_momo: 711000,
-      system_expected_airtel: 300000,
-      system_expected_card: 0,
-      system_expected_total: 2130000,
-      denominations: {
-        notes_50k: 19, // 950,000
-        notes_20k: 8,  // 160,000
-        notes_10k: 4,  // 40,000
-        notes_5k: 3,   // 15,000
-        notes_2k: 2,   // 4,000
-        notes_1k: 0,
-        coins: 0,
-      },
-      actual_counted_cash: 1169000,
-      variance_cash: 0,
-      closing_notes: 'All parcels and tickets reconciled with passenger manifest.',
     },
   ];
 
@@ -179,6 +127,23 @@ export interface ReconciliationsQuery {
 export async function listReconciliations(
   query: ReconciliationsQuery = {}
 ): Promise<Paginated<ShiftReconciliation>> {
+  try {
+    const res = await api.get<Paginated<ShiftReconciliation>>('/shifts/history', {
+      params: {
+        page: query.page || 1,
+        per_page: query.perPage || 15,
+        terminal_id: query.terminal_id,
+        status: query.status,
+        date_from: query.date_from,
+        date_to: query.date_to,
+        search: query.search,
+      },
+    });
+    if (res && res.data) return res;
+  } catch {
+    // Fallback to local storage
+  }
+
   const items = getStoredReconciliations();
   let filtered = [...items];
 
@@ -225,6 +190,7 @@ export interface ActiveShiftMetrics {
   shift_code: string;
   status: 'open' | 'closed';
   opened_at: string;
+  closed_at?: string;
   terminal_id: number;
   terminal_name: string;
   terminal_city: string;
@@ -292,6 +258,19 @@ export function hasActiveShift(): boolean {
  * Computes live current shift counter collections and drawer cash.
  */
 export async function getActiveShiftMetrics(terminalId: number = 1): Promise<ActiveShiftMetrics | null> {
+  try {
+    const res = await api.get<{ active_shift: ActiveShiftMetrics | null; has_active: boolean }>('/shifts/current');
+    if (res && res.active_shift) {
+      localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(res.active_shift));
+      return res.active_shift;
+    } else if (res && res.has_active === false) {
+      localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify({ status: 'closed' }));
+      return null;
+    }
+  } catch {
+    // Local fallback
+  }
+
   const existing = getStoredActiveShift();
   if (existing) return existing;
 
@@ -399,6 +378,21 @@ export async function openShift(params: {
   starting_float: number;
   notes?: string;
 }): Promise<ActiveShiftMetrics> {
+  try {
+    const res = await api.post<{ message: string; shift: ActiveShiftMetrics }>('/shifts/open', {
+      starting_cash: params.starting_float,
+      terminal_id: params.terminal_id,
+      supervisor_name: params.supervisor_name,
+      notes: params.notes,
+    });
+    if (res && res.shift) {
+      localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(res.shift));
+      return res.shift;
+    }
+  } catch {
+    // Local fallback
+  }
+
   const shiftId = Date.now();
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, '').slice(2);
   const shiftCode = `SHF-${today}-${String(Math.floor(Math.random() * 900) + 100)}`;
@@ -474,6 +468,24 @@ export async function logDrawerTransaction(params: {
   reason: string;
   authorized_by?: string;
 }): Promise<ActiveShiftMetrics> {
+  try {
+    const res = await api.post<{ message: string; shift: ActiveShiftMetrics }>('/shifts/transactions', {
+      type: params.type,
+      amount: params.amount,
+      category: params.category,
+      reason: params.reason,
+      authorized_by: params.authorized_by,
+    });
+    if (res && res.shift) {
+      localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(res.shift));
+      return res.shift;
+    }
+  } catch (err: any) {
+    if (err?.response?.data?.message) {
+      throw new Error(err.response.data.message);
+    }
+  }
+
   const shift = getStoredActiveShift();
   if (!shift) {
     throw new Error('Forbidden: You must open a cash drawer shift before recording expenses or movements.');
@@ -537,8 +549,23 @@ export interface ShiftCloseoutInput {
 }
 
 export async function submitShiftCloseout(input: ShiftCloseoutInput): Promise<ShiftReconciliation> {
-  const items = getStoredReconciliations();
   const countedCash = calculateCountedCash(input.denominations);
+
+  try {
+    const res = await api.post<{ message: string; shift: ActiveShiftMetrics }>('/shifts/close', {
+      actual_cash: countedCash,
+      denominations: input.denominations,
+      variance_reason: input.variance_reason,
+      closing_notes: input.closing_notes,
+    });
+    if (res) {
+      localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify({ status: 'closed' }));
+    }
+  } catch {
+    // Local fallback
+  }
+
+  const items = getStoredReconciliations();
   const variance = countedCash - input.metrics.system_expected_cash;
   const status = variance === 0 ? 'reconciled' : Math.abs(variance) <= 1000 ? 'reconciled' : 'flagged';
 
@@ -601,8 +628,6 @@ export async function submitShiftCloseout(input: ShiftCloseoutInput): Promise<Sh
 
   items.unshift(record);
   localStorage.setItem(RECONCILIATIONS_KEY, JSON.stringify(items));
-
-  // Shift is now officially closed & locked. Next shift must declare fresh float.
   localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify({ status: 'closed' }));
   return record;
 }

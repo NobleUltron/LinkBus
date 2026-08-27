@@ -24,6 +24,7 @@ class Booking extends Model
         'payment_method',
         'promo_code',
         'linked_booking_id',
+        'shift_id',
         'cancellation_fee',
         'cancelled_at',
         'notes',
@@ -46,6 +47,11 @@ class Booking extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class);
     }
 
     public function trip(): BelongsTo

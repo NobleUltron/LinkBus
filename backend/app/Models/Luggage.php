@@ -12,9 +12,12 @@ class Luggage extends Model
     protected $fillable = [
         'booking_id',
         'trip_seat_id',
+        'shift_id',
         'tag_number',
         'description',
         'weight_kg',
+        'payment_method',
+        'price',
         'status',
         'notes',
     ];
@@ -23,12 +26,18 @@ class Luggage extends Model
     {
         return [
             'weight_kg' => 'float',
+            'price'     => 'integer',
         ];
     }
 
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class);
     }
 
     public function seat(): BelongsTo

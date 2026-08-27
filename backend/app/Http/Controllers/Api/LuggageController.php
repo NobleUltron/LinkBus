@@ -123,11 +123,23 @@ class LuggageController extends Controller
         $excessKg = max(0, $weight - $freeAllowance);
         $excessFee = (int) round($excessKg * $ratePerKg);
 
+        $shiftId = null;
+        if ($paymentMethod === 'cash' && $excessFee > 0) {
+            $activeShift = \App\Models\Shift::where('user_id', $request->user()->id)->where('status', 'open')->first();
+            if (!$activeShift) {
+                return response()->json(['message' => 'Shift is Closed! You must open a cash drawer shift before accepting cash baggage fees.'], 403);
+            }
+            $shiftId = $activeShift->id;
+        }
+
         // 2. Create the Luggage record
         $luggage = Luggage::create([
             ...$data,
-            'tag_number' => Luggage::generateTagNumber(),
-            'status'     => 'checked_in',
+            'tag_number'     => Luggage::generateTagNumber(),
+            'payment_method' => $paymentMethod,
+            'price'          => $excessFee,
+            'shift_id'       => $shiftId,
+            'status'         => 'checked_in',
         ]);
 
         // 3. If excess fee is charged, record a completed Payment transaction & update booking total

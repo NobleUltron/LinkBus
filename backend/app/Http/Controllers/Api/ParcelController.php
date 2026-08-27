@@ -129,12 +129,26 @@ class ParcelController extends Controller
             'weight_kg'             => 'required|numeric|min:0.1',
             'description'           => 'required|string',
             'price'                 => 'required|integer|min:0',
+            'payment_method'        => 'nullable|string|in:cash,mtn_mobile_money,airtel_money,card',
             'notes'                 => 'nullable|string',
         ]);
+
+        $paymentMethod = $data['payment_method'] ?? 'cash';
+
+        $shiftId = null;
+        if ($paymentMethod === 'cash') {
+            $activeShift = \App\Models\Shift::where('user_id', $request->user()->id)->where('status', 'open')->first();
+            if (!$activeShift) {
+                return response()->json(['message' => 'Shift is Closed! You must open a cash drawer shift before collecting parcel payments.'], 403);
+            }
+            $shiftId = $activeShift->id;
+        }
 
         $parcel = Parcel::create([
             ...$data,
             'tracking_number' => Parcel::generateTrackingNumber(),
+            'payment_method'  => $paymentMethod,
+            'shift_id'        => $shiftId,
             'status'          => 'received',
         ]);
 

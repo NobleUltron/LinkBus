@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\ParcelController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\RouteController;
+use App\Http\Controllers\Api\ShiftController;
 use App\Http\Controllers\Api\TerminalController;
 use App\Http\Controllers\Api\TripController;
 use Illuminate\Http\Request;
@@ -162,7 +163,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin,staff')->group(function () {
         // Cash payment collection desk
         Route::post('/bookings/{booking}/confirm-payment', [BookingController::class, 'confirmPayment']);
+        Route::post('/bookings/{booking}/confirm-cash',    [BookingController::class, 'confirmCashPayment']);
         Route::post('/seats/{seat}/release-lock',          [BookingController::class, 'adminReleaseLock']);
+
+        // Cash Drawer & Shift Management
+        Route::get('/shifts/current',                      [ShiftController::class, 'current']);
+        Route::post('/shifts/open',                        [ShiftController::class, 'open']);
+        Route::post('/shifts/close',                       [ShiftController::class, 'close']);
+        Route::post('/shifts/transactions',                [ShiftController::class, 'addTransaction']);
+        Route::get('/shifts/history',                      [ShiftController::class, 'history']);
+        Route::get('/shifts/{shift}/report',               [ShiftController::class, 'report']);
 
         // Luggage & Cargo desks
         Route::post('/luggage',            [LuggageController::class, 'store']);

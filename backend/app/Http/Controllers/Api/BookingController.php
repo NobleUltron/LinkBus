@@ -246,6 +246,17 @@ class BookingController extends Controller
             $isCounterSale = $request->boolean('is_counter_sale') && $user->isStaff();
             $isCash = $data['payment_method'] === 'cash';
             $isPaid = !$isCash || $isCounterSale;
+
+            $shiftId = null;
+            if ($isCounterSale || ($isCash && $user->isStaff())) {
+                $activeShift = \App\Models\Shift::where('user_id', $user->id)
+                    ->where('status', 'open')
+                    ->first();
+                if (!$activeShift) {
+                    abort(403, 'Forbidden: Shift is Closed — You must open your cash drawer shift before processing counter sales.');
+                }
+                $shiftId = $activeShift->id;
+            }
             
             $bookingStatus = $isPaid ? 'confirmed' : 'pending';
             $paymentStatus = $isPaid ? 'completed' : 'pending';
@@ -256,6 +267,7 @@ class BookingController extends Controller
                 'booking_number'   => Booking::generateBookingNumber(),
                 'user_id'          => $user->id,
                 'trip_id'          => $trip->id,
+                'shift_id'         => $shiftId,
                 'status'           => $bookingStatus,
                 'subtotal'         => $subtotal,
                 'discount_amount'  => $discount,
@@ -730,6 +742,53 @@ class BookingController extends Controller
             'success' => $result['success'] ?? false,
             'message' => $result['success'] ? 'WhatsApp ticket confirmation dispatched!' : ('Failed: ' . ($result['error'] ?? 'Unknown error')),
             'result'  => $result,
+        ]);
+    }
+
+    /**
+     * Confirm physical cash payment for a counter/pending booking.
+     */
+    public function confirmCashPayment(Request $request, Booking $booking): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user->isStaff()) {
+            return response()->json(['message' => 'Unauthorized. Only station staff can confirm cash collections.'], 403);
+        }
+
+        $activeShift = \App\Models\Shift::where('user_id', $user->id)
+            ->where('status', 'open')
+            ->first();
+
+        if (!$activeShift) {
+            return response()->json([
+                'message' => 'Forbidden: Shift is Closed — You must open your duty shift float before collecting cash.'
+            ], 403);
+        }
+
+        DB::transaction(function () use ($booking, $activeShift) {
+            $booking->update([
+                'status'   => 'confirmed',
+                'shift_id' => $activeShift->id,
+            ]);
+
+            $booking->tickets()->update(['status' => 'active']);
+
+            Payment::updateOrCreate(
+                ['booking_id' => $booking->id],
+                [
+                    'method'         => 'cash',
+                    'amount'         => $booking->total_amount,
+                    'status'         => 'completed',
+                    'transaction_id' => 'CSH-' . strtoupper(uniqid()),
+                ]
+            );
+        });
+
+        $booking->loadMissing(['trip.route.originTerminal', 'trip.route.destinationTerminal', 'trip.bus', 'tickets.seat', 'payment', 'payments']);
+
+        return response()->json([
+            'message' => "Cash payment confirmed for Booking #{$booking->booking_number}.",
+            'booking' => $this->formatBooking($booking),
         ]);
     }
 }

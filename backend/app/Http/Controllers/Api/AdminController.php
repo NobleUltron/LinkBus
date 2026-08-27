@@ -465,6 +465,17 @@ class AdminController extends Controller
             'booking.tickets',
         ])->orderBy('created_at', 'desc');
 
+        if ($request->filled('category')) {
+            $category = $request->category;
+            if ($category === 'bus_ticket') {
+                $query->where(function ($q) {
+                    $q->whereNull('category')->orWhere('category', 'bus_ticket');
+                });
+            } else {
+                $query->where('category', $category);
+            }
+        }
+
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
@@ -506,19 +517,24 @@ class AdminController extends Controller
             $passengerName = $firstTicket?->passenger_name ?? $booking?->user?->name ?? 'Customer';
             $origin = $booking?->trip?->route?->originTerminal?->city ?? 'Origin';
             $dest = $booking?->trip?->route?->destinationTerminal?->city ?? 'Destination';
+            $category = $payment->category ?? 'bus_ticket';
+            $refNumber = $booking?->booking_number ?? "LB-{$payment->booking_id}";
 
             return [
-                'id'             => $payment->id,
-                'booking_id'     => $payment->booking_id,
-                'transaction_id' => $payment->transaction_id,
-                'method'         => $payment->method,
-                'amount'         => (float) $payment->amount,
-                'status'         => $payment->status,
-                'booking_number' => $booking?->booking_number ?? "LB-{$payment->booking_id}",
-                'passenger_name' => $passengerName,
-                'route'          => "{$origin} → {$dest}",
-                'created_at'     => $payment->created_at?->toISOString(),
-                'updated_at'     => $payment->updated_at?->toISOString(),
+                'id'               => $payment->id,
+                'booking_id'       => $payment->booking_id,
+                'category'         => $category,
+                'reference_number' => $refNumber,
+                'customer_name'    => $passengerName,
+                'transaction_id'   => $payment->transaction_id,
+                'method'           => $payment->method,
+                'amount'           => (float) $payment->amount,
+                'status'           => $payment->status,
+                'booking_number'   => $refNumber,
+                'passenger_name'   => $passengerName,
+                'route'            => "{$origin} → {$dest}",
+                'created_at'       => $payment->created_at?->toISOString(),
+                'updated_at'       => $payment->updated_at?->toISOString(),
             ];
         });
 

@@ -3,15 +3,20 @@ import type { Payment } from '../types/models';
 import { api, ApiRequestError } from './api-client';
 import { matches, paginate } from './http';
 
-export type Timeframe = '7days' | '30days' | '90days';
+export type PaymentCategory = 'bus_ticket' | 'excess_luggage' | 'parcel_freight';
 
 export interface PaymentDetail {
   id: number;
   transaction_id: string;
-  booking_id: number;
+  category?: PaymentCategory;
+  reference_type?: 'booking' | 'luggage_tag' | 'parcel_waybill';
+  reference_number?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  booking_id?: number;
   booking_number: string;
   passenger_name: string;
-  passenger_phone: string;
+  passenger_phone?: string;
   route: string;
   method: string;
   amount: number;
@@ -264,6 +269,7 @@ export async function listPayments(query: {
   page?: number;
   perPage?: number;
   search?: string;
+  category?: string;
   status?: string;
   method?: string;
   date?: string;
@@ -278,6 +284,7 @@ export async function listPayments(query: {
       per_page: query.perPage ?? 15,
     };
     if (query.search) params.search = query.search;
+    if (query.category) params.category = query.category;
     if (query.status) params.status = query.status;
     if (query.method) params.method = query.method;
     if (query.date) params.date = query.date;

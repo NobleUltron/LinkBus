@@ -2,13 +2,18 @@ import React, { useMemo, useState } from 'react';
 import {
   ArrowDownLeftIcon,
   BanknoteIcon,
+  BriefcaseIcon,
   CheckCircle2Icon,
   CreditCardIcon,
   DollarSignIcon,
   FileSpreadsheetIcon,
+  LayersIcon,
+  PackageIcon,
   PrinterIcon,
   ReceiptTextIcon,
   SmartphoneIcon,
+  TagIcon,
+  TicketIcon,
   TrendingUpIcon,
   Undo2Icon,
   WalletIcon,
@@ -26,7 +31,12 @@ import { EmptyState } from '../../components/ui/States';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { errorMessage } from '../../hooks/useAsync';
 import { usePaginated } from '../../hooks/usePaginated';
-import { listPayments, updatePaymentStatus, type PaymentDetail } from '../../services/analytics';
+import {
+  listPayments,
+  updatePaymentStatus,
+  type PaymentCategory,
+  type PaymentDetail,
+} from '../../services/analytics';
 import { formatDateTime, money, titleCase, toDateInput } from '../../utils/format';
 
 const presets = [
@@ -56,6 +66,12 @@ const methodOptions = [
   { value: 'cash', label: 'Station Counter Cash' },
 ];
 
+const categoryOptions = [
+  { value: 'bus_ticket', label: '🎟️ Passenger Ticket Fares' },
+  { value: 'excess_luggage', label: '🧳 Excess Luggage Fees' },
+  { value: 'parcel_freight', label: '📦 Parcel & Cargo Freight' },
+];
+
 export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
   const [refunding, setRefunding] = useState<PaymentDetail | null>(null);
   const [receipt, setReceipt] = useState<PaymentDetail | null>(null);
@@ -72,6 +88,7 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
       page,
       perPage,
       search,
+      category: filters.category,
       status: filters.status,
       method: filters.method,
       date_from: applied.date_from,
@@ -103,11 +120,23 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
       toast.error('No payment transactions to export');
       return;
     }
-    const headers = ['Transaction ID', 'Booking Ref', 'Passenger', 'Route', 'Method', 'Amount (UGX)', 'Status', 'Date'];
+    const headers = [
+      'Transaction ID',
+      'Revenue Category',
+      'Reference Number',
+      'Customer / Passenger',
+      'Corridor Route',
+      'Payment Method',
+      'Amount (UGX)',
+      'Gateway Status',
+      'Date & Time',
+    ];
+
     const csvRows = state.rows.map((p) => [
       `"${p.transaction_id}"`,
-      `"${p.booking_number}"`,
-      `"${p.passenger_name}"`,
+      `"${p.category === 'excess_luggage' ? 'Excess Luggage' : p.category === 'parcel_freight' ? 'Parcel Freight' : 'Ticket Fare'}"`,
+      `"${p.reference_number || p.booking_number}"`,
+      `"${p.customer_name || p.passenger_name}"`,
       `"${p.route}"`,
       `"${p.method}"`,
       p.amount,
@@ -119,7 +148,7 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `linkbus_payments_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `linkbus_payments_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -160,11 +189,48 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
     }
   };
 
+  const renderCategoryBadge = (category?: PaymentCategory) => {
+    switch (category) {
+      case 'excess_luggage':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+            <BriefcaseIcon className="h-3 w-3 text-amber-600" />
+            Excess Luggage
+          </span>
+        );
+      case 'parcel_freight':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 text-xs font-bold text-blue-800 dark:text-blue-300">
+            <PackageIcon className="h-3 w-3 text-blue-600" />
+            Parcel Freight
+          </span>
+        );
+      case 'bus_ticket':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-brand-500/10 border border-brand-500/30 px-2 py-0.5 text-xs font-bold text-brand-800 dark:text-brand-300">
+            <TicketIcon className="h-3 w-3 text-brand-600" />
+            Ticket Fare
+          </span>
+        );
+    }
+  };
+
   // Metrics summary
   const metrics = useMemo(() => {
     const rows = state.rows;
     const completed = rows.filter((r) => r.status === 'completed');
     const totalVolume = completed.reduce((acc, r) => acc + (r.amount || 0), 0);
+
+    const ticketRows = completed.filter((r) => !r.category || r.category === 'bus_ticket');
+    const ticketVolume = ticketRows.reduce((acc, r) => acc + (r.amount || 0), 0);
+
+    const luggageRows = completed.filter((r) => r.category === 'excess_luggage');
+    const luggageVolume = luggageRows.reduce((acc, r) => acc + (r.amount || 0), 0);
+
+    const parcelRows = completed.filter((r) => r.category === 'parcel_freight');
+    const parcelVolume = parcelRows.reduce((acc, r) => acc + (r.amount || 0), 0);
+
     const momoVolume = completed
       .filter((r) => r.method === 'mtn_mobile_money' || r.method === 'airtel_money')
       .reduce((acc, r) => acc + (r.amount || 0), 0);
@@ -175,7 +241,18 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
       .filter((r) => r.status === 'refunded')
       .reduce((acc, r) => acc + (r.amount || 0), 0);
 
-    return { totalVolume, momoVolume, cashVolume, refundedVolume };
+    return {
+      totalVolume,
+      ticketVolume,
+      ticketCount: ticketRows.length,
+      luggageVolume,
+      luggageCount: luggageRows.length,
+      parcelVolume,
+      parcelCount: parcelRows.length,
+      momoVolume,
+      cashVolume,
+      refundedVolume,
+    };
   }, [state.rows]);
 
   const columns: Column<PaymentDetail>[] = [
@@ -195,14 +272,21 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
       ),
     },
     {
+      key: 'category',
+      header: 'Category',
+      render: (payment) => renderCategoryBadge(payment.category),
+    },
+    {
       key: 'booking',
-      header: 'Booking Ref & Passenger',
+      header: 'Reference & Customer',
       render: (payment) => (
         <div>
           <p className="font-mono text-xs font-bold text-fg">
-            Ref #{payment.booking_number}
+            #{payment.reference_number || payment.booking_number}
           </p>
-          <p className="text-xs text-muted truncate max-w-[160px]">{payment.passenger_name}</p>
+          <p className="text-xs text-muted truncate max-w-[160px]">
+            {payment.customer_name || payment.passenger_name}
+          </p>
         </div>
       ),
     },
@@ -304,7 +388,7 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
             Financial Transactions &amp; Settlements
           </h1>
           <p className="text-xs text-muted">
-            Bank of Uganda compliant audit trail for Mobile Money, POS Card, and counter cash settlements.
+            Bank of Uganda compliant audit trail for Ticket Fares, Excess Luggage Surcharges, and Cargo Freight settlements.
           </p>
         </div>
 
@@ -387,68 +471,88 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
         </div>
       </div>
 
-      {/* ── Financial KPI Scorecards ── */}
+      {/* ── Multi-Category Financial KPI Scorecards ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+        {/* Total Settled Revenue */}
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold">
               <TrendingUpIcon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Settled Volume</span>
+            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider">
+              Gross Settled Volume
+            </span>
           </div>
-          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
+          <p className="mt-2 font-extrabold text-2xl text-emerald-950 dark:text-emerald-100 tabular-nums">
             {money(metrics.totalVolume)}
           </p>
-          <p className="text-[0.6875rem] text-muted">Active Page Completed Takings</p>
+          <p className="text-[0.6875rem] text-emerald-800 dark:text-emerald-300">
+            Cash: {money(metrics.cashVolume)} · Digital: {money(metrics.momoVolume)}
+          </p>
         </div>
 
+        {/* Ticket Fares */}
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
+              <TicketIcon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-fg">🎟️ Passenger Fares</span>
+          </div>
+          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
+            {money(metrics.ticketVolume)}
+          </p>
+          <p className="text-[0.6875rem] text-muted">
+            {metrics.ticketCount} passenger tickets settled
+          </p>
+        </div>
+
+        {/* Excess Luggage Surcharges */}
         <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <SmartphoneIcon className="h-4 w-4" />
+              <BriefcaseIcon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Mobile Money Mix</span>
+            <span className="text-xs font-bold text-fg">🧳 Excess Luggage</span>
           </div>
           <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-            {money(metrics.momoVolume)}
+            {money(metrics.luggageVolume)}
           </p>
-          <p className="text-[0.6875rem] text-muted">MTN &amp; Airtel Gateways</p>
+          <p className="text-[0.6875rem] text-muted">
+            Overweight &amp; bulky baggage fees
+          </p>
         </div>
 
+        {/* Parcel Freight */}
         <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <BanknoteIcon className="h-4 w-4" />
+              <PackageIcon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Counter Cash Desk</span>
+            <span className="text-xs font-bold text-fg">📦 Parcel Freight</span>
           </div>
           <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-            {money(metrics.cashVolume)}
+            {money(metrics.parcelVolume)}
           </p>
-          <p className="text-[0.6875rem] text-muted">Direct Terminal Shift Receipts</p>
-        </div>
-
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-400">
-              <Undo2Icon className="h-4 w-4" />
-            </span>
-            <span className="text-xs font-bold text-fg">Refunds / Reversals</span>
-          </div>
-          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-            {money(metrics.refundedVolume)}
+          <p className="text-[0.6875rem] text-muted">
+            Waybill cargo and courier revenue
           </p>
-          <p className="text-[0.6875rem] text-muted">Returned to Passenger Accounts</p>
         </div>
       </div>
 
-      {/* ── Payments Data Table ── */}
+      {/* ── Payments Data Table with Category Filter ── */}
       <Panel bodyClassName="">
         <Toolbar
           search={state.search}
           onSearch={state.setSearch}
-          searchPlaceholder="Search transaction ID, booking #, passenger or corridor…"
+          searchPlaceholder="Search transaction ID, booking/tag/waybill #, customer…"
           filters={[
+            {
+              key: 'category',
+              label: 'All Categories',
+              options: categoryOptions,
+              icon: <LayersIcon className="h-4 w-4 text-brand-600" aria-hidden />,
+            },
             {
               key: 'status',
               label: 'Any status',
@@ -473,7 +577,7 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
           loading={state.loading}
           error={state.error}
           onRetry={state.reload}
-          caption="Payments"
+          caption="Payments Ledger"
           empty={
             <EmptyState
               icon={<CreditCardIcon className="h-6 w-6 text-brand-600" aria-hidden />}
@@ -484,8 +588,8 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
               }
               body={
                 state.activeFilterCount > 0
-                  ? 'Try clearing the search query or status filter.'
-                  : 'Payments appear here automatically as passengers settle bookings online or at terminal POS counters.'
+                  ? 'Try clearing the search query or category filter.'
+                  : 'Payments appear here automatically as passengers settle tickets, excess luggage, or parcel waybills.'
               }
               action={
                 state.activeFilterCount > 0 ? (
@@ -540,15 +644,29 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
             {/* Slip Details Matrix */}
             <dl className="space-y-2.5 text-xs text-slate-700">
               <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                <dt className="text-slate-500">Master Booking Reference</dt>
-                <dd className="font-mono font-black text-slate-900">#{receipt.booking_number}</dd>
+                <dt className="text-slate-500">Revenue Stream Category</dt>
+                <dd className="font-bold text-slate-900">
+                  {receipt.category === 'excess_luggage'
+                    ? '🧳 Excess Luggage Surcharge'
+                    : receipt.category === 'parcel_freight'
+                    ? '📦 Parcel & Cargo Waybill'
+                    : '🎟️ Passenger Ticket Fare'}
+                </dd>
               </div>
               <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                <dt className="text-slate-500">Passenger / Payee Name</dt>
-                <dd className="font-bold text-slate-900">{receipt.passenger_name}</dd>
+                <dt className="text-slate-500">Master Item Reference</dt>
+                <dd className="font-mono font-black text-slate-900">
+                  #{receipt.reference_number || receipt.booking_number}
+                </dd>
               </div>
               <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                <dt className="text-slate-500">Travel Corridor Route</dt>
+                <dt className="text-slate-500">Customer / Payee Name</dt>
+                <dd className="font-bold text-slate-900">
+                  {receipt.customer_name || receipt.passenger_name}
+                </dd>
+              </div>
+              <div className="flex justify-between border-b border-slate-100 pb-1.5">
+                <dt className="text-slate-500">Corridor Route</dt>
                 <dd className="font-bold text-slate-900">{receipt.route}</dd>
               </div>
               <div className="flex justify-between border-b border-slate-100 pb-1.5">

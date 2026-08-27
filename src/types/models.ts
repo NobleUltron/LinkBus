@@ -265,3 +265,66 @@ export interface AuditLog {
   new_values: string;
   created_at: string;
 }
+
+export type ReconciliationStatus = 'open' | 'reconciled' | 'flagged' | 'audited';
+
+export interface CashDenominations {
+  notes_50k: number; // UGX 50,000
+  notes_20k: number; // UGX 20,000
+  notes_10k: number; // UGX 10,000
+  notes_5k: number;  // UGX 5,000
+  notes_2k: number;  // UGX 2,000
+  notes_1k: number;  // UGX 1,000
+  coins: number;     // UGX 500, 200, 100, 50
+}
+
+export interface ShiftReconciliation {
+  id: number;
+  shift_code: string;
+  terminal_id: number;
+  terminal_name: string;
+  terminal_city: string;
+  cashier_id: number;
+  cashier_name: string;
+  supervisor_name?: string;
+  shift_date: string;
+  opened_at: string;
+  closed_at: string;
+  status: ReconciliationStatus;
+
+  // Breakdown by Category
+  ticket_sales_cash: number;
+  ticket_sales_momo: number;
+  ticket_sales_airtel: number;
+  ticket_sales_card: number;
+  ticket_sales_total: number;
+  ticket_count: number;
+
+  luggage_fees_cash: number;
+  luggage_fees_momo: number;
+  luggage_fees_airtel: number;
+  luggage_fees_total: number;
+  luggage_count: number;
+
+  parcel_fees_cash: number;
+  parcel_fees_momo: number;
+  parcel_fees_airtel: number;
+  parcel_fees_total: number;
+  parcel_count: number;
+
+  // Expected Totals
+  system_expected_cash: number;
+  system_expected_momo: number;
+  system_expected_airtel: number;
+  system_expected_card: number;
+  system_expected_total: number;
+
+  // Physical Count
+  denominations: CashDenominations;
+  actual_counted_cash: number;
+
+  // Variance & Discrepancy
+  variance_cash: number;
+  variance_reason?: string;
+  closing_notes?: string;
+}

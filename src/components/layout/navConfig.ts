@@ -7,6 +7,7 @@ export type NavIcon =
 'bookings' |
 'tickets' |
 'payments' |
+'reconciliation' |
 'promo' |
 'trips' |
 'routes' |
@@ -61,6 +62,7 @@ export const adminPortal: PortalConfig = {
     { label: 'Bookings', to: '/admin/bookings', icon: 'bookings' },
     { label: 'Tickets', to: '/admin/tickets', icon: 'tickets' },
     { label: 'Payments', to: '/admin/payments', icon: 'payments' },
+    { label: 'Cash Reconciliations', to: '/admin/reconciliations', icon: 'reconciliation' },
     { label: 'Promo codes', to: '/admin/promo-codes', icon: 'promo' }]
 
   },
@@ -106,7 +108,8 @@ export const staffPortal: PortalConfig = {
     items: [
     { label: 'Bookings', to: '/staff/bookings', icon: 'bookings' },
     { label: 'Tickets', to: '/staff/tickets', icon: 'tickets' },
-    { label: 'Payments', to: '/staff/payments', icon: 'payments' }]
+    { label: 'Payments', to: '/staff/payments', icon: 'payments' },
+    { label: 'Cash Reconciliation', to: '/staff/reconciliation', icon: 'reconciliation' }]
 
   },
   {

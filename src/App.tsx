@@ -43,6 +43,7 @@ import { ParcelsScreen } from './pages/shared/ParcelsScreen';
 import { PaymentsScreen } from './pages/shared/PaymentsScreen';
 import { PosTerminal } from './pages/shared/PosTerminal';
 import { ProfileSettings } from './pages/shared/ProfileSettings';
+import { ReconciliationScreen } from './pages/shared/ReconciliationScreen';
 import { TicketsScreen } from './pages/shared/TicketsScreen';
 import { CheckIn } from './pages/staff/CheckIn';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
@@ -96,6 +97,7 @@ export function App() {
                   <Route path="/staff/bookings" element={<BookingsScreen />} />
                   <Route path="/staff/tickets" element={<TicketsScreen />} />
                   <Route path="/staff/payments" element={<PaymentsScreen canRefund={false} />} />
+                  <Route path="/staff/reconciliation" element={<ReconciliationScreen mode="staff" />} />
                   <Route path="/staff/luggage" element={<LuggageScreen mode="staff" />} />
                   <Route path="/staff/parcels" element={<ParcelsScreen />} />
                   <Route path="/staff/profile" element={<ProfileSettings />} />
@@ -122,6 +124,7 @@ export function App() {
                   <Route path="/admin/bookings" element={<BookingsScreen canRefund />} />
                   <Route path="/admin/tickets" element={<TicketsScreen canVoid />} />
                   <Route path="/admin/payments" element={<PaymentsScreen />} />
+                  <Route path="/admin/reconciliations" element={<ReconciliationScreen mode="admin" />} />
                   <Route path="/admin/promo-codes" element={<PromoCodes />} />
                   <Route path="/admin/trips" element={<Trips />} />
                   <Route path="/admin/routes" element={<RoutesAdmin />} />

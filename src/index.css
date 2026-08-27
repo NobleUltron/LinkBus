@@ -884,6 +884,44 @@ select.field {
     break-inside: avoid;
   }
 
+  /* ─── SHIFT RECONCILIATION PRINT MODE ────────────────────────────── */
+  body.is-printing-reconciliation > *:not(#reconciliation-print-clone) {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    pointer-events: none !important;
+  }
+
+  body.is-printing-reconciliation #reconciliation-print-clone {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    box-sizing: border-box !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body.is-printing-reconciliation #reconciliation-print-clone * {
+    visibility: visible !important;
+    box-sizing: border-box !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
   /* ─── SHARED COLOUR & SVG OVERRIDES ───────────────────────────────────────── */
   .print-header,
   #receipt-print-clone .print-header,
@@ -891,6 +929,7 @@ select.field {
   #luggage-tag-print-clone .print-header,
   #parcel-tag-print-clone .print-header,
   #manifest-print-clone .print-header,
+  #reconciliation-print-clone .print-header,
   .print-boarding-pass .print-header {
     background-color: #047857 !important;
     color: #ffffff !important;
@@ -908,6 +947,8 @@ select.field {
   #luggage-tag-print-clone svg *,
   #parcel-tag-print-clone svg,
   #parcel-tag-print-clone svg *,
+  #reconciliation-print-clone svg,
+  #reconciliation-print-clone svg *,
   .print-boarding-pass svg,
   .print-boarding-pass svg * {
     visibility: visible !important;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BadgePercentIcon, BriefcaseIcon, BusIcon, CalendarClockIcon, ChartNoAxesColumnIcon, CreditCardIcon, IdCardIcon, LayoutDashboardIcon, MapPinIcon, MegaphoneIcon, PackageIcon, QrCodeIcon, RouteIcon, SearchIcon, Settings2Icon, ShieldCheckIcon, StoreIcon, TicketIcon, UserIcon, UsersIcon } from 'lucide-react';
+import { BadgePercentIcon, BanknoteIcon, BriefcaseIcon, BusIcon, CalendarClockIcon, ChartNoAxesColumnIcon, CreditCardIcon, IdCardIcon, LayoutDashboardIcon, MapPinIcon, MegaphoneIcon, PackageIcon, QrCodeIcon, RouteIcon, SearchIcon, Settings2Icon, ShieldCheckIcon, StoreIcon, TicketIcon, UserIcon, UsersIcon } from 'lucide-react';
 import type { NavIcon } from './navConfig';
 const map: Record<NavIcon, React.ComponentType<{
   className?: string;
@@ -10,6 +10,7 @@ const map: Record<NavIcon, React.ComponentType<{
   bookings: CalendarClockIcon,
   tickets: TicketIcon,
   payments: CreditCardIcon,
+  reconciliation: BanknoteIcon,
   promo: BadgePercentIcon,
   trips: BusIcon,
   routes: RouteIcon,

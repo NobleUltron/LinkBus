@@ -390,6 +390,20 @@ export function LuggageScreen({
     },
   ];
 
+  const metrics = useMemo(() => {
+    const rows = state.rows;
+    const totalCount = state.meta.total || rows.length;
+    const excessFeeTotal = rows.reduce((acc, r) => acc + (r.excess_fee || 0), 0);
+    const inTransitCount = rows.filter((r) => r.status === 'in_transit').length;
+    const deliveredCount = rows.filter((r) => r.status === 'delivered').length;
+    return {
+      totalCount,
+      excessFeeTotal,
+      inTransitCount,
+      deliveredCount,
+    };
+  }, [state.rows, state.meta.total]);
+
   return (
     <div className="space-y-6">
       {/* ── Page Header ── */}
@@ -400,6 +414,75 @@ export function LuggageScreen({
         <p className="text-xs text-muted">
           Live tracking of passenger bags, baggage bay weights, and excess fee settlements.
         </p>
+      </div>
+
+      {/* ── Luggage Operational & Revenue KPI Scorecards ── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Total Tagged Bags */}
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <LuggageIcon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-fg">Total Tagged Luggage</span>
+          </div>
+          <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+            {metrics.totalCount} Bags
+          </p>
+          <p className="text-[0.6875rem] text-muted">
+            All registered passenger baggage
+          </p>
+        </div>
+
+        {/* Excess Luggage Surcharges */}
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 shadow-sm hover-lift transition-all">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-600 text-white font-bold">
+              <ScaleIcon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-amber-950 dark:text-amber-200 uppercase tracking-wider">
+              Excess Surcharges
+            </span>
+          </div>
+          <p className="mt-2 font-extrabold text-2xl text-amber-950 dark:text-amber-100 tabular-nums">
+            {money(metrics.excessFeeTotal)}
+          </p>
+          <p className="text-[0.6875rem] text-amber-800 dark:text-amber-300">
+            Overweight baggage fees collected
+          </p>
+        </div>
+
+        {/* In Coach Luggage Bay */}
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <BriefcaseIcon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-fg">In Coach Cargo Bay</span>
+          </div>
+          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
+            {metrics.inTransitCount} Pieces
+          </p>
+          <p className="text-[0.6875rem] text-muted">
+            Loaded on en-route coaches
+          </p>
+        </div>
+
+        {/* Claimed & Retrieved */}
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2Icon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-fg">Claimed by Passenger</span>
+          </div>
+          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
+            {metrics.deliveredCount} Delivered
+          </p>
+          <p className="text-[0.6875rem] text-muted">
+            Handed over at destination terminal
+          </p>
+        </div>
       </div>
 
       {/* ── Baggage Check-in Panel ── */}

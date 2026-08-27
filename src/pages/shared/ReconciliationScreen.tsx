@@ -285,7 +285,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Expected Physical Cash */}
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[0.6875rem] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
                     Expected Cash in Drawer
@@ -301,7 +301,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
               </div>
 
               {/* Passenger Tickets Collection */}
-              <div className="rounded-xl border border-line bg-surface p-4">
+              <div className="rounded-xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[0.6875rem] font-bold text-muted uppercase tracking-wider">
                     Ticket Sales ({activeMetrics.data.ticket_count})
@@ -317,7 +317,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
               </div>
 
               {/* Excess Luggage Collection */}
-              <div className="rounded-xl border border-line bg-surface p-4">
+              <div className="rounded-xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[0.6875rem] font-bold text-muted uppercase tracking-wider">
                     Luggage Excess ({activeMetrics.data.luggage_count})
@@ -333,7 +333,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
               </div>
 
               {/* Parcel Freight Collection */}
-              <div className="rounded-xl border border-line bg-surface p-4">
+              <div className="rounded-xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[0.6875rem] font-bold text-muted uppercase tracking-wider">
                     Parcel Freight ({activeMetrics.data.parcel_count})

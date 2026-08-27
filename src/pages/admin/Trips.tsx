@@ -604,7 +604,7 @@ export function Trips() {
       {/* ── Operational & Capacity KPI Scorecards ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Active Scheduled Departures */}
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm">
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold">
               <CalendarDaysIcon className="h-4 w-4" />
@@ -622,7 +622,7 @@ export function Trips() {
         </div>
 
         {/* Coaches En Route */}
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
               <BusIcon className="h-4 w-4" />
@@ -638,7 +638,7 @@ export function Trips() {
         </div>
 
         {/* Total Passengers Booked */}
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
               <UsersIcon className="h-4 w-4" />
@@ -654,7 +654,7 @@ export function Trips() {
         </div>
 
         {/* Fleet Load Factor */}
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
               <TrendingUpIcon className="h-4 w-4" />

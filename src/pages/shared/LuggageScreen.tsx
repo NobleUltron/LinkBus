@@ -25,9 +25,11 @@ import { Modal } from '../../components/ui/Modal';
 import { Panel } from '../../components/ui/Panel';
 import { EmptyState, InlineError } from '../../components/ui/States';
 import { StatusPill } from '../../components/ui/StatusPill';
+import { ShiftOpenModal } from '../../components/modals/ShiftOpenModal';
 import { useSettings } from '../../contexts/SettingsContext';
 import { errorMessage } from '../../hooks/useAsync';
 import { usePaginated } from '../../hooks/usePaginated';
+import { hasActiveShift } from '../../services/reconciliations';
 import {
   createLuggage,
   deleteLuggage,
@@ -89,6 +91,7 @@ export function LuggageScreen({
     payment_method: 'cash',
     notes: '',
   });
+  const [openShiftModal, setOpenShiftModal] = useState(false);
   const [addErrors, setAddErrors] = useState<Record<string, string>>({});
   const [adding, setAdding] = useState(false);
 
@@ -161,6 +164,13 @@ export function LuggageScreen({
     const ratePerKg = settings.excess_luggage_fee_per_kg || 2000;
     const excessKg = Math.max(0, weight - freeAllowance);
     const excessFee = excessKg * ratePerKg;
+
+    const isCash = addForm.payment_method === 'cash' || !addForm.payment_method;
+    if (excessFee > 0 && isCash && !hasActiveShift()) {
+      toast.error('Cash Drawer is Closed! Please open your shift float to accept cash, or choose MTN MoMo / Airtel / Card payment.');
+      setOpenShiftModal(true);
+      return;
+    }
 
     setAdding(true);
     try {
@@ -755,6 +765,9 @@ export function LuggageScreen({
 
             if (excessFee <= 0) return null;
 
+            const isCash = addForm.payment_method === 'cash' || !addForm.payment_method;
+            const isShiftOpen = hasActiveShift();
+
             return (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs space-y-3">
                 <div className="flex items-center justify-between text-amber-800 dark:text-amber-200">
@@ -776,12 +789,35 @@ export function LuggageScreen({
                     setAddForm({ ...addForm, payment_method: event.target.value })
                   }
                   options={[
-                    { value: 'cash', label: 'Station Counter Cash (Default)' },
-                    { value: 'mtn_mobile_money', label: 'MTN Mobile Money' },
-                    { value: 'airtel_money', label: 'Airtel Money' },
-                    { value: 'card', label: 'Visa / POS Terminal Card' },
+                    { value: 'cash', label: 'Station Counter Cash (Till)' },
+                    { value: 'mtn_mobile_money', label: 'MTN Mobile Money (Direct Gateway)' },
+                    { value: 'airtel_money', label: 'Airtel Money (Direct Gateway)' },
+                    { value: 'card', label: 'Visa / POS Terminal Card (Electronic)' },
                   ]}
                 />
+
+                {isCash && !isShiftOpen ? (
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-800 dark:text-rose-300">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="font-bold">🔒 Cash shift is closed:</span>
+                      <span>Open float or select Mobile Money / Card above.</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                      className="text-xs bg-surface text-rose-700 dark:text-rose-300 border-rose-300 shrink-0 font-bold"
+                      onClick={() => setOpenShiftModal(true)}
+                    >
+                      Open Float Now
+                    </Button>
+                  </div>
+                ) : !isCash ? (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs">
+                    <CheckCircle2Icon className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span><strong>Digital Settlement:</strong> Passenger can pay electronically even if the physical till is closed.</span>
+                  </div>
+                ) : null}
               </div>
             );
           })()}
@@ -905,6 +941,15 @@ export function LuggageScreen({
         pending={deletePending}
         onConfirm={confirmDelete}
         onClose={() => setDeleting(null)}
+      />
+
+      <ShiftOpenModal
+        open={openShiftModal}
+        onClose={() => setOpenShiftModal(false)}
+        onSuccess={() => {
+          setOpenShiftModal(false);
+          toast.success('Duty shift float opened successfully.');
+        }}
       />
     </div>
   );

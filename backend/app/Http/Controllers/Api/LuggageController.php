@@ -124,11 +124,15 @@ class LuggageController extends Controller
         $excessFee = (int) round($excessKg * $ratePerKg);
 
         $shiftId = null;
+        $activeShift = \App\Models\Shift::where('user_id', $request->user()->id)->where('status', 'open')->first();
         if ($paymentMethod === 'cash' && $excessFee > 0) {
-            $activeShift = \App\Models\Shift::where('user_id', $request->user()->id)->where('status', 'open')->first();
             if (!$activeShift) {
-                return response()->json(['message' => 'Shift is Closed! You must open a cash drawer shift before accepting cash baggage fees.'], 403);
+                return response()->json([
+                    'message' => 'Shift is Closed! You must open your cash drawer shift before accepting cash baggage fees, or choose MTN MoMo / Airtel Money / Card payment.'
+                ], 403);
             }
+            $shiftId = $activeShift->id;
+        } elseif ($excessFee > 0 && $activeShift) {
             $shiftId = $activeShift->id;
         }
 

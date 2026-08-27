@@ -33,8 +33,10 @@ import { Modal } from '../../components/ui/Modal';
 import { Panel } from '../../components/ui/Panel';
 import { EmptyState, ErrorState, SkeletonTable } from '../../components/ui/States';
 import { StatusPill } from '../../components/ui/StatusPill';
+import { ShiftOpenModal } from '../../components/modals/ShiftOpenModal';
 import { useAsync, errorMessage } from '../../hooks/useAsync';
 import { usePaginated } from '../../hooks/usePaginated';
+import { hasActiveShift } from '../../services/reconciliations';
 import {
   createParcel,
   deleteParcel,
@@ -88,6 +90,7 @@ export function ParcelsScreen() {
   });
   const [addErrors, setAddErrors] = useState<Record<string, string>>({});
   const [adding, setAdding] = useState(false);
+  const [openShiftModal, setOpenShiftModal] = useState(false);
 
   // Edit Parcel State
   const [editingItem, setEditingItem] = useState<ParcelDetail | null>(null);
@@ -215,6 +218,13 @@ export function ParcelsScreen() {
 
     setAddErrors(errors);
     if (Object.keys(errors).length > 0) return;
+
+    const isCash = addForm.payment_method === 'cash' || !addForm.payment_method;
+    if (isCash && !hasActiveShift()) {
+      toast.error('Cash Drawer is Closed! You must open your shift float to collect cash, or choose MTN MoMo / Airtel / Card payment.');
+      setOpenShiftModal(true);
+      return;
+    }
 
     setAdding(true);
     try {
@@ -900,14 +910,37 @@ export function ParcelsScreen() {
               label="Payment Method"
               value={addForm.payment_method}
               options={[
-                { value: 'cash', label: 'Station Cash (Default)' },
-                { value: 'mtn_mobile_money', label: 'MTN Mobile Money' },
-                { value: 'airtel_money', label: 'Airtel Money' },
-                { value: 'card', label: 'Visa / POS Card' },
+                { value: 'cash', label: 'Station Cash (Till)' },
+                { value: 'mtn_mobile_money', label: 'MTN Mobile Money (Direct Gateway)' },
+                { value: 'airtel_money', label: 'Airtel Money (Direct Gateway)' },
+                { value: 'card', label: 'Visa / POS Card (Electronic)' },
               ]}
               onChange={(e) => setAddForm({ ...addForm, payment_method: e.target.value })}
             />
           </div>
+
+          {(addForm.payment_method === 'cash' || !addForm.payment_method) && !hasActiveShift() ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-800 dark:text-rose-300 text-xs">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="font-bold">🔒 Cash shift is closed:</span>
+                <span>Open float or select Mobile Money / Card above.</span>
+              </div>
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                className="text-xs bg-surface text-rose-700 dark:text-rose-300 border-rose-300 shrink-0 font-bold"
+                onClick={() => setOpenShiftModal(true)}
+              >
+                Open Float Now
+              </Button>
+            </div>
+          ) : addForm.payment_method !== 'cash' ? (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs">
+              <CheckCircle2Icon className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span><strong>Digital Settlement:</strong> Waybill fees can be collected electronically even if the physical till is closed.</span>
+            </div>
+          ) : null}
 
           <TextAreaField
             id="parcel-description"
@@ -1074,6 +1107,15 @@ export function ParcelsScreen() {
         pending={deletePending}
         onConfirm={confirmDelete}
         onClose={() => setDeleting(null)}
+      />
+
+      <ShiftOpenModal
+        open={openShiftModal}
+        onClose={() => setOpenShiftModal(false)}
+        onSuccess={() => {
+          setOpenShiftModal(false);
+          toast.success('Duty shift float opened successfully.');
+        }}
       />
     </div>
   );

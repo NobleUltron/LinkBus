@@ -136,11 +136,15 @@ class ParcelController extends Controller
         $paymentMethod = $data['payment_method'] ?? 'cash';
 
         $shiftId = null;
+        $activeShift = \App\Models\Shift::where('user_id', $request->user()->id)->where('status', 'open')->first();
         if ($paymentMethod === 'cash') {
-            $activeShift = \App\Models\Shift::where('user_id', $request->user()->id)->where('status', 'open')->first();
             if (!$activeShift) {
-                return response()->json(['message' => 'Shift is Closed! You must open a cash drawer shift before collecting parcel payments.'], 403);
+                return response()->json([
+                    'message' => 'Shift is Closed! You must open your cash drawer shift before collecting cash parcel fees, or choose MTN MoMo / Airtel Money / Card payment.'
+                ], 403);
             }
+            $shiftId = $activeShift->id;
+        } elseif ($activeShift) {
             $shiftId = $activeShift->id;
         }
 

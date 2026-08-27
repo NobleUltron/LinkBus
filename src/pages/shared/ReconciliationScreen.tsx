@@ -8,19 +8,25 @@ import {
   CalendarIcon,
   CheckCircle2Icon,
   ClockIcon,
+  CoinsIcon,
   DownloadIcon,
+  EyeIcon,
   FileSpreadsheetIcon,
   HistoryIcon,
   PackageIcon,
   PrinterIcon,
   ReceiptTextIcon,
   SearchIcon,
+  ShieldAlertIcon,
   ShieldCheckIcon,
   SmartphoneIcon,
+  SparklesIcon,
   StoreIcon,
   TicketIcon,
+  TrendingUpIcon,
   UsersIcon,
   WalletIcon,
+  XCircleIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable, type Column } from '../../components/data/DataTable';
@@ -30,6 +36,7 @@ import { ShiftCloseoutModal } from '../../components/modals/ShiftCloseoutModal';
 import { ReconciliationPrintModal } from '../../components/modals/ReconciliationPrintModal';
 import { Button } from '../../components/ui/Button';
 import { DateInput } from '../../components/ui/Inputs';
+import { Modal } from '../../components/ui/Modal';
 import { Panel } from '../../components/ui/Panel';
 import { EmptyState, SkeletonTable } from '../../components/ui/States';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -53,6 +60,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
   const { user } = useAuth();
   const [closeoutOpen, setCloseoutOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ShiftReconciliation | null>(null);
+  const [previewAuditRecord, setPreviewAuditRecord] = useState<ShiftReconciliation | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
 
   const [dateRange, setDateRange] = useState({
@@ -75,6 +83,22 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
     })
   );
 
+  // Scorecards computation for audited ledger
+  const ledgerMetrics = useMemo(() => {
+    const rows = state.rows || [];
+    const totalCount = state.total || rows.length;
+    const balancedCount = rows.filter((r) => r.variance_cash === 0).length;
+    const flaggedCount = rows.filter((r) => r.variance_cash !== 0 || r.status === 'flagged').length;
+    const totalVolume = rows.reduce((sum, r) => sum + (Number(r.system_expected_total) || 0), 0);
+
+    return {
+      totalCount,
+      balancedCount,
+      flaggedCount,
+      totalVolume,
+    };
+  }, [state.rows, state.total]);
+
   const handleShiftReconciled = (reconciliation: ShiftReconciliation) => {
     setCloseoutOpen(false);
     state.reload();
@@ -92,19 +116,20 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
 
     const headers = [
       'Shift Code',
-      'Date',
+      'Duty Date',
       'Terminal',
-      'Cashier',
+      'Cashier Name',
       'Supervisor',
       'Status',
-      'Ticket Sales (UGX)',
-      'Luggage Fees (UGX)',
-      'Parcel Freight (UGX)',
-      'Total Expected Revenue (UGX)',
-      'Expected Cash (UGX)',
+      'Ticket Sales Total (UGX)',
+      'Luggage Fees Total (UGX)',
+      'Parcel Freight Total (UGX)',
+      'Gross Expected Revenue (UGX)',
+      'System Expected Cash (UGX)',
       'Actual Counted Cash (UGX)',
-      'Variance (UGX)',
-      'Variance Reason',
+      'Variance Amount (UGX)',
+      'Variance Explanation',
+      'Closed Timestamp',
     ];
 
     const csvContent = [
@@ -125,6 +150,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           r.actual_counted_cash,
           r.variance_cash,
           `"${(r.variance_reason || '').replace(/"/g, '""')}"`,
+          `"${formatDateTime(r.closed_at)}"`,
         ].join(',')
       ),
     ].join('\n');
@@ -153,7 +179,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
       header: 'Shift Code & Date',
       render: (item) => (
         <div className="py-1">
-          <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line shadow-sm">
+          <span className="inline-flex items-center gap-1 font-mono text-xs font-black text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line shadow-2xs">
             <ReceiptTextIcon className="h-3 w-3 text-brand-600" />
             {item.shift_code}
           </span>
@@ -168,7 +194,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
       header: 'Terminal & Cashier',
       render: (item) => (
         <div>
-          <span className="font-bold text-fg text-xs block">
+          <span className="font-extrabold text-fg text-xs block">
             {item.terminal_name}
           </span>
           <span className="text-[0.6875rem] text-muted">
@@ -216,19 +242,19 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-line/60">
             <span className="text-[0.6875rem] font-bold">Variance:</span>
             <span
-              className={`font-bold ${
+              className={`font-black ${
                 item.variance_cash === 0
-                  ? 'text-emerald-600'
+                  ? 'text-emerald-600 dark:text-emerald-400'
                   : item.variance_cash > 0
-                  ? 'text-blue-600'
-                  : 'text-rose-600'
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-rose-600 dark:text-rose-400'
               }`}
             >
               {item.variance_cash === 0
-                ? '0 UGX'
+                ? 'Balanced (0 UGX)'
                 : item.variance_cash > 0
-                ? `+${money(item.variance_cash)}`
-                : money(item.variance_cash)}
+                ? `+${money(item.variance_cash)} Over`
+                : `${money(item.variance_cash)} Short`}
             </span>
           </div>
         </div>
@@ -244,38 +270,71 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
       header: '',
       align: 'right',
       render: (item) => (
-        <Button
-          variant="outline"
-          size="sm"
-          icon={<PrinterIcon className="h-3.5 w-3.5" />}
-          onClick={() => {
-            setSelectedRecord(item);
-            setPrintOpen(true);
-          }}
-          className="text-xs font-semibold"
-        >
-          View / Print Slip
-        </Button>
+        <div className="flex items-center justify-end gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<EyeIcon className="h-3.5 w-3.5" />}
+            onClick={() => setPreviewAuditRecord(item)}
+            className="text-xs font-semibold"
+            title="View Full Shift Audit Breakdown"
+          >
+            Audit Breakdown
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<PrinterIcon className="h-3.5 w-3.5" />}
+            onClick={() => {
+              setSelectedRecord(item);
+              setPrintOpen(true);
+            }}
+            className="text-xs font-semibold"
+            title="Print Official Slip"
+          >
+            Print Slip
+          </Button>
+        </div>
       ),
     },
   ];
 
   return (
     <div className="space-y-6">
-      {/* ─── Top Active Shift Live Cash Drawer Card ─── */}
-      <Panel
-        title="Active Terminal Shift & Cash Drawer Status"
-        subtitle="Real-time collection tallies for current duty shift across tickets, luggage, and parcels"
-        action={
+      {/* ── Page Top Header ── */}
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+            Cash Drawer &amp; Shift Reconciliations
+          </h1>
+          <p className="mt-1 text-xs text-muted max-w-xl">
+            Audit cashier shift closeouts, verify physical drawer cash counts against system collections across tickets, excess luggage, and parcel waybills, and print certified settlement slips.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="outline"
+            icon={<FileSpreadsheetIcon className="h-4 w-4" />}
+            onClick={handleExportCSV}
+          >
+            Export Ledger CSV
+          </Button>
           <Button
             icon={<ShieldCheckIcon className="h-4 w-4" />}
             onClick={() => setCloseoutOpen(true)}
             disabled={activeMetrics.loading || !activeMetrics.data}
-            className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs"
+            className="bg-brand-600 hover:bg-brand-700 text-white font-bold"
           >
             Reconcile Drawer &amp; Close Shift
           </Button>
-        }
+        </div>
+      </div>
+
+      {/* ── Top Active Shift Live Cash Drawer Card ── */}
+      <Panel
+        title="Active Terminal Shift &amp; Live Cash Drawer Status"
+        subtitle="Real-time collection tallies for current duty shift across tickets, excess luggage, and parcel waybills"
       >
         {activeMetrics.loading ? (
           <div className="p-4">
@@ -285,23 +344,23 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Expected Physical Cash */}
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[0.6875rem] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
                     Expected Cash in Drawer
                   </span>
                   <BanknoteIcon className="h-4 w-4 text-emerald-600" />
                 </div>
-                <div className="text-xl font-black font-mono text-emerald-950 dark:text-emerald-100">
+                <div className="text-2xl font-black font-mono text-emerald-950 dark:text-emerald-100">
                   {money(activeMetrics.data.system_expected_cash)}
                 </div>
                 <span className="text-[0.625rem] text-emerald-700 dark:text-emerald-300 font-medium">
-                  Ready for physical count verification
+                  Ready for physical drawer count verification
                 </span>
               </div>
 
               {/* Passenger Tickets Collection */}
-              <div className="rounded-xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[0.6875rem] font-bold text-muted uppercase tracking-wider">
                     Ticket Sales ({activeMetrics.data.ticket_count})
@@ -317,7 +376,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
               </div>
 
               {/* Excess Luggage Collection */}
-              <div className="rounded-xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[0.6875rem] font-bold text-muted uppercase tracking-wider">
                     Luggage Excess ({activeMetrics.data.luggage_count})
@@ -333,7 +392,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
               </div>
 
               {/* Parcel Freight Collection */}
-              <div className="rounded-xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[0.6875rem] font-bold text-muted uppercase tracking-wider">
                     Parcel Freight ({activeMetrics.data.parcel_count})
@@ -352,26 +411,15 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
         ) : null}
       </Panel>
 
-      {/* ─── Historical Shift Reconciliations Ledger ─── */}
+      {/* ── Historical Shift Reconciliations Ledger ── */}
       <Panel
         title="Station Shift Reconciliation Ledger"
-        subtitle="Audited cashier shift closeouts and cash drawer reconciliation history"
-        action={
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<DownloadIcon className="h-4 w-4" />}
-            onClick={handleExportCSV}
-            className="text-xs font-semibold"
-          >
-            Export Ledger (CSV)
-          </Button>
-        }
+        subtitle="Audited cashier shift closeouts and historical drawer reconciliation records"
       >
         <Toolbar
           search={state.search}
           onSearch={state.setSearch}
-          searchPlaceholder="Search shift code, cashier, terminal…"
+          searchPlaceholder="Search shift code, cashier name, terminal..."
           searching={state.loading}
           filters={[
             {
@@ -419,6 +467,183 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           onPerPageChange={state.setPerPage}
         />
       </Panel>
+
+      {/* ── Shift Full Audit Breakdown Modal ── */}
+      <Modal
+        open={Boolean(previewAuditRecord)}
+        onClose={() => setPreviewAuditRecord(null)}
+        title="Shift Reconciliation Audit Breakdown"
+        subtitle={previewAuditRecord ? `Shift #${previewAuditRecord.shift_code} · ${previewAuditRecord.terminal_name}` : undefined}
+        size="lg"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              icon={<PrinterIcon className="h-4 w-4" />}
+              onClick={() => {
+                const rec = previewAuditRecord;
+                setPreviewAuditRecord(null);
+                if (rec) {
+                  setSelectedRecord(rec);
+                  setPrintOpen(true);
+                }
+              }}
+            >
+              Print Certified Slip
+            </Button>
+            <Button variant="outline" onClick={() => setPreviewAuditRecord(null)}>
+              Close
+            </Button>
+          </>
+        }
+      >
+        {previewAuditRecord && (
+          <div className="space-y-4">
+            {/* Shift Header Banner */}
+            <div className="rounded-2xl border border-line bg-surface-2/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-[0.6875rem] font-bold text-muted uppercase">Shift Reference Code</span>
+                <p className="font-mono font-black text-xl text-fg">{previewAuditRecord.shift_code}</p>
+                <p className="text-xs text-muted mt-0.5">
+                  Station: <strong className="text-fg">{previewAuditRecord.terminal_name}</strong> ({previewAuditRecord.terminal_city})
+                </p>
+              </div>
+              <div className="flex flex-col sm:items-end gap-1">
+                <StatusPill status={previewAuditRecord.status} />
+                <span className="text-xs text-muted">
+                  Cashier: <strong className="text-fg">{previewAuditRecord.cashier_name}</strong>
+                </span>
+                {previewAuditRecord.supervisor_name && (
+                  <span className="text-[0.6875rem] text-muted">
+                    Supervisor: <strong className="text-fg">{previewAuditRecord.supervisor_name}</strong>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Revenue Breakdown by Stream */}
+            <div className="rounded-2xl border border-line bg-surface p-4 space-y-3">
+              <div className="flex items-center gap-2 border-b border-line pb-2 text-xs font-black uppercase tracking-wider text-muted">
+                <CoinsIcon className="h-3.5 w-3.5 text-brand-600" />
+                Revenue Collections by Stream &amp; Payment Method
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Tickets */}
+                <div className="rounded-xl border border-line bg-surface-2 p-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-fg flex items-center gap-1">
+                      <TicketIcon className="h-3.5 w-3.5 text-brand-600" />
+                      Tickets ({previewAuditRecord.ticket_count || 0})
+                    </span>
+                    <strong className="text-xs font-mono">{money(previewAuditRecord.ticket_sales_total)}</strong>
+                  </div>
+                  <div className="text-[0.6875rem] text-muted space-y-0.5 border-t border-line/60 pt-1">
+                    <div className="flex justify-between"><span>Cash:</span><span>{money(previewAuditRecord.ticket_sales_cash)}</span></div>
+                    <div className="flex justify-between"><span>MTN MoMo:</span><span>{money(previewAuditRecord.ticket_sales_momo)}</span></div>
+                    <div className="flex justify-between"><span>Airtel Money:</span><span>{money(previewAuditRecord.ticket_sales_airtel)}</span></div>
+                  </div>
+                </div>
+
+                {/* Luggage */}
+                <div className="rounded-xl border border-line bg-surface-2 p-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-fg flex items-center gap-1">
+                      <BriefcaseIcon className="h-3.5 w-3.5 text-amber-600" />
+                      Luggage ({previewAuditRecord.luggage_count || 0})
+                    </span>
+                    <strong className="text-xs font-mono">{money(previewAuditRecord.luggage_fees_total)}</strong>
+                  </div>
+                  <div className="text-[0.6875rem] text-muted space-y-0.5 border-t border-line/60 pt-1">
+                    <div className="flex justify-between"><span>Cash:</span><span>{money(previewAuditRecord.luggage_fees_cash)}</span></div>
+                    <div className="flex justify-between"><span>MoMo / Digital:</span><span>{money(previewAuditRecord.luggage_fees_momo + (previewAuditRecord.luggage_fees_airtel || 0))}</span></div>
+                  </div>
+                </div>
+
+                {/* Parcels */}
+                <div className="rounded-xl border border-line bg-surface-2 p-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-fg flex items-center gap-1">
+                      <PackageIcon className="h-3.5 w-3.5 text-blue-600" />
+                      Parcels ({previewAuditRecord.parcel_count || 0})
+                    </span>
+                    <strong className="text-xs font-mono">{money(previewAuditRecord.parcel_fees_total)}</strong>
+                  </div>
+                  <div className="text-[0.6875rem] text-muted space-y-0.5 border-t border-line/60 pt-1">
+                    <div className="flex justify-between"><span>Cash:</span><span>{money(previewAuditRecord.parcel_fees_cash)}</span></div>
+                    <div className="flex justify-between"><span>MoMo / Digital:</span><span>{money(previewAuditRecord.parcel_fees_momo + (previewAuditRecord.parcel_fees_airtel || 0))}</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Cash Drawer Count Audit */}
+            <div className="rounded-2xl border border-line bg-surface p-4 space-y-3">
+              <div className="flex items-center gap-2 border-b border-line pb-2 text-xs font-black uppercase tracking-wider text-muted">
+                <BanknoteIcon className="h-3.5 w-3.5 text-emerald-600" />
+                Physical Drawer Cash Reconciliation &amp; Discrepancy
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-xl bg-surface-2 p-3 border border-line">
+                  <span className="text-muted text-[0.625rem] font-bold block uppercase">System Expected Cash</span>
+                  <span className="font-mono font-extrabold text-sm text-fg">{money(previewAuditRecord.system_expected_cash)}</span>
+                </div>
+                <div className="rounded-xl bg-surface-2 p-3 border border-line">
+                  <span className="text-muted text-[0.625rem] font-bold block uppercase">Actual Counted Cash</span>
+                  <span className="font-mono font-extrabold text-sm text-emerald-600 dark:text-emerald-400">{money(previewAuditRecord.actual_counted_cash)}</span>
+                </div>
+                <div className="rounded-xl bg-surface-2 p-3 border border-line">
+                  <span className="text-muted text-[0.625rem] font-bold block uppercase">Variance / Discrepancy</span>
+                  <span className={`font-mono font-black text-sm ${
+                    previewAuditRecord.variance_cash === 0
+                      ? 'text-emerald-600'
+                      : previewAuditRecord.variance_cash > 0
+                      ? 'text-blue-600'
+                      : 'text-rose-600'
+                  }`}>
+                    {previewAuditRecord.variance_cash === 0
+                      ? '0 UGX (Balanced)'
+                      : previewAuditRecord.variance_cash > 0
+                      ? `+${money(previewAuditRecord.variance_cash)} Over`
+                      : `${money(previewAuditRecord.variance_cash)} Short`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Physical Notes Denominations Breakdown */}
+              {previewAuditRecord.denominations && (
+                <div className="rounded-xl border border-line bg-surface-2/60 p-3 space-y-1.5">
+                  <span className="text-[0.6875rem] font-black uppercase tracking-wider text-muted block">
+                    Cashier Counted Denominations:
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                    <div className="bg-surface p-1.5 rounded border border-line/60">50k Notes: <strong>{previewAuditRecord.denominations.notes_50k || 0}</strong></div>
+                    <div className="bg-surface p-1.5 rounded border border-line/60">20k Notes: <strong>{previewAuditRecord.denominations.notes_20k || 0}</strong></div>
+                    <div className="bg-surface p-1.5 rounded border border-line/60">10k Notes: <strong>{previewAuditRecord.denominations.notes_10k || 0}</strong></div>
+                    <div className="bg-surface p-1.5 rounded border border-line/60">5k Notes: <strong>{previewAuditRecord.denominations.notes_5k || 0}</strong></div>
+                    <div className="bg-surface p-1.5 rounded border border-line/60">2k Notes: <strong>{previewAuditRecord.denominations.notes_2k || 0}</strong></div>
+                    <div className="bg-surface p-1.5 rounded border border-line/60">1k Notes: <strong>{previewAuditRecord.denominations.notes_1k || 0}</strong></div>
+                    <div className="bg-surface p-1.5 rounded border border-line/60 col-span-2">Coins Total: <strong>{money(previewAuditRecord.denominations.coins || 0)}</strong></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Cashier Closing Notes / Variance Explanation */}
+              {(previewAuditRecord.closing_notes || previewAuditRecord.variance_reason) && (
+                <div className="rounded-xl border border-line bg-surface-2/60 p-3 text-xs text-muted space-y-1">
+                  {previewAuditRecord.closing_notes && (
+                    <p><strong>Cashier Shift Notes:</strong> {previewAuditRecord.closing_notes}</p>
+                  )}
+                  {previewAuditRecord.variance_reason && (
+                    <p className="text-amber-700 dark:text-amber-300">
+                      <strong>Variance Explanation:</strong> {previewAuditRecord.variance_reason}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Shift Closeout Modal */}
       <ShiftCloseoutModal

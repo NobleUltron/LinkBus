@@ -3,14 +3,20 @@ import {
   BanIcon,
   CheckCircle2Icon,
   ClockIcon,
+  CompassIcon,
+  DownloadIcon,
   EyeIcon,
+  FileSpreadsheetIcon,
   MessageSquareIcon,
   PhoneIcon,
   PrinterIcon,
   QrCodeIcon,
   Share2Icon,
+  SparklesIcon,
   TicketIcon,
   UserCheckIcon,
+  UsersIcon,
+  XCircleIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable, type Column } from '../../components/data/DataTable';
@@ -26,7 +32,7 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { errorMessage } from '../../hooks/useAsync';
 import { usePaginated } from '../../hooks/usePaginated';
 import { listTickets, updateTicketStatus, type TicketDetail } from '../../services/tickets';
-import { formatDateTime, formatTime, titleCase, toDateInput } from '../../utils/format';
+import { formatDateTime, formatTime, money, titleCase, toDateInput } from '../../utils/format';
 
 const presets = [
   { label: 'Today', days: 1 },
@@ -42,8 +48,8 @@ function shiftDays(days: number): string {
 }
 
 const statusOptions = [
-  { value: 'active', label: 'Active & Ready' },
-  { value: 'used', label: 'Boarded / Used' },
+  { value: 'active', label: 'Active & Ready for Boarding' },
+  { value: 'used', label: 'Boarded / Scanned' },
   { value: 'cancelled', label: 'Cancelled / Voided' },
 ];
 
@@ -102,15 +108,15 @@ export function TicketsScreen({ canVoid = false }: { canVoid?: boolean }) {
 
     const message = encodeURIComponent(
       `🚌 *LINKBUS UGANDA — DIGITAL BOARDING PASS*\n\n` +
-      `Hello *${ticket.passenger_name}*, here is your ticket for travel:\n\n` +
+      `Hello *${ticket.passenger_name}*, here is your travel pass:\n\n` +
       `🎟️ *Ticket #:* ${ticket.ticket_number}\n` +
       `📋 *Booking Ref:* #${ticket.booking?.booking_number ?? ''}\n` +
       `📍 *Route:* ${origin} ➔ ${dest}\n` +
       `🕒 *Departure:* ${depTime}\n` +
-      `💺 *Seat Number:* ${seat}\n` +
+      `💺 *Seat Number:* ${seat} (${ticket.seat?.seat_class === 'vip' ? 'VIP Executive' : 'Standard'})\n` +
       `🚍 *Coach:* ${ticket.trip?.bus?.plate_number ?? 'Assigned at Bay'}\n\n` +
       `🔗 *View Pass:* http://localhost:5173/my-tickets\n\n` +
-      `⚠️ _Please present your QR code at the departure gate._`
+      `⚠️ _Please arrive at the station 20 minutes before departure for QR check-in._`
     );
 
     const url = cleanPhone
@@ -121,13 +127,66 @@ export function TicketsScreen({ canVoid = false }: { canVoid?: boolean }) {
     toast.success(`WhatsApp ticket shared for ${ticket.passenger_name}`);
   };
 
+  const handleExportCSV = () => {
+    const rows = state.rows || [];
+    if (rows.length === 0) {
+      toast.info('No ticket records to export.');
+      return;
+    }
+
+    const headers = [
+      'Ticket Number',
+      'Booking Ref',
+      'Passenger Name',
+      'Phone Number',
+      'Origin City',
+      'Destination City',
+      'Departure Time',
+      'Assigned Seat',
+      'Seat Class',
+      'Fare (UGX)',
+      'Ticket Status',
+      'Boarded Timestamp',
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((t) =>
+        [
+          `"${t.ticket_number}"`,
+          `"${t.booking?.booking_number ?? ''}"`,
+          `"${t.passenger_name.replace(/"/g, '""')}"`,
+          `"${t.passenger_phone ?? ''}"`,
+          `"${t.trip?.origin?.city ?? ''}"`,
+          `"${t.trip?.destination?.city ?? ''}"`,
+          `"${t.trip?.departure_time ? formatDateTime(t.trip.departure_time) : ''}"`,
+          `"${t.seat?.seat_number ?? ''}"`,
+          `"${t.seat?.seat_class ?? 'standard'}"`,
+          t.price || 0,
+          `"${t.status}"`,
+          `"${t.boarded_at ? formatDateTime(t.boarded_at) : ''}"`,
+        ].join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `LinkBus-Tickets-${toDateInput(new Date())}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success('Tickets registry exported to CSV.');
+  };
+
   const columns: Column<TicketDetail>[] = [
     {
       key: 'ticket',
       header: 'Ticket # & Ref',
       render: (ticket) => (
         <div className="py-1">
-          <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line shadow-sm">
+          <span className="inline-flex items-center gap-1 font-mono text-xs font-black text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line shadow-2xs">
             <TicketIcon className="h-3 w-3 text-brand-600" />
             {ticket.ticket_number}
           </span>
@@ -164,7 +223,7 @@ export function TicketsScreen({ canVoid = false }: { canVoid?: boolean }) {
       render: (ticket) => (
         <div>
           <p className="font-bold text-fg text-xs">
-            {ticket.trip?.origin?.city ?? '—'} ➔ {ticket.trip?.destination?.city ?? '—'}
+            {ticket.trip?.origin?.city ?? '—'} <span className="text-brand-600">➔</span> {ticket.trip?.destination?.city ?? '—'}
           </p>
           <p className="text-[0.6875rem] text-muted flex items-center gap-1 mt-0.5">
             <ClockIcon className="h-3 w-3 text-brand-600" />
@@ -177,25 +236,32 @@ export function TicketsScreen({ canVoid = false }: { canVoid?: boolean }) {
       key: 'seat',
       header: 'Assigned Seat',
       hideBelow: 'sm',
-      render: (ticket) => (
-        <div className="flex items-center gap-1.5">
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-brand-600 font-mono text-xs font-bold text-white shadow-sm">
-            {ticket.seat?.seat_number ?? '—'}
-          </span>
-          <span className="text-xs font-semibold text-muted">
-            {titleCase(ticket.seat?.seat_class ?? 'standard')}
-          </span>
-        </div>
-      ),
+      render: (ticket) => {
+        const isVip = ticket.seat?.seat_class === 'vip';
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg font-mono text-xs font-black shadow-2xs border ${
+              isVip
+                ? 'bg-amber-500/20 text-amber-950 dark:text-amber-200 border-amber-500/40'
+                : 'bg-brand-600 text-white border-brand-700'
+            }`}>
+              {ticket.seat?.seat_number ?? '—'}
+            </span>
+            <span className={`text-xs font-bold ${isVip ? 'text-amber-700 dark:text-amber-300' : 'text-muted'}`}>
+              {isVip ? 'VIP Recliner' : 'Standard'}
+            </span>
+          </div>
+        );
+      },
     },
     {
       key: 'status',
-      header: 'Status',
+      header: 'Boarding Status',
       render: (ticket) => {
         if (ticket.boarded_at) {
           return (
-            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2Icon className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-2xs">
+              <CheckCircle2Icon className="h-3.5 w-3.5" />
               Boarded {formatTime(ticket.boarded_at)}
             </span>
           );
@@ -209,18 +275,19 @@ export function TicketsScreen({ canVoid = false }: { canVoid?: boolean }) {
       align: 'right',
       render: (ticket) => (
         <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs font-semibold"
             onClick={() => {
               setAutoPrint(false);
               setSelected(ticket);
             }}
-            aria-label={`Open boarding pass for ${ticket.ticket_number}`}
+            icon={<EyeIcon className="h-3.5 w-3.5" />}
             title="View Digital Boarding Pass"
-            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-brand-600"
           >
-            <EyeIcon className="h-4 w-4" aria-hidden />
-          </button>
+            Pass
+          </Button>
 
           <button
             type="button"
@@ -279,14 +346,23 @@ export function TicketsScreen({ canVoid = false }: { canVoid?: boolean }) {
   return (
     <div className="space-y-6">
       {/* ── Page Header ── */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
-            Issued Boarding Tickets
+            Passenger Tickets &amp; Boarding Passes
           </h1>
-          <p className="text-xs text-muted">
-            Search, print, share, and verify individual passenger boarding passes across the network.
+          <p className="mt-1 text-xs text-muted max-w-xl">
+            Search, print, share, and verify individual passenger boarding passes across LinkBus corridors. Track real-time gate check-ins and coach seat assignments.
           </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="outline"
+            icon={<FileSpreadsheetIcon className="h-4 w-4" />}
+            onClick={handleExportCSV}
+          >
+            Export Tickets CSV
+          </Button>
         </div>
       </div>
 
@@ -360,56 +436,68 @@ export function TicketsScreen({ canVoid = false }: { canVoid?: boolean }) {
 
       {/* ── KPI Scorecards ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Total Tickets */}
         <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
               <TicketIcon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Total Tickets</span>
+            <span className="text-xs font-bold text-fg uppercase tracking-wider">
+              Total Tickets
+            </span>
           </div>
-          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
+          <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
             {metrics.totalCount.toLocaleString()}
           </p>
-          <p className="text-[0.6875rem] text-muted">All Issued Boarding Passes</p>
+          <p className="text-[0.6875rem] text-muted">All issued passenger passes</p>
         </div>
 
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+        {/* Active & Ready */}
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold">
               <CheckCircle2Icon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Active &amp; Ready</span>
+            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider">
+              Active &amp; Ready
+            </span>
           </div>
-          <p className="mt-2 font-extrabold text-xl text-emerald-600 dark:text-emerald-400 tabular-nums">
-            {metrics.activeCount.toLocaleString()}
+          <p className="mt-2 font-extrabold text-2xl text-emerald-950 dark:text-emerald-100 tabular-nums">
+            {metrics.activeCount.toLocaleString()} Passes
           </p>
-          <p className="text-[0.6875rem] text-muted">Valid for Gate Boarding</p>
+          <p className="text-[0.6875rem] text-emerald-800 dark:text-emerald-300">Valid for gate check-in</p>
         </div>
 
+        {/* Boarded / Used */}
         <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
               <UserCheckIcon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Boarded / Used</span>
+            <span className="text-xs font-bold text-fg uppercase tracking-wider">
+              Boarded / Used
+            </span>
           </div>
-          <p className="mt-2 font-extrabold text-xl text-blue-600 dark:text-blue-400 tabular-nums">
-            {metrics.usedCount.toLocaleString()}
+          <p className="mt-2 font-extrabold text-2xl text-blue-600 dark:text-blue-400 tabular-nums">
+            {metrics.usedCount.toLocaleString()} Scanned
           </p>
-          <p className="text-[0.6875rem] text-muted">Scanned &amp; Onboard Coach</p>
+          <p className="text-[0.6875rem] text-muted">Checked in onboard coach</p>
         </div>
 
+        {/* Cancelled / Voided */}
         <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-400">
               <BanIcon className="h-4 w-4" />
             </span>
-            <span className="text-xs font-bold text-fg">Cancelled / Voided</span>
+            <span className="text-xs font-bold text-fg uppercase tracking-wider">
+              Voided / Cancelled
+            </span>
           </div>
-          <p className="mt-2 font-extrabold text-xl text-red-600 dark:text-red-400 tabular-nums">
+          <p className="mt-2 font-extrabold text-2xl text-red-600 dark:text-red-400 tabular-nums">
             {metrics.cancelledCount.toLocaleString()}
           </p>
-          <p className="text-[0.6875rem] text-muted">Cancelled or Released Seats</p>
+          <p className="text-[0.6875rem] text-muted">Cancelled or released seats</p>
         </div>
       </div>
 
@@ -422,7 +510,7 @@ export function TicketsScreen({ canVoid = false }: { canVoid?: boolean }) {
           filters={[
             {
               key: 'status',
-              label: 'Any status',
+              label: 'All ticket statuses',
               options: statusOptions,
             },
           ]}
@@ -478,15 +566,16 @@ export function TicketsScreen({ canVoid = false }: { canVoid?: boolean }) {
       <ConfirmDialog
         open={Boolean(voiding)}
         title="Void this boarding ticket?"
-        consequence={
+        body={
           voiding
             ? `Ticket #${voiding.ticket_number} for passenger “${voiding.passenger_name}” (Seat ${voiding.seat?.seat_number ?? 'TBD'}) will be cancelled and marked invalid at gate check-in.`
             : ''
         }
         confirmLabel="Void Ticket"
-        pending={voidPending}
+        variant="danger"
+        loading={voidPending}
         onConfirm={confirmVoidTicket}
-        onClose={() => setVoiding(null)}
+        onCancel={() => setVoiding(null)}
       />
     </div>
   );

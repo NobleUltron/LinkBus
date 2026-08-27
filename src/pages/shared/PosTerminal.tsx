@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   BanknoteIcon,
   CheckCircle2Icon,
+  ClockIcon,
+  CompassIcon,
   CreditCardIcon,
   MapPinIcon,
   MessageSquareIcon,
@@ -9,11 +11,18 @@ import {
   PrinterIcon,
   QrCodeIcon,
   ReceiptTextIcon,
+  RefreshCwIcon,
   SearchIcon,
+  ShieldCheckIcon,
   SmartphoneIcon,
   SparklesIcon,
+  StoreIcon,
+  TagIcon,
+  TicketIcon,
   UserCheckIcon,
   UserPlusIcon,
+  UsersIcon,
+  WalletIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { BusCabinSeatMap } from '../../components/booking/BusCabinSeatMap';
@@ -289,7 +298,35 @@ export function PosTerminal() {
 
   return (
     <div className="space-y-6">
-      {/* Wizard Step Progress Bar */}
+      {/* ── Top POS Header ── */}
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+              POS Ticket Counter &amp; Fast Booking Desk
+            </h1>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-2xs">
+              <StoreIcon className="h-3 w-3" /> Live Station Desk
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted max-w-xl">
+            Point-of-sale checkout for walk-in passengers, interactive 2D cabin seat selection, cash tender &amp; change computation, and instant thermal receipt &amp; WhatsApp pass issuance.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {step > 0 && (
+            <Button
+              variant="outline"
+              icon={<RefreshCwIcon className="h-4 w-4" />}
+              onClick={reset}
+            >
+              Reset Desk
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Wizard Step Progress Bar ── */}
       <Panel bodyClassName="px-5 py-4">
         <WizardSteps steps={STEPS} current={step} />
       </Panel>
@@ -382,7 +419,7 @@ export function PosTerminal() {
                         <button
                           type="button"
                           onClick={() => chooseTrip(option)}
-                          className="flex w-full flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-4 text-left transition-all hover:border-brand-500 hover:shadow-md active:scale-95 group"
+                          className="flex w-full flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-4 text-left transition-all hover:border-brand-500 hover:shadow-md hover-lift active:scale-95 group"
                         >
                           <div>
                             <div className="flex items-center gap-2">
@@ -391,7 +428,7 @@ export function PosTerminal() {
                               </span>
                               <span className="text-xs font-bold text-muted">·</span>
                               <span className="font-bold text-fg text-sm">
-                                {option.origin.city} ➔ {option.destination.city}
+                                {option.origin.city} <span className="text-brand-600">➔</span> {option.destination.city}
                               </span>
                             </div>
                             <p className="mt-1 text-xs text-muted">
@@ -444,7 +481,7 @@ export function PosTerminal() {
                   {passengers.map((passenger, index) => {
                     const seat = seats.find((item) => item.id === passenger.seatId);
                     return (
-                      <div key={passenger.seatId} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
+                      <div key={passenger.seatId} className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
                         <div className="flex items-center justify-between mb-3">
                           <span className="inline-flex items-center gap-1.5 font-bold text-fg text-xs">
                             <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-brand-600 text-white text-xs font-mono">
@@ -496,7 +533,7 @@ export function PosTerminal() {
                 </div>
               </Panel>
 
-              <Panel title="Tender Payment & Settlement">
+              <Panel title="Tender Payment &amp; Settlement">
                 {submitError && (
                   <div className="mb-4">
                     <InlineError message={submitError} />
@@ -514,7 +551,7 @@ export function PosTerminal() {
                         key={option.value}
                         type="button"
                         onClick={() => setMethod(option.value)}
-                        className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition-all ${
+                        className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition-all hover-lift active:scale-95 ${
                           method === option.value
                             ? 'border-brand-600 bg-brand-600 text-white shadow-sm'
                             : 'border-line bg-surface text-fg hover:border-brand-500 hover:bg-surface-2'
@@ -633,7 +670,7 @@ export function PosTerminal() {
                     return (
                       <div
                         key={t.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface-2/60 p-3 text-xs hover:border-brand-500/50 transition-colors"
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface-2/60 p-3 text-xs hover:border-brand-500/50 hover-lift transition-all"
                       >
                         <div className="flex items-center gap-3">
                           <span className="inline-flex h-8 min-w-[2rem] items-center justify-center rounded-lg bg-emerald-700 px-2 font-mono text-xs font-black text-white shadow-sm">
@@ -717,7 +754,7 @@ export function PosTerminal() {
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted">Corridor</dt>
                     <dd className="font-bold text-fg text-right">
-                      {trip.origin.city} ➔ {trip.destination.city}
+                      {trip.origin.city} <span className="text-brand-600">➔</span> {trip.destination.city}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-3">
@@ -773,7 +810,7 @@ export function PosTerminal() {
                         icon={<BanknoteIcon className="h-4 w-4" />}
                         onClick={complete}
                       >
-                        Collect Payment & Issue Tickets
+                        Collect Payment &amp; Issue Tickets
                       </Button>
                       <Button block variant="ghost" disabled={submitting} onClick={() => setStep(1)}>
                         Back to Seat Map

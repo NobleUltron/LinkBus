@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import {
   AlertCircleIcon,
   AlertTriangleIcon,
+  ArrowDownRightIcon,
+  ArrowUpRightIcon,
   BanknoteIcon,
   BriefcaseIcon,
   CalculatorIcon,
@@ -13,6 +15,7 @@ import {
   SmartphoneIcon,
   TicketIcon,
   UserCheckIcon,
+  WalletIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
@@ -73,7 +76,6 @@ export function ShiftCloseoutModal({
 
   const handleQuickFillExact = () => {
     if (!expectedCash) return;
-    // Calculate a realistic breakdown for the exact expected cash
     let remaining = expectedCash;
     const n50k = Math.floor(remaining / 50000);
     remaining %= 50000;
@@ -97,7 +99,7 @@ export function ShiftCloseoutModal({
       notes_1k: n1k,
       coins: remaining,
     });
-    toast.success('Filled exact denomination count for preview/testing.');
+    toast.success('Filled exact denomination count for verification.');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,7 +114,7 @@ export function ShiftCloseoutModal({
     setSubmitting(true);
     try {
       const rec = await submitShiftCloseout({
-        terminal_id: 1,
+        terminal_id: metrics.terminal_id || 1,
         terminal_name: terminalName,
         terminal_city: terminalCity,
         cashier_id: user?.id || 1,
@@ -139,8 +141,8 @@ export function ShiftCloseoutModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Station Cash Drawer Reconciliation & Shift Closeout"
-      subtitle={`${terminalName} · Cashier: ${user?.name || 'Station Agent'}`}
+      title="Station Cash Drawer Reconciliation &amp; Shift Closeout (Z-Report)"
+      subtitle={`Shift #${metrics.shift_code} · Station: ${terminalName} · Cashier: ${user?.name || 'Station Agent'}`}
       size="2xl"
       footer={
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
@@ -150,7 +152,7 @@ export function ShiftCloseoutModal({
               onClick={handleQuickFillExact}
               className="text-xs text-brand-600 dark:text-brand-400 font-semibold hover:underline"
             >
-              ⚡ Auto-fill exact count (Test)
+              ⚡ Auto-fill exact drawer match
             </button>
           </div>
 
@@ -164,126 +166,80 @@ export function ShiftCloseoutModal({
               icon={<ShieldCheckIcon className="h-4 w-4" />}
               className="text-xs bg-brand-600 hover:bg-brand-700 text-white font-bold"
             >
-              Verify & Lock Shift Closeout
+              Verify &amp; Lock Shift Closeout
             </Button>
           </div>
         </div>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* ─── 1. System Expected Shift Collections Summary ─── */}
+        {/* ─── 1. Cash Drawer Math Lifecycle Equation ─── */}
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-fg mb-2.5 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-fg mb-2 flex items-center gap-1.5">
             <CalculatorIcon className="h-4 w-4 text-brand-600" />
-            1. Shift Collections Summary (Live System Ledger)
+            1. Physical Drawer Cash Equation (Float + Inflows - Outflows)
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* Ticket Fares Card */}
-            <div className="rounded-xl border border-line bg-surface p-3.5 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs font-bold text-fg">
-                  <TicketIcon className="h-3.5 w-3.5 text-brand-600" />
-                  Ticket Sales ({metrics.ticket_count})
+          <div className="rounded-2xl border border-line bg-surface p-3.5 space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+              {/* Float */}
+              <div className="bg-surface-2 p-2.5 rounded-xl border border-line">
+                <span className="text-[0.625rem] font-bold text-muted uppercase block">Opening Float</span>
+                <span className="font-mono font-black text-sm text-fg">{money(metrics.opening_float || 0)}</span>
+              </div>
+              {/* Inflows */}
+              <div className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                <span className="text-[0.625rem] font-bold text-emerald-800 dark:text-emerald-300 uppercase block">
+                  + Cash Inflows
                 </span>
-                <span className="font-mono text-xs font-bold text-fg">
-                  {money(metrics.ticket_sales_total)}
+                <span className="font-mono font-black text-sm text-emerald-950 dark:text-emerald-100">
+                  {money(
+                    metrics.ticket_sales_cash +
+                    metrics.luggage_fees_cash +
+                    metrics.parcel_fees_cash +
+                    (metrics.cash_in_total || 0)
+                  )}
                 </span>
               </div>
-              <div className="space-y-1 text-[0.6875rem] text-muted border-t border-line/60 pt-1.5">
-                <div className="flex justify-between">
-                  <span>Cash:</span>
-                  <span className="font-mono text-fg font-semibold">{money(metrics.ticket_sales_cash)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>MTN MoMo / Airtel:</span>
-                  <span className="font-mono">{money(metrics.ticket_sales_momo + metrics.ticket_sales_airtel)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>POS Card / Visa:</span>
-                  <span className="font-mono">{money(metrics.ticket_sales_card)}</span>
-                </div>
+              {/* Outflows */}
+              <div className="bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
+                <span className="text-[0.625rem] font-bold text-rose-800 dark:text-rose-300 uppercase block">
+                  - Expenses &amp; Drops
+                </span>
+                <span className="font-mono font-black text-sm text-rose-950 dark:text-rose-100">
+                  {money((metrics.cash_out_expenses || 0) + (metrics.safe_drops_total || 0))}
+                </span>
+              </div>
+              {/* Net Expected */}
+              <div className="bg-brand-500/15 p-2.5 rounded-xl border border-brand-500/30">
+                <span className="text-[0.625rem] font-bold text-brand-800 dark:text-brand-300 uppercase block">
+                  = Expected in Drawer
+                </span>
+                <span className="font-mono font-black text-sm text-brand-950 dark:text-brand-100">
+                  {money(expectedCash)}
+                </span>
               </div>
             </div>
 
-            {/* Excess Luggage Card */}
-            <div className="rounded-xl border border-line bg-surface p-3.5 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs font-bold text-fg">
-                  <BriefcaseIcon className="h-3.5 w-3.5 text-amber-600" />
-                  Excess Luggage ({metrics.luggage_count})
+            {/* Inflows Breakdown Pills */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs border-t border-line/60 pt-2.5">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-surface-2 text-[0.6875rem]">
+                <span className="flex items-center gap-1 font-semibold text-fg">
+                  <TicketIcon className="h-3 w-3 text-brand-600" /> Tickets ({metrics.ticket_count}):
                 </span>
-                <span className="font-mono text-xs font-bold text-fg">
-                  {money(metrics.luggage_fees_total)}
+                <span className="font-mono font-bold">{money(metrics.ticket_sales_cash)}</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-surface-2 text-[0.6875rem]">
+                <span className="flex items-center gap-1 font-semibold text-fg">
+                  <BriefcaseIcon className="h-3 w-3 text-amber-600" /> Luggage ({metrics.luggage_count}):
                 </span>
+                <span className="font-mono font-bold">{money(metrics.luggage_fees_cash)}</span>
               </div>
-              <div className="space-y-1 text-[0.6875rem] text-muted border-t border-line/60 pt-1.5">
-                <div className="flex justify-between">
-                  <span>Cash:</span>
-                  <span className="font-mono text-fg font-semibold">{money(metrics.luggage_fees_cash)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>MTN MoMo:</span>
-                  <span className="font-mono">{money(metrics.luggage_fees_momo)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Airtel Money:</span>
-                  <span className="font-mono">{money(metrics.luggage_fees_airtel)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Parcel Freight Card */}
-            <div className="rounded-xl border border-line bg-surface p-3.5 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs font-bold text-fg">
-                  <PackageIcon className="h-3.5 w-3.5 text-blue-600" />
-                  Parcel Freight ({metrics.parcel_count})
+              <div className="flex items-center justify-between p-2 rounded-lg bg-surface-2 text-[0.6875rem]">
+                <span className="flex items-center gap-1 font-semibold text-fg">
+                  <PackageIcon className="h-3 w-3 text-blue-600" /> Parcels ({metrics.parcel_count}):
                 </span>
-                <span className="font-mono text-xs font-bold text-fg">
-                  {money(metrics.parcel_fees_total)}
-                </span>
-              </div>
-              <div className="space-y-1 text-[0.6875rem] text-muted border-t border-line/60 pt-1.5">
-                <div className="flex justify-between">
-                  <span>Cash:</span>
-                  <span className="font-mono text-fg font-semibold">{money(metrics.parcel_fees_cash)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>MTN MoMo:</span>
-                  <span className="font-mono">{money(metrics.parcel_fees_momo)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Airtel Money:</span>
-                  <span className="font-mono">{money(metrics.parcel_fees_airtel)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Grand Target Banner */}
-          <div className="mt-3 rounded-xl bg-brand-500/10 border border-brand-500/30 p-3.5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <span className="text-[0.6875rem] font-bold text-brand-700 dark:text-brand-300 uppercase tracking-wider block">
-                Total Expected Cash in Drawer
-              </span>
-              <span className="text-xl font-black font-mono text-brand-800 dark:text-brand-200">
-                {money(expectedCash)}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4 text-xs font-semibold text-muted">
-              <div>
-                <span>Digital Settlements:</span>{' '}
-                <strong className="text-fg font-mono">
-                  {money(metrics.system_expected_momo + metrics.system_expected_airtel + metrics.system_expected_card)}
-                </strong>
-              </div>
-              <div>
-                <span>Total Shift Revenue:</span>{' '}
-                <strong className="text-fg font-mono">
-                  {money(metrics.system_expected_total)}
-                </strong>
+                <span className="font-mono font-bold">{money(metrics.parcel_fees_cash)}</span>
               </div>
             </div>
           </div>
@@ -294,7 +250,7 @@ export function ShiftCloseoutModal({
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-fg flex items-center gap-1.5">
               <BanknoteIcon className="h-4 w-4 text-emerald-600" />
-              2. Physical Cash Drawer Count (UGX Banknotes & Coins)
+              2. Physical Cash Drawer Count (UGX Banknotes &amp; Coins)
             </h3>
             <span className="text-xs font-mono font-bold text-fg">
               Counted Cash: <strong className="text-emerald-700 dark:text-emerald-400 text-sm">{money(countedCash)}</strong>
@@ -461,14 +417,14 @@ export function ShiftCloseoutModal({
               <div>
                 <p className="font-extrabold text-sm">
                   {variance === 0
-                    ? 'Drawer Balanced — Exact Match'
+                    ? 'Drawer Balanced — Exact Match (0 UGX)'
                     : variance > 0
                     ? `Cash Overage: +${money(variance)}`
                     : `Cash Shortage: ${money(variance)}`}
                 </p>
                 <p className="text-[0.6875rem] opacity-80">
                   {variance === 0
-                    ? 'Physical cash in drawer perfectly matches system ticket, luggage, and parcel records.'
+                    ? 'Physical cash in drawer matches starting float + cash sales - expenses.'
                     : variance > 0
                     ? 'Physical cash exceeds system expected cash. Please enter an explanatory note below.'
                     : 'Physical cash is lower than expected. Shortages will be flagged for station audit.'}

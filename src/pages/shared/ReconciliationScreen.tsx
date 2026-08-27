@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
   AlertTriangleIcon,
+  ArrowDownRightIcon,
+  ArrowUpRightIcon,
   BanknoteIcon,
   BriefcaseIcon,
   Building2Icon,
@@ -14,7 +16,9 @@ import {
   EyeIcon,
   FileSpreadsheetIcon,
   HistoryIcon,
+  LockIcon,
   PackageIcon,
+  PlusIcon,
   PrinterIcon,
   ReceiptTextIcon,
   RefreshCwIcon,
@@ -34,6 +38,8 @@ import { toast } from 'sonner';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import { Pagination } from '../../components/data/Pagination';
 import { Toolbar } from '../../components/data/Toolbar';
+import { ShiftOpenModal } from '../../components/modals/ShiftOpenModal';
+import { DrawerExpenseModal } from '../../components/modals/DrawerExpenseModal';
 import { ShiftCloseoutModal } from '../../components/modals/ShiftCloseoutModal';
 import { ReconciliationPrintModal } from '../../components/modals/ReconciliationPrintModal';
 import { Button } from '../../components/ui/Button';
@@ -73,6 +79,9 @@ function shiftDays(days: number): string {
 
 export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenProps) {
   const { user } = useAuth();
+  const [openShiftModal, setOpenShiftModal] = useState(false);
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [expenseModalType, setExpenseModalType] = useState<'petty_expense' | 'safe_drop' | 'cash_in'>('petty_expense');
   const [closeoutOpen, setCloseoutOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ShiftReconciliation | null>(null);
   const [previewAuditRecord, setPreviewAuditRecord] = useState<ShiftReconciliation | null>(null);
@@ -141,10 +150,13 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
       'Cashier Name',
       'Supervisor',
       'Status',
+      'Opening Float (UGX)',
       'Ticket Sales Total (UGX)',
       'Luggage Fees Total (UGX)',
       'Parcel Freight Total (UGX)',
-      'Gross Expected Revenue (UGX)',
+      'Cash In Total (UGX)',
+      'Petty Expenses Total (UGX)',
+      'Safe Drops Total (UGX)',
       'System Expected Cash (UGX)',
       'Actual Counted Cash (UGX)',
       'Variance Amount (UGX)',
@@ -162,10 +174,13 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           `"${r.cashier_name}"`,
           `"${r.supervisor_name || ''}"`,
           `"${r.status}"`,
+          r.opening_float || 0,
           r.ticket_sales_total,
           r.luggage_fees_total,
           r.parcel_fees_total,
-          r.system_expected_total,
+          r.cash_in_total || 0,
+          r.cash_out_expenses || 0,
+          r.safe_drops_total || 0,
           r.system_expected_cash,
           r.actual_counted_cash,
           r.variance_cash,
@@ -224,25 +239,25 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
       ),
     },
     {
-      key: 'revenue',
-      header: 'Revenue Streams',
+      key: 'movements',
+      header: 'Drawer Inflows & Outflows',
       render: (item) => (
         <div className="text-xs space-y-0.5">
+          <div className="flex items-center gap-1 text-[0.6875rem]">
+            <span className="text-muted">Float:</span>
+            <strong className="font-mono text-fg">{money(item.opening_float || 0)}</strong>
+          </div>
           <div className="flex items-center gap-1 text-[0.6875rem]">
             <TicketIcon className="h-3 w-3 text-brand-600" />
             <span>Tickets:</span>
             <strong className="font-mono text-fg">{money(item.ticket_sales_total)}</strong>
           </div>
-          <div className="flex items-center gap-1 text-[0.6875rem]">
-            <BriefcaseIcon className="h-3 w-3 text-amber-600" />
-            <span>Luggage:</span>
-            <strong className="font-mono text-fg">{money(item.luggage_fees_total)}</strong>
-          </div>
-          <div className="flex items-center gap-1 text-[0.6875rem]">
-            <PackageIcon className="h-3 w-3 text-blue-600" />
-            <span>Parcels:</span>
-            <strong className="font-mono text-fg">{money(item.parcel_fees_total)}</strong>
-          </div>
+          {(item.cash_out_expenses > 0 || item.safe_drops_total > 0) && (
+            <div className="flex items-center gap-1 text-[0.6875rem] text-rose-600 dark:text-rose-400">
+              <span>Expenses &amp; Drops:</span>
+              <strong className="font-mono">-{money((item.cash_out_expenses || 0) + (item.safe_drops_total || 0))}</strong>
+            </div>
+          )}
         </div>
       ),
     },
@@ -325,14 +340,26 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
       {/* ── Page Top Header ── */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
-            Cash Drawer &amp; Shift Reconciliations
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+              Cash Drawer &amp; Shift Reconciliations
+            </h1>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-2xs">
+              <StoreIcon className="h-3 w-3" /> Till Management
+            </span>
+          </div>
           <p className="mt-1 text-xs text-muted max-w-xl">
-            Audit cashier shift closeouts, verify physical drawer cash counts against system collections across tickets, excess luggage, and parcel waybills, and print certified settlement slips.
+            Audit cashier shift closeouts, verify physical drawer cash counts against starting float + system collections across tickets, excess luggage, and parcel waybills, and print certified settlement slips.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="outline"
+            icon={<PlusIcon className="h-4 w-4" />}
+            onClick={() => setOpenShiftModal(true)}
+          >
+            Open New Shift (Float)
+          </Button>
           <Button
             variant="outline"
             icon={<FileSpreadsheetIcon className="h-4 w-4" />}
@@ -346,7 +373,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
             disabled={activeMetrics.loading || !activeMetrics.data}
             className="bg-brand-600 hover:bg-brand-700 text-white font-bold"
           >
-            Reconcile Drawer &amp; Close Shift
+            Reconcile &amp; Close Shift
           </Button>
         </div>
       </div>
@@ -354,7 +381,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
       {/* ── Top Active Shift Live Cash Drawer Card ── */}
       <Panel
         title="Active Terminal Shift &amp; Live Cash Drawer Status"
-        subtitle="Real-time collection tallies for current duty shift across tickets, excess luggage, and parcel waybills"
+        subtitle="Real-time physical till balance, starting float, and inflows vs outflows for current duty shift"
       >
         {activeMetrics.loading ? (
           <div className="p-4">
@@ -362,8 +389,56 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           </div>
         ) : activeMetrics.data ? (
           <div className="space-y-4">
+            {/* Quick Action Ribbon for Cashier */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-black text-fg bg-surface-2 px-2.5 py-1 rounded-lg border border-line">
+                  Shift #{activeMetrics.data.shift_code}
+                </span>
+                <span className="text-xs text-muted">
+                  Float: <strong className="text-fg">{money(activeMetrics.data.opening_float || 0)}</strong>
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<CoinsIcon className="h-3.5 w-3.5 text-emerald-600" />}
+                  onClick={() => {
+                    setExpenseModalType('cash_in');
+                    setExpenseModalOpen(true);
+                  }}
+                >
+                  + Float Top-Up
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<ArrowDownRightIcon className="h-3.5 w-3.5 text-amber-600" />}
+                  onClick={() => {
+                    setExpenseModalType('petty_expense');
+                    setExpenseModalOpen(true);
+                  }}
+                >
+                  - Log Petty Expense
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<ArrowDownRightIcon className="h-3.5 w-3.5 text-blue-600" />}
+                  onClick={() => {
+                    setExpenseModalType('safe_drop');
+                    setExpenseModalOpen(true);
+                  }}
+                >
+                  - Mid-Shift Safe Drop
+                </Button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Expected Physical Cash */}
+              {/* Expected Physical Cash in Drawer */}
               <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[0.6875rem] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
@@ -375,7 +450,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
                   {money(activeMetrics.data.system_expected_cash)}
                 </div>
                 <span className="text-[0.625rem] text-emerald-700 dark:text-emerald-300 font-medium">
-                  Ready for physical drawer count verification
+                  Float ({money(activeMetrics.data.opening_float)}) + Sales - Expenses
                 </span>
               </div>
 
@@ -684,6 +759,26 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
               </div>
             </div>
 
+            {/* Float & Movement Breakdown */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+              <div className="bg-surface-2 p-2.5 rounded-xl border border-line">
+                <span className="text-[0.625rem] font-bold text-muted uppercase block">Opening Float</span>
+                <span className="font-mono font-black text-sm text-fg">{money(previewAuditRecord.opening_float || 0)}</span>
+              </div>
+              <div className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                <span className="text-[0.625rem] font-bold text-emerald-800 dark:text-emerald-300 uppercase block">+ Float Top-Up</span>
+                <span className="font-mono font-black text-sm text-emerald-950 dark:text-emerald-100">{money(previewAuditRecord.cash_in_total || 0)}</span>
+              </div>
+              <div className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                <span className="text-[0.625rem] font-bold text-amber-800 dark:text-amber-300 uppercase block">- Petty Expenses</span>
+                <span className="font-mono font-black text-sm text-amber-950 dark:text-amber-100">{money(previewAuditRecord.cash_out_expenses || 0)}</span>
+              </div>
+              <div className="bg-blue-500/10 p-2.5 rounded-xl border border-blue-500/20">
+                <span className="text-[0.625rem] font-bold text-blue-800 dark:text-blue-300 uppercase block">- Safe Drops</span>
+                <span className="font-mono font-black text-sm text-blue-950 dark:text-blue-100">{money(previewAuditRecord.safe_drops_total || 0)}</span>
+              </div>
+            </div>
+
             {/* Revenue Breakdown by Stream */}
             <div className="rounded-2xl border border-line bg-surface p-4 space-y-3">
               <div className="flex items-center gap-2 border-b border-line pb-2 text-xs font-black uppercase tracking-wider text-muted">
@@ -807,6 +902,25 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           </div>
         )}
       </Modal>
+
+      {/* Shift Open Modal */}
+      <ShiftOpenModal
+        open={openShiftModal}
+        onClose={() => setOpenShiftModal(false)}
+        onSuccess={() => {
+          activeMetrics.reload();
+          state.reload();
+        }}
+      />
+
+      {/* Drawer Expense / Movement Modal */}
+      <DrawerExpenseModal
+        open={expenseModalOpen}
+        onClose={() => setExpenseModalOpen(false)}
+        metrics={activeMetrics.data}
+        defaultType={expenseModalType}
+        onSuccess={() => activeMetrics.reload()}
+      />
 
       {/* Shift Closeout Modal */}
       <ShiftCloseoutModal

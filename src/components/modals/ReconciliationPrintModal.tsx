@@ -66,7 +66,7 @@ export function ReconciliationPrintModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Shift Reconciliation & Cash Closeout Record"
+      title="Shift Reconciliation &amp; Cash Closeout Record"
       subtitle={`Shift #${reconciliation.shift_code} · ${reconciliation.terminal_name}`}
       size="2xl"
       footer={
@@ -120,10 +120,10 @@ export function ReconciliationPrintModal({
           <div className="print-doc print-thermal-shift w-full max-w-[80mm] mx-auto rounded-xl border-2 border-slate-300 bg-white text-slate-900 shadow-md p-4 text-[0.6875rem] font-mono leading-tight space-y-3">
             <div className="text-center border-b border-dashed border-slate-400 pb-2.5">
               <h2 className="text-xs font-black uppercase tracking-wider">LINK BUS SERVICES LTD</h2>
-              <p className="text-[0.625rem] text-slate-600">Uganda Intercity Express & Cargo</p>
+              <p className="text-[0.625rem] text-slate-600">Uganda Intercity Express &amp; Cargo</p>
               <p className="text-[0.625rem] font-bold text-slate-800 mt-1">{reconciliation.terminal_name}</p>
               <div className="mt-1.5 inline-block bg-slate-900 text-white px-2 py-0.5 rounded text-[0.625rem] font-black uppercase">
-                SHIFT CLOSEOUT SLIP
+                SHIFT CLOSEOUT SLIP (Z-REPORT)
               </div>
             </div>
 
@@ -141,39 +141,37 @@ export function ReconciliationPrintModal({
                 <span>{reconciliation.supervisor_name || 'Station Manager'}</span>
               </div>
               <div className="flex justify-between">
-                <span>Date & Time:</span>
+                <span>Date &amp; Time:</span>
                 <span>{formatDateTime(reconciliation.closed_at)}</span>
               </div>
             </div>
 
-            {/* Revenue Summary */}
+            {/* Drawer Math Equation Summary */}
             <div className="space-y-1 border-b border-dashed border-slate-400 pb-2 text-[0.625rem]">
-              <div className="font-black text-slate-900 uppercase">REVENUE SUMMARY</div>
+              <div className="font-black text-slate-900 uppercase">DRAWER CASH LIFECYCLE</div>
               <div className="flex justify-between">
-                <span>Ticket Sales ({reconciliation.ticket_count}):</span>
-                <span>{money(reconciliation.ticket_sales_total)}</span>
+                <span>Opening Float:</span>
+                <span>{money(reconciliation.opening_float || 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Excess Luggage ({reconciliation.luggage_count}):</span>
-                <span>{money(reconciliation.luggage_fees_total)}</span>
+                <span>+ Cash Inflows (Sales &amp; Top-up):</span>
+                <span>{money(reconciliation.ticket_sales_cash + reconciliation.luggage_fees_cash + reconciliation.parcel_fees_cash + (reconciliation.cash_in_total || 0))}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Parcel Freight ({reconciliation.parcel_count}):</span>
-                <span>{money(reconciliation.parcel_fees_total)}</span>
-              </div>
+              {(reconciliation.cash_out_expenses > 0 || reconciliation.safe_drops_total > 0) && (
+                <div className="flex justify-between text-rose-700">
+                  <span>- Expenses &amp; Safe Drops:</span>
+                  <span>-{money((reconciliation.cash_out_expenses || 0) + (reconciliation.safe_drops_total || 0))}</span>
+                </div>
+              )}
               <div className="flex justify-between font-black pt-1 border-t border-slate-200">
-                <span>TOTAL REVENUE:</span>
-                <span>{money(reconciliation.system_expected_total)}</span>
+                <span>EXPECTED DRAWER CASH:</span>
+                <span>{money(reconciliation.system_expected_cash)}</span>
               </div>
             </div>
 
-            {/* Cash Drawer Reconciliation */}
+            {/* Physical Count & Variance */}
             <div className="space-y-1 border-b border-dashed border-slate-400 pb-2 text-[0.625rem]">
-              <div className="font-black text-slate-900 uppercase">CASH DRAWER RECONCILIATION</div>
-              <div className="flex justify-between font-bold">
-                <span>Expected Drawer Cash:</span>
-                <span>{money(reconciliation.system_expected_cash)}</span>
-              </div>
+              <div className="font-black text-slate-900 uppercase">PHYSICAL CASH COUNT</div>
               <div className="flex justify-between font-black text-emerald-800">
                 <span>Physical Counted Cash:</span>
                 <span>{money(reconciliation.actual_counted_cash)}</span>
@@ -192,8 +190,8 @@ export function ReconciliationPrintModal({
                   {reconciliation.variance_cash === 0
                     ? '0 UGX (BALANCED)'
                     : reconciliation.variance_cash > 0
-                    ? `+${money(reconciliation.variance_cash)}`
-                    : money(reconciliation.variance_cash)}
+                    ? `+${money(reconciliation.variance_cash)} (OVER)`
+                    : `${money(reconciliation.variance_cash)} (SHORT)`}
                 </span>
               </div>
               {reconciliation.variance_reason && (
@@ -204,37 +202,39 @@ export function ReconciliationPrintModal({
             </div>
 
             {/* Denominations */}
-            <div className="space-y-0.5 text-[0.5625rem] border-b border-dashed border-slate-400 pb-2">
-              <div className="font-black uppercase text-slate-900 mb-0.5">DENOMINATION BREAKDOWN</div>
-              <div className="flex justify-between">
-                <span>50,000 UGX x {d.notes_50k}</span>
-                <span>{money(d.notes_50k * 50000)}</span>
+            {d && (
+              <div className="space-y-0.5 text-[0.5625rem] border-b border-dashed border-slate-400 pb-2">
+                <div className="font-black uppercase text-slate-900 mb-0.5">DENOMINATION BREAKDOWN</div>
+                <div className="flex justify-between">
+                  <span>50,000 UGX x {d.notes_50k || 0}</span>
+                  <span>{money((d.notes_50k || 0) * 50000)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>20,000 UGX x {d.notes_20k || 0}</span>
+                  <span>{money((d.notes_20k || 0) * 20000)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>10,000 UGX x {d.notes_10k || 0}</span>
+                  <span>{money((d.notes_10k || 0) * 10000)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>5,000 UGX x {d.notes_5k || 0}</span>
+                  <span>{money((d.notes_5k || 0) * 5000)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>2,000 UGX x {d.notes_2k || 0}</span>
+                  <span>{money((d.notes_2k || 0) * 2000)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>1,000 UGX x {d.notes_1k || 0}</span>
+                  <span>{money((d.notes_1k || 0) * 1000)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Coins Total</span>
+                  <span>{money(d.coins || 0)}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span>20,000 UGX x {d.notes_20k}</span>
-                <span>{money(d.notes_20k * 20000)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>10,000 UGX x {d.notes_10k}</span>
-                <span>{money(d.notes_10k * 10000)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>5,000 UGX x {d.notes_5k}</span>
-                <span>{money(d.notes_5k * 5000)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>2,000 UGX x {d.notes_2k}</span>
-                <span>{money(d.notes_2k * 2000)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>1,000 UGX x {d.notes_1k}</span>
-                <span>{money(d.notes_1k * 1000)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Coins Total</span>
-                <span>{money(d.coins)}</span>
-              </div>
-            </div>
+            )}
 
             {/* Digital Settlements */}
             <div className="space-y-0.5 text-[0.5625rem] border-b border-dashed border-slate-400 pb-2">
@@ -293,7 +293,7 @@ export function ReconciliationPrintModal({
 
               <div className="text-right">
                 <span className="inline-block bg-slate-900 text-white px-3 py-1 rounded text-xs font-black uppercase">
-                  DAILY CASHIER AUDIT & RECONCILIATION
+                  DAILY CASHIER AUDIT &amp; RECONCILIATION
                 </span>
                 <p className="font-mono font-bold text-slate-700 mt-1">
                   Shift Ref: {reconciliation.shift_code}
@@ -316,7 +316,7 @@ export function ReconciliationPrintModal({
                 <strong className="text-slate-900">{reconciliation.supervisor_name || 'Station Manager'}</strong>
               </div>
               <div>
-                <span className="text-slate-500 block text-[0.625rem] font-bold uppercase">Date & Shift Time</span>
+                <span className="text-slate-500 block text-[0.625rem] font-bold uppercase">Date &amp; Shift Time</span>
                 <strong className="text-slate-900">{formatDateTime(reconciliation.closed_at)}</strong>
               </div>
             </div>
@@ -358,7 +358,7 @@ export function ReconciliationPrintModal({
                     <td className="p-2 text-right font-mono font-bold">{money(reconciliation.luggage_fees_total)}</td>
                   </tr>
                   <tr>
-                    <td className="p-2 font-bold text-slate-900">📦 Parcel & Cargo Waybills</td>
+                    <td className="p-2 font-bold text-slate-900">📦 Parcel &amp; Cargo Waybills</td>
                     <td className="p-2 text-center font-mono">{reconciliation.parcel_count} parcels</td>
                     <td className="p-2 text-right font-mono font-bold text-emerald-800">{money(reconciliation.parcel_fees_cash)}</td>
                     <td className="p-2 text-right font-mono">{money(reconciliation.parcel_fees_momo)}</td>
@@ -389,32 +389,32 @@ export function ReconciliationPrintModal({
                 </h3>
                 <div className="space-y-1 text-xs font-mono">
                   <div className="flex justify-between">
-                    <span>UGX 50,000 Notes x {d.notes_50k}</span>
-                    <strong>{money(d.notes_50k * 50000)}</strong>
+                    <span>UGX 50,000 Notes x {d?.notes_50k || 0}</span>
+                    <strong>{money((d?.notes_50k || 0) * 50000)}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span>UGX 20,000 Notes x {d.notes_20k}</span>
-                    <strong>{money(d.notes_20k * 20000)}</strong>
+                    <span>UGX 20,000 Notes x {d?.notes_20k || 0}</span>
+                    <strong>{money((d?.notes_20k || 0) * 20000)}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span>UGX 10,000 Notes x {d.notes_10k}</span>
-                    <strong>{money(d.notes_10k * 10000)}</strong>
+                    <span>UGX 10,000 Notes x {d?.notes_10k || 0}</span>
+                    <strong>{money((d?.notes_10k || 0) * 10000)}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span>UGX 5,000 Notes x {d.notes_5k}</span>
-                    <strong>{money(d.notes_5k * 5000)}</strong>
+                    <span>UGX 5,000 Notes x {d?.notes_5k || 0}</span>
+                    <strong>{money((d?.notes_5k || 0) * 5000)}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span>UGX 2,000 Notes x {d.notes_2k}</span>
-                    <strong>{money(d.notes_2k * 2000)}</strong>
+                    <span>UGX 2,000 Notes x {d?.notes_2k || 0}</span>
+                    <strong>{money((d?.notes_2k || 0) * 2000)}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span>UGX 1,000 Notes x {d.notes_1k}</span>
-                    <strong>{money(d.notes_1k * 1000)}</strong>
+                    <span>UGX 1,000 Notes x {d?.notes_1k || 0}</span>
+                    <strong>{money((d?.notes_1k || 0) * 1000)}</strong>
                   </div>
                   <div className="flex justify-between">
                     <span>Coins (500/200/100/50 UGX)</span>
-                    <strong>{money(d.coins)}</strong>
+                    <strong>{money(d?.coins || 0)}</strong>
                   </div>
                   <div className="border-t border-slate-300 pt-1.5 mt-1.5 flex justify-between font-black text-sm text-emerald-900">
                     <span>TOTAL PHYSICAL COUNT:</span>
@@ -427,9 +427,13 @@ export function ReconciliationPrintModal({
               <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 flex flex-col justify-between">
                 <div>
                   <h3 className="text-[0.6875rem] font-black uppercase text-slate-900 mb-2">
-                    3. CASH DRAWER VARIANCE & BALANCE STATUS
+                    3. CASH DRAWER VARIANCE &amp; BALANCE STATUS
                   </h3>
                   <dl className="space-y-1.5 text-xs">
+                    <div className="flex justify-between">
+                      <dt className="text-slate-600">Opening Float:</dt>
+                      <dd className="font-mono font-bold">{money(reconciliation.opening_float || 0)}</dd>
+                    </div>
                     <div className="flex justify-between">
                       <dt className="text-slate-600">Expected Cash in Drawer:</dt>
                       <dd className="font-mono font-bold">{money(reconciliation.system_expected_cash)}</dd>

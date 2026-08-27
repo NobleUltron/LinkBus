@@ -278,6 +278,17 @@ export interface CashDenominations {
   coins: number;     // UGX 500, 200, 100, 50
 }
 
+export interface DrawerTransaction {
+  id: number;
+  shift_id: number;
+  type: 'float_in' | 'cash_in' | 'petty_expense' | 'safe_drop' | 'refund';
+  amount: number;
+  category: string;
+  reason: string;
+  authorized_by?: string;
+  created_at: string;
+}
+
 export interface ShiftReconciliation {
   id: number;
   shift_code: string;
@@ -291,6 +302,14 @@ export interface ShiftReconciliation {
   opened_at: string;
   closed_at: string;
   status: ReconciliationStatus;
+
+  // Drawer Opening Float & Cash Movements
+  opening_float: number;
+  cash_in_total: number;
+  cash_out_expenses: number;
+  safe_drops_total: number;
+  cash_refunds_total: number;
+  drawer_transactions?: DrawerTransaction[];
 
   // Breakdown by Category
   ticket_sales_cash: number;

@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ArrowDownRightIcon,
   BanknoteIcon,
   CheckCircle2Icon,
   ClockIcon,
+  CoinsIcon,
   CompassIcon,
   CreditCardIcon,
   MapPinIcon,
   MessageSquareIcon,
   PhoneIcon,
+  PlusIcon,
   PrinterIcon,
   QrCodeIcon,
   ReceiptTextIcon,
@@ -30,7 +33,9 @@ import { FareSummary } from '../../components/booking/FareSummary';
 import { PromoCodeInput } from '../../components/booking/PromoCodeInput';
 import { WizardSteps } from '../../components/booking/WizardSteps';
 import { BoardingPassModal } from '../../components/modals/BoardingPassModal';
+import { DrawerExpenseModal } from '../../components/modals/DrawerExpenseModal';
 import { ReceiptModal } from '../../components/modals/ReceiptModal';
+import { ShiftOpenModal } from '../../components/modals/ShiftOpenModal';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/Field';
 import { DateInput, IconSelect } from '../../components/ui/Inputs';
@@ -41,6 +46,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { errorMessage, useAsync } from '../../hooks/useAsync';
 import { posBook } from '../../services/bookings';
+import { getActiveShiftMetrics, type ActiveShiftMetrics } from '../../services/reconciliations';
 import type { TicketDetail } from '../../services/tickets';
 import { getActiveTerminals, getTrip, searchTrips } from '../../services/trips';
 import type { BookingDetail, PromoValidation, TripDetail } from '../../types/api';
@@ -95,7 +101,13 @@ export function PosTerminal() {
   const [boardingPassOpen, setBoardingPassOpen] = useState(false);
   const [selectedTicketIndex, setSelectedTicketIndex] = useState(0);
 
+  // Shift & Drawer Modals
+  const [openShiftModal, setOpenShiftModal] = useState(false);
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [expenseModalType, setExpenseModalType] = useState<'petty_expense' | 'safe_drop' | 'cash_in'>('petty_expense');
+
   const terminals = useAsync(() => getActiveTerminals(), []);
+  const activeShift = useAsync(() => getActiveShiftMetrics(1), []);
 
   const issuedTickets = useMemo<TicketDetail[]>(() => {
     if (!booking || !booking.tickets || !booking.trip) return [];
@@ -233,7 +245,8 @@ export function PosTerminal() {
       });
       setBooking(created);
       setStep(3);
-      toast.success('Sale completed · Tickets issued');
+      activeShift.reload();
+      toast.success('Sale completed · Tickets issued & drawer updated');
     } catch (err) {
       setSubmitError(errorMessage(err));
     } finally {
@@ -325,6 +338,63 @@ export function PosTerminal() {
           )}
         </div>
       </div>
+
+      {/* ── Live Shift Drawer Status Banner ── */}
+      {activeShift.data && (
+        <div className="rounded-2xl border border-line bg-surface p-3 sm:p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+              <WalletIcon className="h-4 w-4" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-black text-fg bg-surface-2 px-2 py-0.5 rounded border border-line">
+                  {activeShift.data.shift_code}
+                </span>
+                <span className="text-xs text-muted">
+                  Till Cash: <strong className="font-mono text-emerald-600 dark:text-emerald-400">{money(activeShift.data.system_expected_cash)}</strong>
+                </span>
+                <span className="text-[0.6875rem] text-muted hidden sm:inline">
+                  (Float: {money(activeShift.data.opening_float)})
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<CoinsIcon className="h-3.5 w-3.5 text-emerald-600" />}
+              onClick={() => {
+                setExpenseModalType('cash_in');
+                setExpenseModalOpen(true);
+              }}
+            >
+              + Float Top-Up
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<ArrowDownRightIcon className="h-3.5 w-3.5 text-amber-600" />}
+              onClick={() => {
+                setExpenseModalType('petty_expense');
+                setExpenseModalOpen(true);
+              }}
+            >
+              - Log Expense
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<PlusIcon className="h-3.5 w-3.5" />}
+              onClick={() => setOpenShiftModal(true)}
+            >
+              Open Shift Float
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ── Wizard Step Progress Bar ── */}
       <Panel bodyClassName="px-5 py-4">
@@ -847,6 +917,22 @@ export function PosTerminal() {
         initialIndex={selectedTicketIndex}
         open={boardingPassOpen}
         onClose={() => setBoardingPassOpen(false)}
+      />
+
+      {/* Shift Open Modal */}
+      <ShiftOpenModal
+        open={openShiftModal}
+        onClose={() => setOpenShiftModal(false)}
+        onSuccess={() => activeShift.reload()}
+      />
+
+      {/* Drawer Expense / Movement Modal */}
+      <DrawerExpenseModal
+        open={expenseModalOpen}
+        onClose={() => setExpenseModalOpen(false)}
+        metrics={activeShift.data}
+        defaultType={expenseModalType}
+        onSuccess={() => activeShift.reload()}
       />
     </div>
   );

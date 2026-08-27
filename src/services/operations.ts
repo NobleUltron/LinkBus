@@ -92,6 +92,16 @@ export async function updateLuggageStatus(id: number, status: Luggage['status'])
   return data.luggage;
 }
 
+export async function updateLuggage(id: number, payload: {
+  description?: string;
+  weight_kg?: number;
+  status?: Luggage['status'];
+  notes?: string;
+}): Promise<LuggageDetail> {
+  const data = await api.put<{ luggage: LuggageDetail }>(`/luggage/${id}`, payload);
+  return data.luggage;
+}
+
 export async function deleteLuggage(id: number): Promise<void> {
   await api.delete(`/luggage/${id}`);
 }

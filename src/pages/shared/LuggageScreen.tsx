@@ -4,6 +4,7 @@ import {
   BriefcaseIcon,
   CheckCircle2Icon,
   LuggageIcon,
+  PencilIcon,
   PlusIcon,
   PrinterIcon,
   ScaleIcon,
@@ -32,6 +33,7 @@ import {
   deleteLuggage,
   findLuggageByBooking,
   listLuggage,
+  updateLuggage,
   updateLuggageStatus,
   type LuggageDetail,
 } from '../../services/operations';
@@ -89,6 +91,17 @@ export function LuggageScreen({
   });
   const [addErrors, setAddErrors] = useState<Record<string, string>>({});
   const [adding, setAdding] = useState(false);
+
+  // Edit Luggage State
+  const [editingItem, setEditingItem] = useState<LuggageDetail | null>(null);
+  const [editForm, setEditForm] = useState({
+    description: '',
+    weight_kg: '',
+    status: 'checked_in' as Luggage['status'],
+    notes: '',
+  });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [editPending, setEditPending] = useState(false);
 
   const [range, setRange] = useState({
     date_from: shiftDays(30),
@@ -172,6 +185,48 @@ export function LuggageScreen({
       setAddErrors({ description: errorMessage(error) });
     } finally {
       setAdding(false);
+    }
+  };
+
+  const openEditModal = (item: LuggageDetail) => {
+    setEditingItem(item);
+    setEditForm({
+      description: item.description,
+      weight_kg: String(item.weight_kg),
+      status: item.status,
+      notes: item.notes || '',
+    });
+    setEditErrors({});
+  };
+
+  const submitEditLuggage = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingItem) return;
+    const errors: Record<string, string> = {};
+    if (!editForm.description.trim())
+      errors.description = 'Piece description cannot be empty.';
+    const weight = Number(editForm.weight_kg);
+    if (!editForm.weight_kg || Number.isNaN(weight) || weight <= 0)
+      errors.weight_kg = 'Enter verified scale weight in kilograms.';
+    setEditErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setEditPending(true);
+    try {
+      await updateLuggage(editingItem.id, {
+        description: editForm.description.trim(),
+        weight_kg: weight,
+        status: editForm.status,
+        notes: editForm.notes.trim(),
+      });
+      toast.success(`Luggage Tag #${editingItem.tag_number} updated successfully.`);
+      setEditingItem(null);
+      await refreshLookup();
+      state.reload();
+    } catch (error) {
+      setEditErrors({ description: errorMessage(error) });
+    } finally {
+      setEditPending(false);
     }
   };
 
@@ -265,7 +320,7 @@ export function LuggageScreen({
             </p>
             {excess > 0 ? (
               <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 border border-amber-500/30 px-1 py-0.2 text-[0.625rem] font-bold text-amber-700 dark:text-amber-300">
-                +{money(excess * (settings.excess_luggage_fee_per_kg || 1000))} Excess
+                +{money(excess * (settings.excess_luggage_fee_per_kg || 2000))} Excess
               </span>
             ) : (
               <span className="text-[0.625rem] text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -297,6 +352,16 @@ export function LuggageScreen({
             Tag Slip
           </Button>
 
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            icon={<PencilIcon className="h-3.5 w-3.5" />}
+            onClick={() => openEditModal(item)}
+          >
+            Edit
+          </Button>
+
           <select
             aria-label={`Status for ${item.tag_number}`}
             value={item.status}
@@ -325,39 +390,120 @@ export function LuggageScreen({
     },
   ];
 
-  const metrics = useMemo(() => {
-    const rows = state.rows;
-    const totalCount = state.meta.total || rows.length;
-    const checkedIn = rows.filter((l) => l.status === 'checked_in');
-    const inTransit = rows.filter((l) => l.status === 'in_transit');
-    const delivered = rows.filter((l) => l.status === 'delivered');
-
-    return {
-      totalCount,
-      checkedInCount: checkedIn.length,
-      inTransitCount: inTransit.length,
-      deliveredCount: delivered.length,
-    };
-  }, [state.rows, state.meta.total]);
-
   return (
     <div className="space-y-6">
       {/* ── Page Header ── */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
-            Luggage &amp; Baggage Handling
-          </h1>
-          <p className="text-xs text-muted">
-            Live scale tagging, excess allowance billing, coach bay tracking, and passenger baggage claim.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+          Luggage &amp; Cargo Network Register
+        </h1>
+        <p className="text-xs text-muted">
+          Live tracking of passenger bags, baggage bay weights, and excess fee settlements.
+        </p>
       </div>
+
+      {/* ── Baggage Check-in Panel ── */}
+      <Panel
+        title="Check-In Passenger Baggage"
+        subtitle="Search passenger by booking reference or ticket number to issue luggage tags"
+      >
+        <form onSubmit={search} className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex-1">
+            <TextField
+              id="luggage-booking-ref"
+              placeholder="e.g. LB-260826-64239F or TKT-0938C7"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+            />
+          </div>
+          <Button
+            type="submit"
+            icon={<SearchIcon className="h-4 w-4" />}
+            loading={looking}
+          >
+            Find Reservation
+          </Button>
+        </form>
+
+        {lookupError && (
+          <div className="mt-4">
+            <InlineError message={lookupError} />
+          </div>
+        )}
+
+        {lookup && (
+          <div className="mt-6 rounded-2xl border border-line bg-surface-2 p-4 space-y-4">
+            <div className="flex flex-col justify-between gap-2 border-b border-line pb-3 sm:flex-row sm:items-center">
+              <div>
+                <p className="font-extrabold text-base text-fg">{lookup.passenger_name}</p>
+                <p className="text-xs text-muted">
+                  Booking #{lookup.booking_number} · Route: <span className="font-semibold text-fg">{lookup.route}</span>
+                </p>
+              </div>
+              <Button
+                size="sm"
+                icon={<PlusIcon className="h-4 w-4" />}
+                onClick={() => setAddOpen(true)}
+              >
+                Add &amp; Tag New Bag
+              </Button>
+            </div>
+
+            {lookup.items.length === 0 ? (
+              <p className="text-xs text-muted py-2">
+                No luggage tagged for this booking yet. Click <strong>"Add &amp; Tag New Bag"</strong> above.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted">
+                  Tagged Bags for this Reservation ({lookup.items.length}):
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {lookup.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-line bg-surface p-3 text-xs space-y-2 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-fg bg-surface-2 px-1.5 py-0.5 rounded border border-line">
+                          {item.tag_number}
+                        </span>
+                        <StatusPill status={item.status} />
+                      </div>
+                      <p className="font-semibold text-fg">{item.description}</p>
+                      <div className="flex items-center justify-between text-muted border-t border-line pt-1.5">
+                        <span>Weight: <strong className="text-fg">{item.weight_kg} kg</strong></span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(item)}
+                            className="rounded p-1 text-brand-600 hover:bg-brand-500/10"
+                            title="Edit Bag Details"
+                          >
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTag(item)}
+                            className="rounded p-1 text-brand-600 hover:bg-brand-500/10"
+                            title="Print Luggage Tag"
+                          >
+                            <PrinterIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Panel>
 
       {/* ── Unified Date Range Filter Toolbar ── */}
       <div className="rounded-2xl border border-line bg-surface p-3.5 sm:p-4 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          {/* Preset Segment Pills */}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="mr-1 text-xs font-bold uppercase tracking-wider text-muted hidden sm:inline-block">
               Presets:
@@ -390,7 +536,6 @@ export function LuggageScreen({
             })}
           </div>
 
-          {/* Custom Date Range Form */}
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-muted">From</span>
@@ -407,6 +552,7 @@ export function LuggageScreen({
                 id="luggage-to"
                 value={range.date_to}
                 min={range.date_from}
+                max={toDateInput(new Date())}
                 onChange={(e) => setRange({ ...range, date_to: e.target.value })}
               />
             </div>
@@ -421,158 +567,12 @@ export function LuggageScreen({
         </div>
       </div>
 
-      {/* ── Luggage KPI Scorecards ── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <LuggageIcon className="h-4 w-4" />
-            </span>
-            <span className="text-xs font-bold text-fg">Total Luggage</span>
-          </div>
-          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-            {metrics.totalCount.toLocaleString()}
-          </p>
-          <p className="text-[0.6875rem] text-muted">All Tagged Baggage</p>
-        </div>
-
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <TagIcon className="h-4 w-4" />
-            </span>
-            <span className="text-xs font-bold text-fg">Checked In</span>
-          </div>
-          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-            {metrics.checkedInCount.toLocaleString()}
-          </p>
-          <p className="text-[0.6875rem] text-muted">Tagged at Scale Counter</p>
-        </div>
-
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <BriefcaseIcon className="h-4 w-4" />
-            </span>
-            <span className="text-xs font-bold text-fg">In Coach Bay</span>
-          </div>
-          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-            {metrics.inTransitCount.toLocaleString()}
-          </p>
-          <p className="text-[0.6875rem] text-muted">Loaded on Active Buses</p>
-        </div>
-
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2Icon className="h-4 w-4" />
-            </span>
-            <span className="text-xs font-bold text-fg">Claimed &amp; Delivered</span>
-          </div>
-          <p className="mt-2 font-extrabold text-xl text-fg tabular-nums">
-            {metrics.deliveredCount.toLocaleString()}
-          </p>
-          <p className="text-[0.6875rem] text-muted">Delivered to Passenger</p>
-        </div>
-      </div>
-
-      {/* ── Fast Booking Lookup Counter Bar (Available to Staff & Admin) ── */}
-      <Panel
-        title="Luggage Scale & Barcode Tagging Desk"
-        subtitle={`Lookup passenger booking to print adhesive barcode tags. Up to ${settings.free_luggage_kg || 20}kg free allowance per ticket; excess is billed at ${money(settings.excess_luggage_fee_per_kg || 1000)} per kg.`}
-      >
-        <form onSubmit={search} className="flex flex-wrap gap-3">
-          <div className="relative min-w-[16rem] flex-1">
-            <SearchIcon
-              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-600"
-              aria-hidden
-            />
-            <input
-              value={reference}
-              onChange={(event) => setReference(event.target.value.toUpperCase())}
-              placeholder="Scan QR or type Booking # e.g. LB-260813-0042"
-              aria-label="Booking reference"
-              className="field field-has-icon font-mono font-bold tracking-wider text-fg"
-            />
-          </div>
-          <Button type="submit" loading={looking} disabled={!reference.trim()}>
-            Lookup Booking
-          </Button>
-        </form>
-
-        {lookupError && (
-          <div className="mt-4">
-            <InlineError message={lookupError} />
-          </div>
-        )}
-
-        {lookup && (
-          <div className="mt-5 rounded-2xl border border-brand-500/30 bg-surface p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
-              <div>
-                <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-brand-600">
-                  Verified Passenger Booking
-                </span>
-                <p className="text-base font-extrabold text-fg">
-                  {lookup.booking_number} · {lookup.passenger_name}
-                </p>
-                <p className="mt-0.5 text-xs text-muted">
-                  {lookup.route} · Departure {formatDateTime(lookup.departure_time)}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                icon={<PlusIcon className="h-4 w-4" />}
-                onClick={() => setAddOpen(true)}
-              >
-                Weigh & Tag New Bag
-              </Button>
-            </div>
-
-            {lookup.items.length === 0 ? (
-              <p className="mt-4 text-xs text-muted">
-                No bags tagged for this passenger yet. Click &quot;Weigh &amp; Tag New Bag&quot; to issue a baggage barcode.
-              </p>
-            ) : (
-              <ul className="mt-4 divide-y divide-line">
-                {lookup.items.map((item) => (
-                  <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-xs">
-                    <div>
-                      <span className="font-mono font-bold text-fg bg-surface-2 px-2 py-0.5 rounded border border-line">
-                        {item.tag_number}
-                      </span>
-                      <span className="ml-2 font-medium text-fg">{item.description}</span>
-                      <span className="ml-2 font-bold text-brand-600">({item.weight_kg} kg)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StatusPill status={item.status} />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<PrinterIcon className="h-3.5 w-3.5" />}
-                        onClick={() => setTag(item)}
-                      >
-                        Print Bag Tag
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </Panel>
-
-      {/* ── Tagged Luggage Register Table ── */}
-      <Panel
-        title={mode === 'staff' ? 'All Tagged Baggage in Transit' : 'Luggage & Cargo Network Register'}
-        subtitle="Live tracking of passenger bags, baggage bay weights, and excess fee settlements"
-        bodyClassName=""
-      >
+      {/* ── Luggage Network DataTable ── */}
+      <Panel bodyClassName="">
         <Toolbar
           search={state.search}
           onSearch={state.setSearch}
-          searchPlaceholder="Search tag number, booking reference, passenger or corridor…"
+          searchPlaceholder="Search tag number, booking reference, passenger..."
           filters={[
             {
               key: 'status',
@@ -592,10 +592,10 @@ export function LuggageScreen({
           loading={state.loading}
           error={state.error}
           onRetry={state.reload}
-          caption="Luggage"
+          caption="Luggage Pieces"
           empty={
             <EmptyState
-              icon={<BriefcaseIcon className="h-6 w-6 text-brand-600" aria-hidden />}
+              icon={<LuggageIcon className="h-6 w-6 text-brand-600" aria-hidden />}
               title={
                 state.activeFilterCount > 0 ? 'No bags match those filters' : 'No luggage tagged yet'
               }
@@ -621,7 +621,7 @@ export function LuggageScreen({
       <Modal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        title="Weigh & Tag Passenger Luggage"
+        title="Weigh &amp; Tag Passenger Luggage"
         subtitle={lookup ? `Booking #${lookup.booking_number} · ${lookup.passenger_name}` : undefined}
         footer={
           <>
@@ -629,7 +629,7 @@ export function LuggageScreen({
               Cancel
             </Button>
             <Button type="submit" form="luggage-form" loading={adding}>
-              Generate Tag & Calculate Fee
+              Generate Tag &amp; Calculate Fee
             </Button>
           </>
         }
@@ -710,6 +710,99 @@ export function LuggageScreen({
             value={addForm.notes}
             onChange={(event) =>
               setAddForm({ ...addForm, notes: event.target.value })
+            }
+          />
+        </form>
+      </Modal>
+
+      {/* ── Edit Bag Modal ── */}
+      <Modal
+        open={Boolean(editingItem)}
+        onClose={() => setEditingItem(null)}
+        title="Edit Baggage Record"
+        subtitle={editingItem ? `Tag #${editingItem.tag_number} · Booking #${editingItem.booking_number} (${editingItem.passenger_name})` : undefined}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditingItem(null)} disabled={editPending}>
+              Cancel
+            </Button>
+            <Button type="submit" form="edit-luggage-form" loading={editPending}>
+              Save &amp; Update Record
+            </Button>
+          </>
+        }
+      >
+        <form id="edit-luggage-form" onSubmit={submitEditLuggage} noValidate className="space-y-4">
+          <TextField
+            id="edit-luggage-description"
+            label="Piece Description"
+            required
+            placeholder="e.g. Large Black Suitcase with Red Strap"
+            value={editForm.description}
+            error={editErrors.description}
+            onChange={(event) =>
+              setEditForm({ ...editForm, description: event.target.value })
+            }
+          />
+          <TextField
+            id="edit-luggage-weight"
+            label="Scale Weight (kg)"
+            type="number"
+            step="0.1"
+            min={0}
+            required
+            placeholder="e.g. 24.5"
+            value={editForm.weight_kg}
+            error={editErrors.weight_kg}
+            hint={`Free allowance: ${settings.free_luggage_kg || 20}kg. Excess weight tariff: ${money(settings.excess_luggage_fee_per_kg || 2000)} per kg.`}
+            onChange={(event) =>
+              setEditForm({ ...editForm, weight_kg: event.target.value })
+            }
+          />
+
+          {/* Live Excess Baggage Tariff Calculation */}
+          {(() => {
+            const enteredWeight = Number(editForm.weight_kg);
+            const freeAllowance = settings.free_luggage_kg || 20;
+            const ratePerKg = settings.excess_luggage_fee_per_kg || 2000;
+            const excessKg = !Number.isNaN(enteredWeight) && enteredWeight > freeAllowance ? enteredWeight - freeAllowance : 0;
+            const excessFee = Math.round(excessKg * ratePerKg);
+
+            return (
+              <div className="rounded-xl border border-line bg-surface-2 p-3 text-xs space-y-1.5">
+                <div className="flex items-center justify-between font-semibold text-fg">
+                  <span>Calculated Excess Tariff:</span>
+                  {excessFee > 0 ? (
+                    <span className="font-bold text-amber-700 dark:text-amber-400">
+                      +{excessKg.toFixed(1)} kg excess ({money(excessFee)})
+                    </span>
+                  ) : (
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      ✓ Within {freeAllowance}kg Free Allowance
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          <SelectField
+            id="edit-luggage-status"
+            label="Luggage Handling Status"
+            value={editForm.status}
+            onChange={(event) =>
+              setEditForm({ ...editForm, status: event.target.value as Luggage['status'] })
+            }
+            options={statusOptions}
+          />
+
+          <TextAreaField
+            id="edit-luggage-notes"
+            label="Handling &amp; Baggage Bay Notes"
+            placeholder="e.g. Loaded in Bay 2, fragile contents"
+            value={editForm.notes}
+            onChange={(event) =>
+              setEditForm({ ...editForm, notes: event.target.value })
             }
           />
         </form>

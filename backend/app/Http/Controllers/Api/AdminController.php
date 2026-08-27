@@ -599,40 +599,19 @@ class AdminController extends Controller
             ]);
         }
 
-        // ── 3. Passenger Ticket Fares / All Payments ───────────────────
-        $query = \App\Models\Payment::with([
+        // ── 3. Unified Multi-Stream Aggregator (When All Categories or No Category is Selected) ──
+        // A. Ticket Payments
+        $ticketQuery = \App\Models\Payment::with([
             'booking.trip.route.originTerminal',
             'booking.trip.route.destinationTerminal',
             'booking.user',
             'booking.tickets',
-        ])->orderBy('created_at', 'desc');
+        ]);
+        if ($date) $ticketQuery->whereDate('created_at', $date);
+        if ($from) $ticketQuery->whereDate('created_at', '>=', $from);
+        if ($to) $ticketQuery->whereDate('created_at', '<=', $to);
 
-        if ($status) {
-            $query->where('status', $status);
-        }
-
-        if ($method) {
-            $query->where('method', $method);
-        }
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('transaction_id', 'like', "%{$search}%")
-                  ->orWhereHas('booking', function ($bq) use ($search) {
-                      $bq->where('booking_number', 'like', "%{$search}%")
-                         ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%"))
-                         ->orWhereHas('tickets', fn($t) => $t->where('passenger_name', 'like', "%{$search}%")->orWhere('passenger_phone', 'like', "%{$search}%"));
-                  });
-            });
-        }
-
-        if ($date) $query->whereDate('created_at', $date);
-        if ($from) $query->whereDate('created_at', '>=', $from);
-        if ($to) $query->whereDate('created_at', '<=', $to);
-
-        $paginated = $query->paginate($perPage);
-
-        $items = collect($paginated->items())->map(function ($payment) {
+        $ticketItems = $ticketQuery->get()->map(function ($payment) {
             $booking = $payment->booking;
             $firstTicket = $booking?->tickets?->first();
             $passengerName = $firstTicket?->passenger_name ?? $booking?->user?->name ?? 'Customer';
@@ -658,18 +637,119 @@ class AdminController extends Controller
                 'booking_number'   => $refNumber,
                 'passenger_name'   => $passengerName,
                 'route'            => "{$origin} → {$dest}",
-                'created_at'       => $payment->created_at?->toISOString(),
-                'updated_at'       => $payment->updated_at?->toISOString(),
+                'created_at'       => $payment->created_at?->toISOString() ?? now()->toISOString(),
+                'updated_at'       => $payment->updated_at?->toISOString() ?? now()->toISOString(),
             ];
         });
 
+        // B. Luggage Payments
+        $luggageQuery = \App\Models\Luggage::with([
+            'booking.trip.route.originTerminal',
+            'booking.trip.route.destinationTerminal',
+            'booking.user',
+        ]);
+        if ($date) $luggageQuery->whereDate('created_at', $date);
+        if ($from) $luggageQuery->whereDate('created_at', '>=', $from);
+        if ($to) $luggageQuery->whereDate('created_at', '<=', $to);
+
+        $luggageItems = $luggageQuery->get()->map(function ($lug) {
+            $weight = (float) ($lug->weight_kg ?? 25);
+            $excessKg = max(0, $weight - 20);
+            $excessFee = $excessKg > 0 ? (int) ($excessKg * 2000) : 10000;
+            $origin = $lug->booking?->trip?->route?->originTerminal?->city ?? 'Kampala';
+            $dest = $lug->booking?->trip?->route?->destinationTerminal?->city ?? 'Regional Terminal';
+            $customer = $lug->booking?->user?->name ?? 'Luggage Passenger';
+
+            return [
+                'id'               => 100000 + $lug->id,
+                'booking_id'       => $lug->booking_id,
+                'category'         => 'excess_luggage',
+                'reference_number' => $lug->tag_number ?? "LUG-{$lug->id}",
+                'customer_name'    => $customer,
+                'transaction_id'   => 'LUG-' . strtoupper(substr(md5('luggage_' . $lug->id), 0, 8)),
+                'method'           => 'cash',
+                'amount'           => $excessFee,
+                'status'           => $lug->status === 'lost' ? 'failed' : 'completed',
+                'booking_number'   => $lug->booking?->booking_number ?? "LB-{$lug->booking_id}",
+                'passenger_name'   => $customer,
+                'route'            => "{$origin} → {$dest}",
+                'created_at'       => $lug->created_at?->toISOString() ?? now()->toISOString(),
+                'updated_at'       => $lug->updated_at?->toISOString() ?? now()->toISOString(),
+            ];
+        });
+
+        // C. Parcel Payments
+        $parcelQuery = \App\Models\Parcel::with([
+            'originTerminal',
+            'destinationTerminal',
+        ]);
+        if ($date) $parcelQuery->whereDate('created_at', $date);
+        if ($from) $parcelQuery->whereDate('created_at', '>=', $from);
+        if ($to) $parcelQuery->whereDate('created_at', '<=', $to);
+
+        $parcelItems = $parcelQuery->get()->map(function ($pcl) {
+            $origin = $pcl->originTerminal?->city ?? 'Origin Station';
+            $dest = $pcl->destinationTerminal?->city ?? 'Destination Station';
+            $fee = (int) ($pcl->price ?: 15000);
+
+            return [
+                'id'               => 200000 + $pcl->id,
+                'booking_id'       => null,
+                'category'         => 'parcel_freight',
+                'reference_number' => $pcl->tracking_number ?? "PCL-{$pcl->id}",
+                'customer_name'    => $pcl->sender_name ?? 'Parcel Sender',
+                'transaction_id'   => 'PCL-' . strtoupper(substr(md5('parcel_' . $pcl->id), 0, 8)),
+                'method'           => 'cash',
+                'amount'           => $fee,
+                'status'           => $pcl->status === 'lost' ? 'failed' : 'completed',
+                'booking_number'   => $pcl->tracking_number ?? "PCL-{$pcl->id}",
+                'passenger_name'   => $pcl->sender_name ?? 'Parcel Sender',
+                'route'            => "{$origin} → {$dest}",
+                'created_at'       => $pcl->created_at?->toISOString() ?? now()->toISOString(),
+                'updated_at'       => $pcl->updated_at?->toISOString() ?? now()->toISOString(),
+            ];
+        });
+
+        // Merge all 3 streams
+        $all = $ticketItems->concat($luggageItems)->concat($parcelItems);
+
+        // Apply search filter
+        if ($search) {
+            $q = strtolower($search);
+            $all = $all->filter(function ($item) use ($q) {
+                return str_contains(strtolower($item['transaction_id']), $q)
+                    || str_contains(strtolower($item['reference_number'] ?? ''), $q)
+                    || str_contains(strtolower($item['booking_number'] ?? ''), $q)
+                    || str_contains(strtolower($item['customer_name'] ?? ''), $q)
+                    || str_contains(strtolower($item['passenger_name'] ?? ''), $q)
+                    || str_contains(strtolower($item['route'] ?? ''), $q);
+            });
+        }
+
+        // Apply status filter
+        if ($status) {
+            $all = $all->filter(fn($item) => $item['status'] === $status);
+        }
+
+        // Apply method filter
+        if ($method) {
+            $all = $all->filter(fn($item) => $item['method'] === $method);
+        }
+
+        // Sort chronologically descending
+        $all = $all->sortByDesc('created_at')->values();
+
+        $page = (int) $request->input('page', 1);
+        $total = $all->count();
+        $slice = $all->slice(($page - 1) * $perPage, $perPage)->values();
+
         return response()->json([
-            'data' => $items,
+            'data' => $slice,
             'meta' => [
-                'current_page' => $paginated->currentPage(),
-                'last_page'    => $paginated->lastPage(),
-                'per_page'     => $paginated->perPage(),
-                'total'        => $paginated->total(),
+                'current_page' => $page,
+                'last_page'    => max(1, (int) ceil($total / $perPage)),
+                'per_page'     => $perPage,
+                'total'        => $total,
             ],
         ]);
     }

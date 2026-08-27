@@ -524,7 +524,7 @@ select.field {
     height: 75mm !important;
     max-height: 75mm !important;
     min-height: 75mm !important;
-    margin: 8mm auto 0 auto !important;
+    margin: 6mm auto 0 auto !important;
     padding: 0 !important;
     overflow: hidden !important;
     background: #ffffff !important;
@@ -539,30 +539,24 @@ select.field {
     color-adjust: exact !important;
   }
 
-  /* Full A4 E-Ticket Voucher (fills 210mm × 297mm sheet) */
+  /* Full A4 E-Ticket Voucher */
   body.is-printing-a4 #boarding-pass-print-clone,
   body.is-printing-a4 #receipt-print-clone,
   .print-a4 {
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: space-between !important;
+    display: block !important;
     visibility: visible !important;
     position: static !important;
     box-sizing: border-box !important;
-    width: 194mm !important;
-    max-width: 194mm !important;
-    min-height: 268mm !important;
-    max-height: 275mm !important;
-    margin: 0 auto !important;
-    padding: 24px 28px !important;
-    border: 2px solid #94a3b8 !important;
-    border-radius: 14px !important;
-    box-shadow: none !important;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    margin: 4mm auto !important;
+    padding: 18px !important;
+    border: 2px solid #cbd5e1 !important;
+    border-radius: 12px !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    color-adjust: exact !important;
   }
 
   body.is-printing-boarding-pass #boarding-pass-print-clone *,

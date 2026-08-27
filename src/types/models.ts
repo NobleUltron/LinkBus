@@ -164,9 +164,13 @@ export interface Luggage {
   id: number;
   booking_id: number;
   trip_seat_id: number | null;
+  shift_id?: number | null;
   tag_number: string;
   description: string;
   weight_kg: number;
+  payment_method?: PaymentMethod;
+  price?: number;
+  excess_fee?: number;
   status: 'checked_in' | 'in_transit' | 'delivered' | 'lost';
   notes: string;
 }

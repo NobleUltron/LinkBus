@@ -39,11 +39,21 @@ class LuggageController extends Controller
             $query->whereDate('created_at', '<=', $to);
         }
 
+        $statsQuery = clone $query;
+        $stats = [
+            'total_count'  => (int) (clone $statsQuery)->count(),
+            'excess_total' => (int) (clone $statsQuery)->sum('price'),
+            'in_transit'   => (int) (clone $statsQuery)->where('status', 'in_transit')->count(),
+            'delivered'    => (int) (clone $statsQuery)->where('status', 'delivered')->count(),
+            'checked_in'   => (int) (clone $statsQuery)->where('status', 'checked_in')->count(),
+        ];
+
         $luggage = $query->orderBy('created_at', 'desc')->paginate(20);
 
         return response()->json([
             'luggage' => $luggage->map(fn($l) => $this->formatLuggage($l)),
             'meta'    => ['current_page' => $luggage->currentPage(), 'last_page' => $luggage->lastPage(), 'total' => $luggage->total()],
+            'stats'   => $stats,
         ]);
     }
 
@@ -207,7 +217,11 @@ class LuggageController extends Controller
             'booking_id'     => $l->booking_id,
             'tag_number'     => $l->tag_number,
             'description'    => $l->description,
-            'weight_kg'      => $l->weight_kg,
+            'weight_kg'      => (float) $l->weight_kg,
+            'payment_method' => $l->payment_method ?? 'cash',
+            'price'          => (int) ($l->price ?? 0),
+            'excess_fee'     => (int) ($l->price ?? 0),
+            'shift_id'       => $l->shift_id,
             'status'         => $l->status,
             'notes'          => $l->notes ?? '',
             'booking_number' => $l->booking?->booking_number ?? '',

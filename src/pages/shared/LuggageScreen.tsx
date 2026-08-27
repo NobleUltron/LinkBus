@@ -403,8 +403,13 @@ export function LuggageScreen({
   const metrics = useMemo(() => {
     const rows = state.rows;
     const totalCount = state.meta.total || rows.length;
-    const excessFeeTotal = rows.reduce((acc, r) => acc + (r.excess_fee || 0), 0);
-    const inTransitCount = rows.filter((r) => r.status === 'in_transit').length;
+    const excessFeeTotal = rows.reduce((acc, r) => {
+      const excessKg = excessOver(r.weight_kg);
+      const calculated = excessKg * (settings.excess_luggage_fee_per_kg || 2000);
+      const fee = r.excess_fee ?? r.price ?? (excessKg > 0 ? calculated : 0);
+      return acc + (Number(fee) || 0);
+    }, 0);
+    const inTransitCount = rows.filter((r) => r.status === 'in_transit' || r.status === 'checked_in').length;
     const deliveredCount = rows.filter((r) => r.status === 'delivered').length;
     return {
       totalCount,
@@ -412,7 +417,7 @@ export function LuggageScreen({
       inTransitCount,
       deliveredCount,
     };
-  }, [state.rows, state.meta.total]);
+  }, [state.rows, state.meta.total, settings.excess_luggage_fee_per_kg, settings.free_luggage_kg]);
 
   return (
     <div className="space-y-6">

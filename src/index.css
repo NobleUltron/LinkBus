@@ -472,9 +472,10 @@ select.field {
     color-adjust: exact !important;
   }
 
-  /* ─── BOARDING PASS PRINT MODE ───────────────────────────────────────────── */
-  /* Hide all elements when printing a boarding pass clone */
-  body.is-printing-boarding-pass > *:not(#boarding-pass-print-clone) {
+  /* ─── BOARDING PASS & MULTI-FORMAT PRINT MODES ───────────────────────────── */
+  /* Hide all elements when printing a clone */
+  body.is-printing-boarding-pass > *:not(#boarding-pass-print-clone),
+  body.is-printing-receipt > *:not(#receipt-print-clone) {
     display: none !important;
     visibility: hidden !important;
     height: 0 !important;
@@ -485,8 +486,32 @@ select.field {
     pointer-events: none !important;
   }
 
-  /* Standard Landscape Boarding Pass Coupon (204mm × 75mm) */
-  body.is-printing-boarding-pass #boarding-pass-print-clone,
+  /* 80mm POS Thermal Slip Print Layout */
+  body.is-printing-thermal #boarding-pass-print-clone,
+  body.is-printing-thermal #receipt-print-clone,
+  body.is-printing-thermal .print-thermal {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    box-sizing: border-box !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 8px 10px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Landscape Boarding Pass Coupon (204mm × 75mm) */
+  body.is-printing-coupon #boarding-pass-print-clone,
+  body.is-printing-boarding-pass:not(.is-printing-thermal):not(.is-printing-a4) #boarding-pass-print-clone .print-boarding-pass,
   .print-boarding-pass {
     display: flex !important;
     flex-direction: row !important;
@@ -499,7 +524,7 @@ select.field {
     height: 75mm !important;
     max-height: 75mm !important;
     min-height: 75mm !important;
-    margin: 10mm auto 0 auto !important;
+    margin: 6mm auto 0 auto !important;
     padding: 0 !important;
     overflow: hidden !important;
     background: #ffffff !important;
@@ -509,14 +534,36 @@ select.field {
     box-shadow: none !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    page-break-after: avoid !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
   }
 
+  /* Full A4 E-Ticket Voucher */
+  body.is-printing-a4 #boarding-pass-print-clone,
+  body.is-printing-a4 #receipt-print-clone,
+  .print-a4 {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    box-sizing: border-box !important;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    margin: 4mm auto !important;
+    padding: 18px !important;
+    border: 2px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   body.is-printing-boarding-pass #boarding-pass-print-clone *,
-  .print-boarding-pass * {
+  body.is-printing-receipt #receipt-print-clone *,
+  .print-boarding-pass *,
+  .print-thermal *,
+  .print-a4 * {
     visibility: visible !important;
     box-sizing: border-box !important;
     -webkit-print-color-adjust: exact !important;

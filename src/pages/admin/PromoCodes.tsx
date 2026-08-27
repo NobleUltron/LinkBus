@@ -1,5 +1,5 @@
 import React from 'react';
-import { PercentIcon, SparklesIcon, TagIcon } from 'lucide-react';
+import { AlertCircleIcon, CheckCircle2Icon, PercentIcon, SparklesIcon, TagIcon, TrendingUpIcon } from 'lucide-react';
 import type { Column } from '../../components/data/DataTable';
 import type { FieldConfig, FieldValue } from '../../components/data/ResourceModal';
 import { ResourceScreen } from '../../components/data/ResourceScreen';
@@ -301,6 +301,68 @@ export function PromoCodes() {
           filters,
         })
       }
+      renderCards={({ rows, meta }) => {
+        const totalCount = meta.total || rows.length;
+        const activeCodes = rows.filter((p) => p.is_active && !isExpired(p) && !isExhausted(p));
+        const exhausted = rows.filter((p) => isExhausted(p) || isExpired(p));
+        const totalRedemptions = rows.reduce((sum, p) => sum + (p.used_count || 0), 0);
+
+        return (
+          <>
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                  <TagIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Total Campaigns</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {totalCount.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Promo Codes on File</p>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2Icon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Active Campaigns</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {activeCodes.length.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Live & Redeemable at POS</p>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-400">
+                  <AlertCircleIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Expired / Exhausted</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {exhausted.length.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Limit Reached or Past Expiry</p>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <TrendingUpIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Total Redemptions</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {totalRedemptions.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Passenger Codes Applied</p>
+            </div>
+          </>
+        );
+      }}
       toFormValues={(promo) => ({
         code: promo?.code ?? '',
         description: promo?.description ?? '',

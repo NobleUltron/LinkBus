@@ -5,7 +5,9 @@ import {
   LockIcon,
   ShieldAlertIcon,
   ShieldCheckIcon,
+  UserCogIcon,
   UsersIcon,
+  UserIcon,
 } from 'lucide-react';
 import type { Column } from '../../components/data/DataTable';
 import type { FieldConfig, FieldValue } from '../../components/data/ResourceModal';
@@ -156,7 +158,7 @@ export function Roles() {
 
   return (
     <ResourceScreen<Role>
-      title="Security Roles &amp; RBAC Permissions"
+      title="Security Roles & RBAC Permissions"
       subtitle="Role-based access control definitions that protect administrative command, staff POS counters, captain cockpits, and passenger portals."
       singular="Security Role"
       plural="Security Roles"
@@ -173,6 +175,68 @@ export function Roles() {
           filters,
         })
       }
+      renderCards={({ rows, meta }) => {
+        const totalCount = meta.total || rows.length;
+        const adminRoles = rows.filter((r) => r.slug === 'admin' || r.slug === 'manager');
+        const staffRoles = rows.filter((r) => r.slug === 'staff' || r.slug === 'driver');
+        const passengerRoles = rows.filter((r) => r.slug === 'passenger');
+
+        return (
+          <>
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                  <LayersIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Total Roles</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {totalCount.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">RBAC Permission Tiers</p>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <ShieldCheckIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Admin Roles</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {adminRoles.length.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Full Command Suite Access</p>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <UserCogIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Staff & Crew Roles</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {staffRoles.length.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">POS Counter & Fleet Crew</p>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <UserIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Passenger Access</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {passengerRoles.length.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Public Travel Portal Roles</p>
+            </div>
+          </>
+        );
+      }}
       toFormValues={(role) => ({
         name: role?.name ?? '',
         slug: role?.slug ?? 'passenger',

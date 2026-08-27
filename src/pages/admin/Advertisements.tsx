@@ -1,11 +1,13 @@
 import React from 'react';
 import {
   CalendarIcon,
+  CheckCircle2Icon,
   ExternalLinkIcon,
   EyeIcon,
   ImageIcon,
   LayersIcon,
   MegaphoneIcon,
+  RadioIcon,
   SparklesIcon,
 } from 'lucide-react';
 import type { Column } from '../../components/data/DataTable';
@@ -272,6 +274,68 @@ export function Advertisements() {
           filters,
         })
       }
+      renderCards={({ rows, meta }) => {
+        const totalCount = meta.total || rows.length;
+        const live = rows.filter(isLive);
+        const upcoming = rows.filter(isUpcoming);
+        const inactive = rows.filter((ad) => !isLive(ad) && !isUpcoming(ad));
+
+        return (
+          <>
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                  <MegaphoneIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Total Campaigns</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {totalCount.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Created Ad Creatives</p>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                  <RadioIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Live Broadcasts</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-emerald-900 dark:text-emerald-100 tabular-nums">
+                {live.length.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-emerald-700 dark:text-emerald-400">Broadcasting Now</p>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <CalendarIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Scheduled</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {upcoming.length.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Queued to Go Live</p>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-500/10 text-slate-500 dark:text-slate-400">
+                  <EyeIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg">Inactive / Expired</span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {inactive.length.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Paused or Past End Date</p>
+            </div>
+          </>
+        );
+      }}
       toFormValues={(ad) => ({
         title: ad?.title ?? '',
         description: ad?.description ?? '',

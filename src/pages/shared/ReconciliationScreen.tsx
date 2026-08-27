@@ -5,6 +5,7 @@ import {
   BriefcaseIcon,
   Building2Icon,
   CalculatorIcon,
+  CalendarDaysIcon,
   CalendarIcon,
   CheckCircle2Icon,
   ClockIcon,
@@ -16,6 +17,7 @@ import {
   PackageIcon,
   PrinterIcon,
   ReceiptTextIcon,
+  RefreshCwIcon,
   SearchIcon,
   ShieldAlertIcon,
   ShieldCheckIcon,
@@ -56,6 +58,19 @@ interface ReconciliationScreenProps {
   mode?: 'staff' | 'admin';
 }
 
+const presets = [
+  { label: 'Today', days: 1 },
+  { label: '7 days', days: 7 },
+  { label: '30 days', days: 30 },
+  { label: '90 days', days: 90 },
+];
+
+function shiftDays(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - (days - 1));
+  return toDateInput(date);
+}
+
 export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenProps) {
   const { user } = useAuth();
   const [closeoutOpen, setCloseoutOpen] = useState(false);
@@ -63,10 +78,11 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
   const [previewAuditRecord, setPreviewAuditRecord] = useState<ShiftReconciliation | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
 
-  const [dateRange, setDateRange] = useState({
-    date_from: '',
-    date_to: '',
+  const [range, setRange] = useState({
+    date_from: shiftDays(30),
+    date_to: toDateInput(new Date()),
   });
+  const [applied, setApplied] = useState(range);
 
   const terminals = useAsync(() => getActiveTerminals(), []);
   const activeMetrics = useAsync(() => getActiveShiftMetrics(1), []);
@@ -78,10 +94,14 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
       search,
       terminal_id: filters.terminal,
       status: filters.status,
-      date_from: dateRange.date_from || undefined,
-      date_to: dateRange.date_to || undefined,
+      date_from: applied.date_from,
+      date_to: applied.date_to,
     })
   );
+
+  React.useEffect(() => {
+    state.reload();
+  }, [applied.date_from, applied.date_to]);
 
   // Scorecards computation for audited ledger
   const ledgerMetrics = useMemo(() => {
@@ -410,6 +430,149 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           </div>
         ) : null}
       </Panel>
+
+      {/* ── Unified Date Range Filter Toolbar ── */}
+      <div className="rounded-2xl border border-line bg-surface p-3.5 sm:p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          {/* Preset Segment Pills */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-xs font-bold uppercase tracking-wider text-muted hidden sm:inline-block">
+              Presets:
+            </span>
+            {presets.map((preset) => {
+              const active =
+                applied.date_from === shiftDays(preset.days) &&
+                applied.date_to === toDateInput(new Date());
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    const next = {
+                      date_from: shiftDays(preset.days),
+                      date_to: toDateInput(new Date()),
+                    };
+                    setRange(next);
+                    setApplied(next);
+                  }}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                    active
+                      ? 'bg-brand-600 text-white shadow-sm'
+                      : 'border border-line bg-surface text-muted hover:bg-surface-2 hover:text-fg'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Custom Date Range Form */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted">From</span>
+              <DateInput
+                id="reconcile-from"
+                value={range.date_from}
+                max={range.date_to}
+                onChange={(e) => setRange({ ...range, date_from: e.target.value })}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted">To</span>
+              <DateInput
+                id="reconcile-to"
+                value={range.date_to}
+                min={range.date_from}
+                max={toDateInput(new Date())}
+                onChange={(e) => setRange({ ...range, date_to: e.target.value })}
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setApplied(range)}
+              loading={state.loading}
+            >
+              Apply Filter
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Historical Ledger Summary Scorecards ── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+              <ReceiptTextIcon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-fg uppercase tracking-wider">
+              Audited Shifts
+            </span>
+          </div>
+          <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+            {ledgerMetrics.totalCount.toLocaleString()}
+          </p>
+          <p className="text-[0.6875rem] text-muted">Historical closed station shifts</p>
+        </div>
+
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold">
+              <CheckCircle2Icon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider">
+              Balanced Shifts
+            </span>
+          </div>
+          <p className="mt-2 font-extrabold text-2xl text-emerald-950 dark:text-emerald-100 tabular-nums">
+            {ledgerMetrics.balancedCount.toLocaleString()}
+          </p>
+          <p className="text-[0.6875rem] text-emerald-800 dark:text-emerald-300">0 UGX variance balance</p>
+        </div>
+
+        <div className={`rounded-2xl border p-4 shadow-sm hover-lift transition-all ${
+          ledgerMetrics.flaggedCount > 0 ? 'border-amber-500/30 bg-amber-500/10' : 'border-line bg-surface'
+        }`}>
+          <div className="flex items-center gap-2">
+            <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+              ledgerMetrics.flaggedCount > 0 ? 'bg-amber-600 text-white' : 'bg-slate-500/10 text-slate-500'
+            }`}>
+              <AlertTriangleIcon className="h-4 w-4" />
+            </span>
+            <span className={`text-xs font-bold ${
+              ledgerMetrics.flaggedCount > 0 ? 'text-amber-950 dark:text-amber-200 uppercase tracking-wider' : 'text-fg uppercase tracking-wider'
+            }`}>
+              Discrepancies
+            </span>
+          </div>
+          <p className={`mt-2 font-extrabold text-2xl tabular-nums ${
+            ledgerMetrics.flaggedCount > 0 ? 'text-amber-950 dark:text-amber-100' : 'text-fg'
+          }`}>
+            {ledgerMetrics.flaggedCount.toLocaleString()}
+          </p>
+          <p className={`text-[0.6875rem] ${
+            ledgerMetrics.flaggedCount > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-muted'
+          }`}>
+            Over / short discrepancies noted
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
+              <CoinsIcon className="h-4 w-4" />
+            </span>
+            <span className="text-xs font-bold text-fg uppercase tracking-wider">
+              Settled Collections
+            </span>
+          </div>
+          <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+            {money(ledgerMetrics.totalVolume)}
+          </p>
+          <p className="text-[0.6875rem] text-muted">Audited cash &amp; digital revenue</p>
+        </div>
+      </div>
 
       {/* ── Historical Shift Reconciliations Ledger ── */}
       <Panel

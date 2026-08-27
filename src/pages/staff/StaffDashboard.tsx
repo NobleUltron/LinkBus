@@ -196,7 +196,7 @@ export function StaffDashboard() {
               {/* POS Ticket Sale */}
               <Link
                 to="/staff/pos"
-                className="flex items-center gap-3.5 rounded-2xl border border-brand-500/30 bg-brand-500/5 p-4 transition-all hover:bg-brand-500/10 hover:border-brand-500 hover:shadow-md group"
+                className="flex items-center gap-3.5 rounded-2xl border border-brand-500/30 bg-brand-500/5 p-4 transition-all hover:bg-brand-500/10 hover:border-brand-500 hover:shadow-md hover-lift group"
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm shadow-brand-950/20 group-hover:scale-105 transition-transform">
                   <StoreIcon className="h-5 w-5" aria-hidden />
@@ -219,7 +219,7 @@ export function StaffDashboard() {
               {/* QR Boarding Check-in */}
               <Link
                 to="/staff/check-in"
-                className="flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-4 transition-all hover:border-brand-500/40 hover:bg-surface-2 hover:shadow-md group"
+                className="flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-4 transition-all hover:border-brand-500/40 hover:bg-surface-2 hover:shadow-md hover-lift group"
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-brand-600 dark:text-brand-400 group-hover:scale-105 transition-transform">
                   <QrCodeIcon className="h-5 w-5" aria-hidden />
@@ -242,7 +242,7 @@ export function StaffDashboard() {
               {/* Baggage Tagging */}
               <Link
                 to="/staff/luggage"
-                className="flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-4 transition-all hover:border-brand-500/40 hover:bg-surface-2 hover:shadow-md group"
+                className="flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-4 transition-all hover:border-brand-500/40 hover:bg-surface-2 hover:shadow-md hover-lift group"
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform">
                   <TicketIcon className="h-5 w-5" aria-hidden />
@@ -265,7 +265,7 @@ export function StaffDashboard() {
               {/* Same Day Parcels */}
               <Link
                 to="/staff/parcels"
-                className="flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-4 transition-all hover:border-brand-500/40 hover:bg-surface-2 hover:shadow-md group"
+                className="flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-4 transition-all hover:border-brand-500/40 hover:bg-surface-2 hover:shadow-md hover-lift group"
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
                   <PackageCheckIcon className="h-5 w-5" aria-hidden />

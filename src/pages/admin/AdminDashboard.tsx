@@ -5,6 +5,7 @@ import {
   AlertCircleIcon,
   ArrowRightIcon,
   ArrowUpRightIcon,
+  BanknoteIcon,
   BellRingIcon,
   BriefcaseIcon,
   Building2Icon,
@@ -17,10 +18,13 @@ import {
   PackageCheckIcon,
   PlusIcon,
   RadioIcon,
+  ReceiptTextIcon,
   RefreshCwIcon,
   RouteIcon,
   ShieldCheckIcon,
   SparklesIcon,
+  StoreIcon,
+  TagIcon,
   TrendingUpIcon,
   UsersIcon,
   WalletIcon,
@@ -46,6 +50,7 @@ import {
 } from 'recharts';
 import { DataTable, type Column } from '../../components/data/DataTable';
 import { LiveStatusModal } from '../../components/modals/LiveStatusModal';
+import { Button } from '../../components/ui/Button';
 import { Panel } from '../../components/ui/Panel';
 import { StatCard } from '../../components/ui/StatCard';
 import { EmptyState, ErrorState, SkeletonCards } from '../../components/ui/States';
@@ -136,8 +141,10 @@ export function AdminDashboard() {
       header: 'Booking #',
       render: (booking) => (
         <div>
-          <p className="font-bold text-fg">{booking.booking_number}</p>
-          <p className="text-[0.6875rem] text-muted">{formatDateTime(booking.created_at)}</p>
+          <span className="font-mono font-bold text-fg bg-surface-2 px-1.5 py-0.5 rounded text-xs border border-line">
+            #{booking.booking_number}
+          </span>
+          <p className="text-[0.6875rem] text-muted mt-0.5">{formatDateTime(booking.created_at)}</p>
         </div>
       ),
     },
@@ -146,7 +153,7 @@ export function AdminDashboard() {
       header: 'Passenger',
       render: (booking) => (
         <div>
-          <span className="font-medium text-fg">{booking.passenger?.name ?? 'Walk-in Customer'}</span>
+          <span className="font-bold text-fg text-xs block">{booking.passenger?.name ?? 'Walk-in Customer'}</span>
           <p className="text-[0.6875rem] text-muted">{booking.passenger?.phone ?? 'POS Counter'}</p>
         </div>
       ),
@@ -176,7 +183,7 @@ export function AdminDashboard() {
       header: 'Amount',
       align: 'right',
       render: (booking) => (
-        <span className="font-bold tabular-nums text-fg">{money(booking.total_amount)}</span>
+        <span className="font-extrabold font-mono tabular-nums text-fg text-xs">{money(booking.total_amount)}</span>
       ),
     },
   ];
@@ -190,7 +197,7 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* ── Executive Unified Command Header ── */}
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
@@ -200,7 +207,7 @@ export function AdminDashboard() {
               type="button"
               onClick={() => setStatusModalOpen(true)}
               title="Click to view live system telemetry and diagnostics"
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all hover:bg-emerald-500/20 hover:border-emerald-500/40 active:scale-95 cursor-pointer shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all hover:bg-emerald-500/20 hover:border-emerald-500/40 active:scale-95 cursor-pointer shadow-sm hover-lift"
             >
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -215,7 +222,7 @@ export function AdminDashboard() {
               {greeting}, <strong className="text-fg">{firstName}</strong>
             </span>
             <span className="text-faint">·</span>
-            <span>All transit corridors operational</span>
+            <span>All transit corridors operational across Uganda</span>
             <span className="text-faint">·</span>
             <button
               type="button"
@@ -259,7 +266,7 @@ export function AdminDashboard() {
             }}
             disabled={loading}
             title="Refresh dashboard metrics"
-            className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-line bg-surface text-muted shadow-sm transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-50"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-surface text-muted shadow-sm transition-all hover:bg-surface-2 hover:text-fg hover-lift disabled:opacity-50"
           >
             <RefreshCwIcon className={`h-4 w-4 ${loading ? 'animate-spin text-brand-600' : ''}`} />
           </button>
@@ -267,7 +274,7 @@ export function AdminDashboard() {
           {/* Quick Reports Link */}
           <Link
             to="/admin/reports"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-xs font-semibold text-fg shadow-sm transition-colors hover:bg-surface-2"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-xs font-semibold text-fg shadow-sm transition-all hover:bg-surface-2 hover-lift"
           >
             <FileSpreadsheetIcon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Reports</span>
@@ -276,37 +283,51 @@ export function AdminDashboard() {
       </div>
 
       {/* ── 1-Click Operations Quick Actions Ribbon ── */}
-      <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto scrollbar-none rounded-2xl border border-line bg-surface p-2.5 sm:p-4 shadow-sm">
+      <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto scrollbar-none rounded-2xl border border-line bg-surface p-3 sm:p-3.5 shadow-sm">
         <span className="text-xs font-bold uppercase tracking-wider text-muted mr-1 hidden md:inline shrink-0">
           Quick Actions:
         </span>
         <Link
           to="/admin/trips"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-700 active:scale-95"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-700 hover-lift active:scale-95"
         >
           <PlusIcon className="h-3.5 w-3.5" />
           Schedule Trip
         </Link>
         <Link
           to="/admin/buses"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 active:scale-95"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 hover-lift active:scale-95"
         >
           <BusIcon className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
           Coach Fleet
         </Link>
         <Link
-          to="/admin/settings"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 active:scale-95"
+          to="/staff/pos"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 hover-lift active:scale-95"
         >
-          <BellRingIcon className="h-3.5 w-3.5 text-amber-500" />
-          Broadcast Alert
+          <StoreIcon className="h-3.5 w-3.5 text-blue-500" />
+          POS Counter
+        </Link>
+        <Link
+          to="/admin/reconciliation"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 hover-lift active:scale-95"
+        >
+          <BanknoteIcon className="h-3.5 w-3.5 text-emerald-500" />
+          Reconcile Drawer
+        </Link>
+        <Link
+          to="/admin/promos"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 hover-lift active:scale-95"
+        >
+          <TagIcon className="h-3.5 w-3.5 text-amber-500" />
+          Promo Codes
         </Link>
         <Link
           to="/admin/reports"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 active:scale-95"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg transition-all hover:bg-surface-2 hover-lift active:scale-95"
         >
-          <FileSpreadsheetIcon className="h-3.5 w-3.5 text-emerald-500" />
-          Reports
+          <FileSpreadsheetIcon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+          Analytics
         </Link>
       </div>
 
@@ -602,7 +623,7 @@ export function AdminDashboard() {
           subtitle="Newest passenger reservations across online and terminal counters"
           action={
             <Link
-              to="/admin/reports"
+              to="/admin/bookings"
               className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400"
             >
               Full Manifest <ArrowRightIcon className="h-3.5 w-3.5" />

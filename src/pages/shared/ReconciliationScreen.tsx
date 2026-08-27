@@ -503,7 +503,26 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
               </div>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="flex flex-col items-center justify-center p-6 text-center rounded-2xl border border-dashed border-line bg-surface-2/40 space-y-3">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold">
+              <ShieldAlertIcon className="h-6 w-6" />
+            </span>
+            <div>
+              <h3 className="font-extrabold text-sm text-fg">No Active Cash Drawer Shift Open</h3>
+              <p className="text-xs text-muted max-w-md mt-0.5">
+                The previous cashier shift has been closed and locked. Declare your opening till float to begin a new shift session.
+              </p>
+            </div>
+            <Button
+              className="bg-brand-600 hover:bg-brand-700 text-white font-bold"
+              icon={<PlusIcon className="h-4 w-4" />}
+              onClick={() => setOpenShiftModal(true)}
+            >
+              Open Duty Shift &amp; Enter Starting Float
+            </Button>
+          </div>
+        )}
       </Panel>
 
       {/* ── Unified Date Range Filter Toolbar ── */}

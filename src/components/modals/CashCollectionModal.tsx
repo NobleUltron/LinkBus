@@ -12,6 +12,7 @@ import type { BookingDetail } from '../../types/api';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { confirmCashPayment } from '../../services/bookings';
+import { hasActiveShift } from '../../services/reconciliations';
 import { errorMessage } from '../../hooks/useAsync';
 import { formatDateTime, money } from '../../utils/format';
 
@@ -60,6 +61,11 @@ export function CashCollectionModal({
   ).filter((val) => val >= totalAmount);
 
   const handleConfirm = async () => {
+    if (!hasActiveShift()) {
+      toast.error('Shift is Closed! You must open your duty shift float before collecting cash.');
+      return;
+    }
+
     if (isShort) {
       toast.error(`Cash tendered is short by ${money(shortAmount)}.`);
       return;

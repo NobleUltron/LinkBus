@@ -1,6 +1,7 @@
 import type { BookingDetail, Paginated, PromoValidation } from '../types/api';
 import type { Booking, BookingStatus, PaymentMethod } from '../types/models';
 import { api } from './api-client';
+import { hasActiveShift } from './reconciliations';
 
 export interface PassengerInput {
   seat_id: number;
@@ -237,6 +238,10 @@ export async function posBook(payload: {
   promo_code?: string | null;
   amount_paid: number;
 }): Promise<BookingDetail> {
+  if (payload.payment_method === 'cash' && !hasActiveShift()) {
+    throw new Error('Forbidden: Shift is Closed — You must open your cash drawer shift before processing cash sales.');
+  }
+
   const seats = payload.seat_ids.map((seat_id) => {
     const p = payload.passengers.find((p) => p.seat_id === seat_id);
     return {

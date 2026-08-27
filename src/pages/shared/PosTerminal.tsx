@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangleIcon,
   ArrowDownRightIcon,
   BanknoteIcon,
   CheckCircle2Icon,
@@ -7,6 +8,7 @@ import {
   CoinsIcon,
   CompassIcon,
   CreditCardIcon,
+  LockIcon,
   MapPinIcon,
   MessageSquareIcon,
   PhoneIcon,
@@ -16,6 +18,7 @@ import {
   ReceiptTextIcon,
   RefreshCwIcon,
   SearchIcon,
+  ShieldAlertIcon,
   ShieldCheckIcon,
   SmartphoneIcon,
   SparklesIcon,
@@ -35,6 +38,7 @@ import { WizardSteps } from '../../components/booking/WizardSteps';
 import { BoardingPassModal } from '../../components/modals/BoardingPassModal';
 import { DrawerExpenseModal } from '../../components/modals/DrawerExpenseModal';
 import { ReceiptModal } from '../../components/modals/ReceiptModal';
+import { ShiftCloseoutModal } from '../../components/modals/ShiftCloseoutModal';
 import { ShiftOpenModal } from '../../components/modals/ShiftOpenModal';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/Field';
@@ -103,11 +107,14 @@ export function PosTerminal() {
 
   // Shift & Drawer Modals
   const [openShiftModal, setOpenShiftModal] = useState(false);
+  const [closeoutModalOpen, setCloseoutModalOpen] = useState(false);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [expenseModalType, setExpenseModalType] = useState<'petty_expense' | 'safe_drop' | 'cash_in'>('petty_expense');
 
   const terminals = useAsync(() => getActiveTerminals(), []);
   const activeShift = useAsync(() => getActiveShiftMetrics(1), []);
+
+  const hasShift = Boolean(activeShift.data && activeShift.data.status === 'open');
 
   const issuedTickets = useMemo<TicketDetail[]>(() => {
     if (!booking || !booking.tickets || !booking.trip) return [];
@@ -226,6 +233,12 @@ export function PosTerminal() {
   };
 
   const complete = async () => {
+    if (!hasShift && method === 'cash') {
+      toast.error('Shift is Closed! You must open your cash drawer shift before taking cash.');
+      setOpenShiftModal(true);
+      return;
+    }
+
     if (!trip || !validate()) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -339,8 +352,8 @@ export function PosTerminal() {
         </div>
       </div>
 
-      {/* ── Live Shift Drawer Status Banner ── */}
-      {activeShift.data && (
+      {/* ── Shift Drawer Status / Lock Banner ── */}
+      {hasShift ? (
         <div className="rounded-2xl border border-line bg-surface p-3 sm:p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
@@ -349,13 +362,13 @@ export function PosTerminal() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-black text-fg bg-surface-2 px-2 py-0.5 rounded border border-line">
-                  {activeShift.data.shift_code}
+                  {activeShift.data?.shift_code}
                 </span>
                 <span className="text-xs text-muted">
-                  Till Cash: <strong className="font-mono text-emerald-600 dark:text-emerald-400">{money(activeShift.data.system_expected_cash)}</strong>
+                  Till Cash: <strong className="font-mono text-emerald-600 dark:text-emerald-400">{money(activeShift.data?.system_expected_cash || 0)}</strong>
                 </span>
                 <span className="text-[0.6875rem] text-muted hidden sm:inline">
-                  (Float: {money(activeShift.data.opening_float)})
+                  (Float: {money(activeShift.data?.opening_float || 0)})
                 </span>
               </div>
             </div>
@@ -387,12 +400,35 @@ export function PosTerminal() {
             <Button
               size="sm"
               variant="outline"
-              icon={<PlusIcon className="h-3.5 w-3.5" />}
-              onClick={() => setOpenShiftModal(true)}
+              icon={<LockIcon className="h-3.5 w-3.5 text-rose-600" />}
+              onClick={() => setCloseoutModalOpen(true)}
             >
-              Open Shift Float
+              Close Shift (Z-Report)
             </Button>
           </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-600 text-white shadow-sm">
+              <ShieldAlertIcon className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-extrabold text-sm text-amber-950 dark:text-amber-200">
+                Cash Drawer is Closed
+              </p>
+              <p className="text-xs text-amber-800 dark:text-amber-300">
+                You must declare your starting float and open your duty shift before taking walk-in passenger cash.
+              </p>
+            </div>
+          </div>
+          <Button
+            className="bg-brand-600 hover:bg-brand-700 text-white font-bold shrink-0"
+            icon={<PlusIcon className="h-4 w-4" />}
+            onClick={() => setOpenShiftModal(true)}
+          >
+            Open Shift &amp; Enter Float Now
+          </Button>
         </div>
       )}
 
@@ -932,6 +968,14 @@ export function PosTerminal() {
         onClose={() => setExpenseModalOpen(false)}
         metrics={activeShift.data}
         defaultType={expenseModalType}
+        onSuccess={() => activeShift.reload()}
+      />
+
+      {/* Shift Closeout Modal */}
+      <ShiftCloseoutModal
+        open={closeoutModalOpen}
+        onClose={() => setCloseoutModalOpen(false)}
+        metrics={activeShift.data}
         onSuccess={() => activeShift.reload()}
       />
     </div>

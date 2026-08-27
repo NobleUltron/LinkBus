@@ -268,15 +268,34 @@ export interface ActiveShiftMetrics {
   system_expected_total: number;
 }
 
-function getStoredActiveShift(): ActiveShiftMetrics {
+function getStoredActiveShift(): ActiveShiftMetrics | null {
   try {
     const raw = localStorage.getItem(ACTIVE_SHIFT_KEY);
-    if (raw) return JSON.parse(raw);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.status === 'open') return parsed;
+    return null;
   } catch {
-    // fallback
+    return null;
   }
+}
 
-  // Default active shift for demonstration
+/**
+ * Checks if the current terminal cashier has an active open shift.
+ */
+export function hasActiveShift(): boolean {
+  const shift = getStoredActiveShift();
+  return Boolean(shift && shift.status === 'open');
+}
+
+/**
+ * Computes live current shift counter collections and drawer cash.
+ */
+export async function getActiveShiftMetrics(terminalId: number = 1): Promise<ActiveShiftMetrics | null> {
+  const existing = getStoredActiveShift();
+  if (existing) return existing;
+
+  // Default seed open shift if never initialized
   const defaultShift: ActiveShiftMetrics = {
     shift_id: 101,
     shift_code: 'SHF-ACTIVE-001',
@@ -355,19 +374,16 @@ function getStoredActiveShift(): ActiveShiftMetrics {
   };
 
   try {
-    localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(defaultShift));
+    const raw = localStorage.getItem(ACTIVE_SHIFT_KEY);
+    if (raw === null) {
+      localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(defaultShift));
+      return defaultShift;
+    }
   } catch {
     // ignore
   }
 
-  return defaultShift;
-}
-
-/**
- * Computes live current shift counter collections and drawer cash.
- */
-export async function getActiveShiftMetrics(terminalId: number = 1): Promise<ActiveShiftMetrics> {
-  return getStoredActiveShift();
+  return null;
 }
 
 /**
@@ -459,6 +475,9 @@ export async function logDrawerTransaction(params: {
   authorized_by?: string;
 }): Promise<ActiveShiftMetrics> {
   const shift = getStoredActiveShift();
+  if (!shift) {
+    throw new Error('Forbidden: You must open a cash drawer shift before recording expenses or movements.');
+  }
 
   const newTx: DrawerTransaction = {
     id: Date.now(),
@@ -583,47 +602,7 @@ export async function submitShiftCloseout(input: ShiftCloseoutInput): Promise<Sh
   items.unshift(record);
   localStorage.setItem(RECONCILIATIONS_KEY, JSON.stringify(items));
 
-  // Reset or start new shift state
-  const nextShift: ActiveShiftMetrics = {
-    shift_id: Date.now(),
-    shift_code: `SHF-${today}-${String(items.length + 2).padStart(3, '0')}`,
-    status: 'open',
-    opened_at: new Date().toISOString(),
-    terminal_id: input.terminal_id,
-    terminal_name: input.terminal_name,
-    terminal_city: input.terminal_city,
-    cashier_id: input.cashier_id,
-    cashier_name: input.cashier_name,
-    supervisor_name: input.supervisor_name,
-    opening_float: 100000,
-    cash_in_total: 0,
-    cash_out_expenses: 0,
-    safe_drops_total: 0,
-    cash_refunds_total: 0,
-    drawer_transactions: [],
-    ticket_sales_cash: 0,
-    ticket_sales_momo: 0,
-    ticket_sales_airtel: 0,
-    ticket_sales_card: 0,
-    ticket_sales_total: 0,
-    ticket_count: 0,
-    luggage_fees_cash: 0,
-    luggage_fees_momo: 0,
-    luggage_fees_airtel: 0,
-    luggage_fees_total: 0,
-    luggage_count: 0,
-    parcel_fees_cash: 0,
-    parcel_fees_momo: 0,
-    parcel_fees_airtel: 0,
-    parcel_fees_total: 0,
-    parcel_count: 0,
-    system_expected_cash: 100000,
-    system_expected_momo: 0,
-    system_expected_airtel: 0,
-    system_expected_card: 0,
-    system_expected_total: 100000,
-  };
-
-  localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(nextShift));
+  // Shift is now officially closed & locked. Next shift must declare fresh float.
+  localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify({ status: 'closed' }));
   return record;
 }

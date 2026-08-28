@@ -420,6 +420,25 @@ class TripController extends Controller
 
     public static function ensureUpcomingTrips(): void
     {
+        // Auto-prune unbooked trips with driver-coach assignment conflicts
+        try {
+            $hasAssignmentConflicts = Trip::where('departure_time', '>=', now())
+                ->where('status', '!=', 'cancelled')
+                ->doesntHave('bookings')
+                ->whereHas('driver', function ($q) {
+                    $q->whereNotNull('assigned_bus_id');
+                })
+                ->whereHas('bus')
+                ->whereRaw('trips.bus_id != (SELECT assigned_bus_id FROM drivers WHERE drivers.id = trips.driver_id)')
+                ->exists();
+
+            if ($hasAssignmentConflicts) {
+                app(TripSchedulingService::class)->pruneDuplicateAndConflictingTrips();
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("TripSchedulingService auto-prune notice: " . $e->getMessage());
+        }
+
         $upcomingCount = Trip::where('departure_time', '>=', now())
             ->whereIn('status', ['scheduled', 'boarding'])
             ->count();
@@ -429,7 +448,7 @@ class TripController extends Controller
         }
 
         try {
-            app(TripSchedulingService::class)->generateRealisticTimetable(Carbon::today(), 21);
+            app(TripSchedulingService::class)->generateRealisticTimetable(Carbon::today(), 30, purgeUnbooked: true);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning("TripSchedulingService auto-fill fallback: " . $e->getMessage());
         }

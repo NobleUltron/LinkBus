@@ -3,18 +3,24 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Terminal;
+use App\Models\Bus;
 use App\Models\BusRoute;
+use App\Models\Driver;
+use App\Models\Terminal;
 use App\Models\Trip;
 use App\Services\NotificationService;
+use App\Services\TripSchedulingService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TripController extends Controller
 {
     public function __construct(
-        protected NotificationService $notificationService
+        protected NotificationService $notificationService,
+        protected TripSchedulingService $schedulingService
     ) {}
+
     /**
      * Search trips by origin + destination + date.
      */
@@ -110,23 +116,28 @@ class TripController extends Controller
         if ($request->filled('driver_id')) {
             $query->where('driver_id', $request->driver_id);
         }
-        if ($request->filled('user_id')) {
-            $userId = (int) $request->user_id;
-            $driverUser = \App\Models\User::with('role')->find($userId);
-            if ($driverUser && $driverUser->role?->slug === 'driver') {
-                $query->whereHas('driver', function ($q) use ($userId) {
-                    $q->where('user_id', $userId);
-                });
-            }
+        if ($request->filled('bus_id')) {
+            $query->where('bus_id', $request->bus_id);
+        }
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->whereHas('route.originTerminal', fn($t) => $t->where('name', 'like', "%{$s}%")->orWhere('city', 'like', "%{$s}%"))
+                  ->orWhereHas('route.destinationTerminal', fn($t) => $t->where('name', 'like', "%{$s}%")->orWhere('city', 'like', "%{$s}%"))
+                  ->orWhereHas('bus', fn($b) => $b->where('plate_number', 'like', "%{$s}%"))
+                  ->orWhereHas('driver.user', fn($u) => $u->where('name', 'like', "%{$s}%"));
+            });
         }
 
-        $perPage = (int) $request->get('per_page', 50);
-        $trips = $query->orderBy('departure_time', 'asc')->paginate($perPage);
+        $perPage = (int) $request->input('per_page', 50);
+        $trips = $query->orderBy('departure_time', 'desc')->paginate($perPage);
 
         return response()->json([
-            'trips' => $trips->map(fn($t) => $this->formatTrip($t)),
+            'trips' => array_map(fn($t) => $this->formatTrip($t, false), $trips->items()),
+            'data'  => array_map(fn($t) => $this->formatTrip($t, false), $trips->items()),
             'meta'  => [
                 'current_page' => $trips->currentPage(),
+                'per_page'     => $trips->perPage(),
                 'last_page'    => $trips->lastPage(),
                 'total'        => $trips->total(),
             ],
@@ -178,52 +189,47 @@ class TripController extends Controller
             ->get()
             ->map(function ($lock) {
                 return [
-                    'id'               => $lock->id,
-                    'seat_id'          => $lock->seat_id,
-                    'seat_number'      => $lock->seat?->seat_number ?? '—',
-                    'seat_class'       => $lock->seat?->seat_class ?? 'standard',
-                    'user_id'          => $lock->user_id,
-                    'user_name'        => $lock->user?->name ?? 'Guest Passenger',
-                    'user_phone'       => $lock->user?->phone ?? '—',
-                    'expires_at'       => $lock->expires_at?->toISOString(),
-                    'remaining_seconds'=> max(0, (int) now()->diffInSeconds($lock->expires_at, false)),
+                    'seat_id'     => $lock->seat_id,
+                    'seat_number' => $lock->seat?->seat_number,
+                    'user_id'     => $lock->user_id,
+                    'user_name'   => $lock->user?->name,
+                    'user_phone'  => $lock->user?->phone,
+                    'expires_at'  => $lock->expires_at?->toISOString(),
                 ];
             });
 
         return response()->json([
-            'trip'       => $this->formatTrip($trip),
-            'manifest'   => $formattedTickets,
-            'data'       => $formattedTickets,
-            'held_seats' => $activeLocks,
-            'total'      => $formattedTickets->count(),
-            'boarded'    => $formattedTickets->filter(fn($t) => $t['status'] === 'used' || !empty($t['boarded_at']))->count(),
+            'trip'         => $this->formatTrip($trip, true),
+            'tickets'      => $formattedTickets,
+            'active_locks' => $activeLocks,
+            'summary'      => [
+                'total_seats'     => $trip->bus?->capacity ?? 0,
+                'available_seats' => $trip->available_seats,
+                'booked_seats'    => $tickets->count(),
+                'boarded_count'   => $tickets->where('status', 'used')->count(),
+                'active_locks'    => $activeLocks->count(),
+            ],
         ]);
     }
 
     /**
-     * Board a passenger on a trip manifest (by ticket_id or ticket_number).
+     * Board passenger from trip manifest modal.
      */
     public function boardPassenger(Request $request, Trip $trip): JsonResponse
     {
         $request->validate([
-            'ticket_id'     => 'nullable|exists:tickets,id',
-            'ticket_number' => 'nullable|string',
+            'ticket_id' => 'required|exists:tickets,id',
         ]);
 
-        $query = \App\Models\Ticket::whereHas('booking', fn($q) => $q->where('trip_id', $trip->id));
+        $ticket = \App\Models\Ticket::where('id', $request->ticket_id)
+            ->whereHas('booking', fn($q) => $q->where('trip_id', $trip->id))
+            ->firstOrFail();
 
-        if ($request->filled('ticket_id')) {
-            $query->where('id', $request->ticket_id);
-        } elseif ($request->filled('ticket_number')) {
-            $query->where('ticket_number', $request->ticket_number);
-        } else {
-            return response()->json(['message' => 'Please provide a ticket ID or ticket number.'], 422);
-        }
-
-        $ticket = $query->first();
-
-        if (!$ticket) {
-            return response()->json(['message' => 'Ticket not found on this departure manifest.'], 404);
+        if ($ticket->status === 'used') {
+            return response()->json([
+                'message' => "Passenger {$ticket->passenger_name} was already boarded at " . ($ticket->boarded_at ? $ticket->boarded_at->format('H:i') : 'earlier') . '.',
+                'ticket'  => $ticket,
+            ]);
         }
 
         $ticket->update([
@@ -231,10 +237,10 @@ class TripController extends Controller
             'boarded_at' => now(),
         ]);
 
-        $ticket->load('seat', 'booking');
+        $ticket->load('seat', 'booking.user');
 
         return response()->json([
-            'message' => "Passenger {$ticket->passenger_name} checked in successfully.",
+            'message' => "Passenger {$ticket->passenger_name} successfully boarded onto Coach {$trip->bus?->plate_number} (Seat {$ticket->seat?->seat_number}).",
             'ticket'  => [
                 'id'              => $ticket->id,
                 'booking_id'      => $ticket->booking_id,
@@ -248,41 +254,6 @@ class TripController extends Controller
                 'seat'            => [
                     'id'          => $ticket->seat?->id ?? 0,
                     'trip_id'     => $trip->id,
-                    'seat_number' => $ticket->seat?->seat_number ?? '—',
-                    'seat_class'  => $ticket->seat?->seat_class ?? 'standard',
-                    'status'      => 'booked',
-                ],
-            ],
-        ]);
-    }
-
-    /**
-     * Generic ticket check-in by ID.
-     */
-    public function boardTicketById(\App\Models\Ticket $ticket): JsonResponse
-    {
-        $ticket->update([
-            'status'     => 'used',
-            'boarded_at' => now(),
-        ]);
-
-        $ticket->load('seat', 'booking.trip');
-
-        return response()->json([
-            'message' => "Passenger {$ticket->passenger_name} checked in successfully.",
-            'ticket'  => [
-                'id'              => $ticket->id,
-                'booking_id'      => $ticket->booking_id,
-                'trip_seat_id'    => $ticket->trip_seat_id,
-                'passenger_name'  => $ticket->passenger_name,
-                'passenger_phone' => $ticket->passenger_phone,
-                'ticket_number'   => $ticket->ticket_number,
-                'qr_code'         => $ticket->qr_code,
-                'status'          => $ticket->status,
-                'boarded_at'      => $ticket->boarded_at?->toISOString(),
-                'seat'            => [
-                    'id'          => $ticket->seat?->id ?? 0,
-                    'trip_id'     => $ticket->booking?->trip_id ?? 0,
                     'seat_number' => $ticket->seat?->seat_number ?? '—',
                     'seat_class'  => $ticket->seat?->seat_class ?? 'standard',
                     'status'      => 'booked',
@@ -309,14 +280,14 @@ class TripController extends Controller
             'exclude_trip_id' => 'nullable|integer',
         ]);
 
-        $conflicts = $this->findSchedulingConflicts(
-            routeId: (int) $request->route_id,
-            departureTime: $request->departure_time,
-            arrivalTime: $request->arrival_time,
-            driverId: $request->filled('driver_id') ? (int) $request->driver_id : null,
-            busId: $request->filled('bus_id') ? (int) $request->bus_id : null,
-            excludeTripId: $request->filled('exclude_trip_id') ? (int) $request->exclude_trip_id : null,
-        );
+        $conflicts = $this->schedulingService->validateTrip([
+            'route_id'       => (int) $request->route_id,
+            'departure_time' => $request->departure_time,
+            'arrival_time'   => $request->arrival_time,
+            'driver_id'      => $request->filled('driver_id') ? (int) $request->driver_id : null,
+            'bus_id'         => $request->filled('bus_id') ? (int) $request->bus_id : null,
+            'status'         => 'scheduled',
+        ], excludeTripId: $request->filled('exclude_trip_id') ? (int) $request->exclude_trip_id : null);
 
         return response()->json([
             'has_conflicts' => !empty($conflicts),
@@ -336,7 +307,7 @@ class TripController extends Controller
             'status'         => 'in:scheduled,boarding,in_transit,completed,cancelled',
         ]);
 
-        $route = \App\Models\BusRoute::with(['originTerminal', 'destinationTerminal'])->findOrFail($data['route_id']);
+        $route = BusRoute::with(['originTerminal', 'destinationTerminal'])->findOrFail($data['route_id']);
         if ($route->status !== 'active' || $route->originTerminal?->status !== 'active' || $route->destinationTerminal?->status !== 'active') {
             return response()->json([
                 'message' => 'Cannot schedule trip: The assigned route corridor or terminal station is currently inactive / closed.'
@@ -344,20 +315,21 @@ class TripController extends Controller
         }
 
         // Auto-calculate arrival_time based on route duration
-        $dep = \Carbon\Carbon::parse($data['departure_time']);
+        $dep = Carbon::parse($data['departure_time']);
         $durationMinutes = $route->estimated_duration_minutes ?: 240;
-        if (empty($data['arrival_time']) || \Carbon\Carbon::parse($data['arrival_time'])->lte($dep)) {
+        if (empty($data['arrival_time']) || Carbon::parse($data['arrival_time'])->lte($dep)) {
             $data['arrival_time'] = $dep->copy()->addMinutes($durationMinutes)->toDateTimeString();
         }
 
-        // Validate driver & bus scheduling conflicts
-        $conflicts = $this->findSchedulingConflicts(
-            routeId: (int) $data['route_id'],
-            departureTime: (string) $data['departure_time'],
-            arrivalTime: (string) $data['arrival_time'],
-            driverId: (int) $data['driver_id'],
-            busId: (int) $data['bus_id'],
-        );
+        // Validate operational conflicts through TripSchedulingService
+        $conflicts = $this->schedulingService->validateTrip([
+            'route_id'       => (int) $data['route_id'],
+            'departure_time' => (string) $data['departure_time'],
+            'arrival_time'   => (string) $data['arrival_time'],
+            'driver_id'      => (int) $data['driver_id'],
+            'bus_id'         => (int) $data['bus_id'],
+            'status'         => $data['status'] ?? 'scheduled',
+        ]);
 
         if (!empty($conflicts)) {
             return response()->json([
@@ -366,7 +338,7 @@ class TripController extends Controller
             ], 422);
         }
 
-        $bus = \App\Models\Bus::findOrFail($data['bus_id']);
+        $bus = Bus::findOrFail($data['bus_id']);
         $data['available_seats'] = $bus->capacity;
 
         $trip = Trip::create($data);
@@ -390,10 +362,10 @@ class TripController extends Controller
         ]);
 
         if (isset($data['departure_time'])) {
-            $dep = \Carbon\Carbon::parse($data['departure_time']);
-            $route = $trip->route ?? \App\Models\BusRoute::find($trip->route_id);
+            $dep = Carbon::parse($data['departure_time']);
+            $route = $trip->route ?? BusRoute::find($trip->route_id);
             $durationMinutes = $route?->estimated_duration_minutes ?: 240;
-            if (empty($data['arrival_time']) || \Carbon\Carbon::parse($data['arrival_time'])->lte($dep)) {
+            if (empty($data['arrival_time']) || Carbon::parse($data['arrival_time'])->lte($dep)) {
                 $data['arrival_time'] = $dep->copy()->addMinutes($durationMinutes)->toDateTimeString();
             }
         }
@@ -401,14 +373,14 @@ class TripController extends Controller
         // Validate scheduling conflicts if driver, bus, or times are updated
         $isChangingSchedule = isset($data['driver_id']) || isset($data['bus_id']) || isset($data['departure_time']) || isset($data['arrival_time']);
         if ($isChangingSchedule && ($data['status'] ?? $trip->status) !== 'cancelled') {
-            $conflicts = $this->findSchedulingConflicts(
-                routeId: (int) ($data['route_id'] ?? $trip->route_id),
-                departureTime: (string) ($data['departure_time'] ?? $trip->departure_time),
-                arrivalTime: (string) ($data['arrival_time'] ?? $trip->arrival_time),
-                driverId: isset($data['driver_id']) ? (int) $data['driver_id'] : $trip->driver_id,
-                busId: isset($data['bus_id']) ? (int) $data['bus_id'] : $trip->bus_id,
-                excludeTripId: $trip->id,
-            );
+            $conflicts = $this->schedulingService->validateTrip([
+                'route_id'       => (int) ($data['route_id'] ?? $trip->route_id),
+                'departure_time' => (string) ($data['departure_time'] ?? $trip->departure_time),
+                'arrival_time'   => (string) ($data['arrival_time'] ?? $trip->arrival_time),
+                'driver_id'      => isset($data['driver_id']) ? (int) $data['driver_id'] : $trip->driver_id,
+                'bus_id'         => isset($data['bus_id']) ? (int) $data['bus_id'] : $trip->bus_id,
+                'status'         => $data['status'] ?? $trip->status,
+            ], excludeTripId: $trip->id);
 
             if (!empty($conflicts)) {
                 return response()->json([
@@ -452,38 +424,42 @@ class TripController extends Controller
             ->whereIn('status', ['scheduled', 'boarding'])
             ->count();
 
-        if ($upcomingCount >= 50) {
+        if ($upcomingCount >= 30) {
             return;
         }
 
         try {
-            \Illuminate\Support\Facades\Artisan::call('trips:generate', ['days' => 21]);
+            app(TripSchedulingService::class)->generateRealisticTimetable(Carbon::today(), 21);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning("Artisan trips:generate fallback: " . $e->getMessage());
+            \Illuminate\Support\Facades\Log::warning("TripSchedulingService auto-fill fallback: " . $e->getMessage());
         }
     }
 
     /**
-     * Web-based trigger to generate schedules for upcoming days without needing SSH/Shell.
+     * Web-based trigger to generate schedules for upcoming days with full summary metrics.
      */
     public function generateSchedules(Request $request): JsonResponse
     {
         $days = (int) $request->input('days', 30);
         $days = max(1, min(60, $days));
 
-        try {
-            \Illuminate\Support\Facades\Artisan::call('trips:generate', ['days' => $days]);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("Failed to generate trips: " . $e->getMessage());
-            return response()->json(['message' => 'Failed to generate schedules: ' . $e->getMessage()], 500);
-        }
-
+        $summary = $this->schedulingService->generateRealisticTimetable(Carbon::today(), $days);
         $totalScheduled = Trip::where('status', 'scheduled')->where('departure_time', '>=', now())->count();
 
         return response()->json([
-            'message'         => "Successfully scheduled trips across all routes for the next {$days} days.",
+            'message'         => "Successfully generated realistic fleet schedules for {$days} days.",
             'total_scheduled' => $totalScheduled,
+            'summary'         => $summary,
         ]);
+    }
+
+    /**
+     * Audit upcoming trips for operational conflicts.
+     */
+    public function audit(): JsonResponse
+    {
+        $auditReport = $this->schedulingService->auditExistingTrips();
+        return response()->json($auditReport);
     }
 
     public static function cleanupExpiredLocks(?int $tripId = null): void
@@ -576,8 +552,10 @@ class TripController extends Controller
                 'capacity'     => $trip->bus->capacity,
             ] : null,
             'driver'          => $trip->driver ? [
-                'id'   => $trip->driver->id,
-                'name' => $trip->driver->user?->name,
+                'id'              => $trip->driver->id,
+                'name'            => $trip->driver->user?->name,
+                'license_number'  => $trip->driver->license_number,
+                'assigned_bus_id' => $trip->driver->assigned_bus_id,
             ] : null,
         ];
 
@@ -597,201 +575,22 @@ class TripController extends Controller
         return $data;
     }
 
-    private function generateSeatsForTrip(Trip $trip, \App\Models\Bus $bus): void
+    private function generateSeatsForTrip(Trip $trip, Bus $bus): void
     {
         $capacity = $bus->capacity;
         $seatClass = $bus->bus_type === 'vip' ? 'vip' : 'standard';
         $seats = [];
 
-        $row = 1;
-        $generated = 0;
-        while ($generated < $capacity) {
-            foreach (['A', 'B', 'C', 'D'] as $letter) {
-                if ($generated >= $capacity) break;
-                $seats[] = [
-                    'trip_id'     => $trip->id,
-                    'seat_number' => "{$row}{$letter}",
-                    'seat_class'  => $seatClass,
-                    'status'      => 'available',
-                    'created_at'  => now(),
-                    'updated_at'  => now(),
-                ];
-                $generated++;
-            }
-            $row++;
+        for ($i = 1; $i <= $capacity; $i++) {
+            $seats[] = [
+                'trip_id'     => $trip->id,
+                'seat_number' => (string) $i,
+                'seat_class'  => $seatClass,
+                'status'      => 'available',
+                'created_at'  => now(),
+                'updated_at'  => now(),
+            ];
         }
         \App\Models\TripSeat::insert($seats);
-    }
-
-    private function findSchedulingConflicts(
-        int $routeId,
-        string $departureTime,
-        string $arrivalTime,
-        ?int $driverId = null,
-        ?int $busId = null,
-        ?int $excludeTripId = null,
-    ): array {
-        $conflicts = [];
-        $dep = \Carbon\Carbon::parse($departureTime);
-        $arr = \Carbon\Carbon::parse($arrivalTime);
-        $route = \App\Models\BusRoute::with(['originTerminal', 'destinationTerminal'])->find($routeId);
-
-        if (!$route) {
-            return ['Selected route corridor was not found.'];
-        }
-
-        $originName = $route->originTerminal?->name ?? 'Origin Terminal';
-        $destName = $route->destinationTerminal?->name ?? 'Destination Terminal';
-
-        // ── 1. Driver Conflicts ──────────────────────────────────────────
-        if ($driverId) {
-            $driver = \App\Models\Driver::with('user')->find($driverId);
-            $driverName = $driver?->user?->name ?? 'Selected Driver';
-
-            if ($driver?->status !== 'active') {
-                $conflicts[] = "Driver Status Conflict: {$driverName} is currently marked as '{$driver?->status}'.";
-            }
-
-            // 1.A: Time Overlap
-            $overlapTrip = Trip::with(['route.originTerminal', 'route.destinationTerminal', 'bus'])
-                ->where('driver_id', $driverId)
-                ->where('status', '!=', 'cancelled')
-                ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
-                ->where(function ($q) use ($dep, $arr) {
-                    $q->where('departure_time', '<', $arr)
-                      ->where('arrival_time', '>', $dep);
-                })
-                ->first();
-
-            if ($overlapTrip) {
-                $ovOrigin = $overlapTrip->route?->originTerminal?->name ?? 'Origin';
-                $ovDest = $overlapTrip->route?->destinationTerminal?->name ?? 'Destination';
-                $ovDep = $overlapTrip->departure_time->format('d M H:i');
-                $ovArr = $overlapTrip->arrival_time->format('H:i');
-                $conflicts[] = "Driver Time Overlap: {$driverName} is already assigned to Trip #{$overlapTrip->id} ({$ovOrigin} → {$ovDest}, {$ovDep} - {$ovArr}).";
-            }
-
-            // 1.B: Preceding Trip Location Continuity & Turnaround
-            $prevTrip = Trip::with(['route.originTerminal', 'route.destinationTerminal'])
-                ->where('driver_id', $driverId)
-                ->where('status', '!=', 'cancelled')
-                ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
-                ->where('arrival_time', '<=', $dep)
-                ->orderBy('arrival_time', 'desc')
-                ->first();
-
-            if ($prevTrip) {
-                $prevDestId = $prevTrip->route?->destination_terminal_id;
-                $prevDestName = $prevTrip->route?->destinationTerminal?->name ?? 'Unknown Station';
-                $prevArrTime = $prevTrip->arrival_time;
-
-                if ($prevDestId && $prevDestId !== $route->origin_terminal_id) {
-                    $conflicts[] = "Driver Location Mismatch: {$driverName} completes their previous trip in {$prevDestName} (arrives {$prevArrTime->format('d M H:i')}), but this trip departs from {$originName}.";
-                }
-
-                $restMinutes = $prevArrTime->diffInMinutes($dep, false);
-                if ($restMinutes >= 0 && $restMinutes < 45 && $dep->isSameDay($prevArrTime)) {
-                    $earliestDep = $prevArrTime->copy()->addMinutes(45)->format('H:i');
-                    $conflicts[] = "Driver Turnaround Violation: {$driverName} only has {$restMinutes} min rest after arriving in {$prevDestName} at {$prevArrTime->format('H:i')}. Minimum 45 min buffer required (Earliest departure: {$earliestDep}).";
-                }
-            }
-
-            // 1.C: Subsequent Trip Location Continuity & Turnaround
-            $nextTrip = Trip::with(['route.originTerminal', 'route.destinationTerminal'])
-                ->where('driver_id', $driverId)
-                ->where('status', '!=', 'cancelled')
-                ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
-                ->where('departure_time', '>=', $arr)
-                ->orderBy('departure_time', 'asc')
-                ->first();
-
-            if ($nextTrip) {
-                $nextOriginId = $nextTrip->route?->origin_terminal_id;
-                $nextOriginName = $nextTrip->route?->originTerminal?->name ?? 'Unknown Station';
-                $nextDepTime = $nextTrip->departure_time;
-
-                if ($nextOriginId && $nextOriginId !== $route->destination_terminal_id) {
-                    $conflicts[] = "Driver Location Mismatch: This trip arrives in {$destName} at {$arr->format('d M H:i')}, but {$driverName}'s next scheduled trip departs from {$nextOriginName} at {$nextDepTime->format('d M H:i')}.";
-                }
-
-                $restMinutes = $arr->diffInMinutes($nextDepTime, false);
-                if ($restMinutes >= 0 && $restMinutes < 45 && $arr->isSameDay($nextDepTime)) {
-                    $conflicts[] = "Driver Turnaround Violation: Next trip departs from {$nextOriginName} at {$nextDepTime->format('H:i')}, leaving only {$restMinutes} min buffer after this trip arrives at {$arr->format('H:i')}. Minimum 45 min required.";
-                }
-            }
-        }
-
-        // ── 2. Bus Conflicts ─────────────────────────────────────────────
-        if ($busId) {
-            $bus = \App\Models\Bus::find($busId);
-            $busPlate = $bus?->plate_number ?? 'Selected Bus';
-
-            if ($bus?->status !== 'active') {
-                $conflicts[] = "Bus Status Conflict: Bus {$busPlate} is currently marked as '{$bus?->status}'.";
-            }
-
-            // 2.A: Bus Time Overlap
-            $overlapBusTrip = Trip::with(['route.originTerminal', 'route.destinationTerminal'])
-                ->where('bus_id', $busId)
-                ->where('status', '!=', 'cancelled')
-                ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
-                ->where(function ($q) use ($dep, $arr) {
-                    $q->where('departure_time', '<', $arr)
-                      ->where('arrival_time', '>', $dep);
-                })
-                ->first();
-
-            if ($overlapBusTrip) {
-                $ovOrigin = $overlapBusTrip->route?->originTerminal?->name ?? 'Origin';
-                $ovDest = $overlapBusTrip->route?->destinationTerminal?->name ?? 'Destination';
-                $ovDep = $overlapBusTrip->departure_time->format('d M H:i');
-                $ovArr = $overlapBusTrip->arrival_time->format('H:i');
-                $conflicts[] = "Bus Time Overlap: Bus {$busPlate} is already assigned to Trip #{$overlapBusTrip->id} ({$ovOrigin} → {$ovDest}, {$ovDep} - {$ovArr}).";
-            }
-
-            // 2.B: Bus Preceding Trip Location Continuity
-            $prevBusTrip = Trip::with(['route.originTerminal', 'route.destinationTerminal'])
-                ->where('bus_id', $busId)
-                ->where('status', '!=', 'cancelled')
-                ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
-                ->where('arrival_time', '<=', $dep)
-                ->orderBy('arrival_time', 'desc')
-                ->first();
-
-            if ($prevBusTrip) {
-                $prevDestId = $prevBusTrip->route?->destination_terminal_id;
-                $prevDestName = $prevBusTrip->route?->destinationTerminal?->name ?? 'Unknown Station';
-                $prevArrTime = $prevBusTrip->arrival_time;
-
-                if ($prevDestId && $prevDestId !== $route->origin_terminal_id) {
-                    $conflicts[] = "Bus Location Mismatch: Bus {$busPlate} arrives in {$prevDestName} (at {$prevArrTime->format('d M H:i')}), but this trip departs from {$originName}.";
-                }
-
-                $bufferMinutes = $prevArrTime->diffInMinutes($dep, false);
-                if ($bufferMinutes >= 0 && $bufferMinutes < 30 && $dep->isSameDay($prevArrTime)) {
-                    $conflicts[] = "Bus Turnaround Violation: Bus {$busPlate} arrives in {$prevDestName} at {$prevArrTime->format('H:i')}. Needs at least 30 min for inspection and cleaning before next departure.";
-                }
-            }
-
-            // 2.C: Bus Subsequent Trip Location Continuity
-            $nextBusTrip = Trip::with(['route.originTerminal', 'route.destinationTerminal'])
-                ->where('bus_id', $busId)
-                ->where('status', '!=', 'cancelled')
-                ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
-                ->where('departure_time', '>=', $arr)
-                ->orderBy('departure_time', 'asc')
-                ->first();
-
-            if ($nextBusTrip) {
-                $nextOriginId = $nextBusTrip->route?->origin_terminal_id;
-                $nextOriginName = $nextBusTrip->route?->originTerminal?->name ?? 'Unknown Station';
-
-                if ($nextOriginId && $nextOriginId !== $route->destination_terminal_id) {
-                    $conflicts[] = "Bus Location Mismatch: This trip arrives in {$destName} at {$arr->format('d M H:i')}, but Bus {$busPlate} is next scheduled to depart from {$nextOriginName}.";
-                }
-            }
-        }
-
-        return $conflicts;
     }
 }

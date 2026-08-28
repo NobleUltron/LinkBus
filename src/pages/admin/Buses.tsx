@@ -335,6 +335,30 @@ export function Buses() {
       ),
     },
     {
+      key: 'assigned_driver',
+      header: 'Assigned Driver',
+      render: (bus) => {
+        const driver = bus.assigned_driver;
+        if (!driver) {
+          return (
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted/10 border border-line px-2 py-0.5 text-xs font-semibold text-muted">
+              Unassigned
+            </span>
+          );
+        }
+        return (
+          <div>
+            <span className="font-bold text-fg text-xs block">
+              {driver.name}
+            </span>
+            <span className="font-mono text-[0.6875rem] text-muted">
+              {driver.license_number || `Driver #${driver.id}`}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
       key: 'status',
       header: 'Fleet Status',
       render: (bus) => <StatusPill status={bus.status} />,

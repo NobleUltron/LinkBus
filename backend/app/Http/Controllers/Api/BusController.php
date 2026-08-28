@@ -11,8 +11,10 @@ class BusController extends Controller
 {
     public function index(): JsonResponse
     {
-        $buses = Bus::orderBy('plate_number')->get();
-        return response()->json(['buses' => $buses]);
+        $buses = Bus::with(['assignedDriver.user'])->orderBy('plate_number')->get();
+        return response()->json([
+            'buses' => $buses->map(fn($b) => $this->formatBus($b)),
+        ]);
     }
 
     public function store(Request $request): JsonResponse
@@ -27,7 +29,7 @@ class BusController extends Controller
         ]);
 
         $bus = Bus::create($data);
-        return response()->json(['bus' => $bus], 201);
+        return response()->json(['bus' => $this->formatBus($bus->load(['assignedDriver.user']))], 201);
     }
 
     public function update(Request $request, Bus $bus): JsonResponse
@@ -42,12 +44,33 @@ class BusController extends Controller
         ]);
 
         $bus->update($data);
-        return response()->json(['bus' => $bus]);
+        return response()->json(['bus' => $this->formatBus($bus->load(['assignedDriver.user']))]);
     }
 
     public function destroy(Bus $bus): JsonResponse
     {
         $bus->update(['status' => 'retired']);
         return response()->json(['message' => 'Bus retired.']);
+    }
+
+    private function formatBus(Bus $bus): array
+    {
+        return [
+            'id'              => $bus->id,
+            'plate_number'    => $bus->plate_number,
+            'model'           => $bus->model,
+            'bus_type'        => $bus->bus_type,
+            'capacity'        => $bus->capacity,
+            'status'          => $bus->status,
+            'notes'           => $bus->notes,
+            'assigned_driver' => $bus->assignedDriver ? [
+                'id'             => $bus->assignedDriver->id,
+                'name'           => $bus->assignedDriver->user?->name,
+                'license_number' => $bus->assignedDriver->license_number,
+                'status'         => $bus->assignedDriver->status,
+            ] : null,
+            'created_at'      => $bus->created_at?->toISOString(),
+            'updated_at'      => $bus->updated_at?->toISOString(),
+        ];
     }
 }

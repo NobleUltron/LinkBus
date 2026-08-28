@@ -65,7 +65,7 @@ class ShiftController extends Controller
             ], 400);
         }
 
-        $terminalId = $validated['terminal_id'] ?? $user->terminal_id ?? 1;
+        $terminalId = $validated['terminal_id'] ?? $user->terminal_id ?? \App\Models\Terminal::first()?->id;
 
         // Generate unique human-readable shift code SHF-YYMMDD-XXX
         $todayStamp = now()->format('ymd');

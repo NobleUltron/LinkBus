@@ -16,12 +16,13 @@ import { Modal } from '../ui/Modal';
 import { TextField, SelectField, TextAreaField } from '../ui/Field';
 import { InlineError } from '../ui/States';
 import { driversApi } from '../../services/crud';
-import type { Driver, User } from '../../types/models';
+import type { Bus, Driver, User } from '../../types/models';
 
 interface DriverModalProps {
   open: boolean;
   driver: Driver | null;
   users: User[];
+  buses?: Bus[];
   onClose: () => void;
   onSaved: () => void;
 }
@@ -36,6 +37,7 @@ export function DriverModal({
   open,
   driver,
   users,
+  buses = [],
   onClose,
   onSaved,
 }: DriverModalProps) {
@@ -50,6 +52,7 @@ export function DriverModal({
   const [password, setPassword] = useState('');
 
   // Driver details
+  const [assignedBusId, setAssignedBusId] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
   const [licenseExpiry, setLicenseExpiry] = useState('');
   const [experienceYears, setExperienceYears] = useState(3);
@@ -72,6 +75,7 @@ export function DriverModal({
         setEmail(driver.email || '');
         setPhone(driver.phone || '');
         setPassword('');
+        setAssignedBusId(driver.assigned_bus_id ? String(driver.assigned_bus_id) : '');
         setLicenseNumber(driver.license_number || '');
         setLicenseExpiry(driver.license_expiry ? driver.license_expiry.split('T')[0] : '');
         setExperienceYears(driver.experience_years ?? 3);
@@ -84,6 +88,7 @@ export function DriverModal({
         setEmail('');
         setPhone('');
         setPassword('');
+        setAssignedBusId('');
         setLicenseNumber('');
         setLicenseExpiry('');
         setExperienceYears(3);
@@ -132,6 +137,7 @@ export function DriverModal({
         await driversApi.update(driver.id, {
           name: name.trim() || undefined,
           phone: phone.trim() || undefined,
+          assigned_bus_id: assignedBusId ? Number(assignedBusId) : null,
           license_number: licenseNumber.trim(),
           license_expiry: licenseExpiry,
           experience_years: Number(experienceYears) || 0,
@@ -146,6 +152,7 @@ export function DriverModal({
             email: email.trim().toLowerCase(),
             phone: phone.trim() || undefined,
             password: password.trim() || undefined,
+            assigned_bus_id: assignedBusId ? Number(assignedBusId) : null,
             license_number: licenseNumber.trim(),
             license_expiry: licenseExpiry,
             experience_years: Number(experienceYears) || 0,
@@ -156,6 +163,7 @@ export function DriverModal({
         } else {
           await driversApi.create({
             user_id: Number(userId),
+            assigned_bus_id: assignedBusId ? Number(assignedBusId) : null,
             license_number: licenseNumber.trim(),
             license_expiry: licenseExpiry,
             experience_years: Number(experienceYears) || 0,
@@ -349,6 +357,27 @@ export function DriverModal({
               onChange={(e) => setStatus(e.target.value as Driver['status'])}
               options={statusOptions}
             />
+
+            <div className="sm:col-span-2">
+              <SelectField
+                label="Permanently Assigned Primary Coach"
+                value={assignedBusId}
+                onChange={(e) => setAssignedBusId(e.target.value)}
+                options={[
+                  { value: '', label: '— No Assigned Coach (Spare Driver) —' },
+                  ...buses.map((b) => {
+                    const isTaken = b.assigned_driver && (!driver || b.assigned_driver.id !== driver.id);
+                    return {
+                      value: String(b.id),
+                      label: `${b.plate_number} (${b.model} · ${b.capacity} Seats · ${b.bus_type.toUpperCase()})${
+                        isTaken ? ` [Currently Assigned: ${b.assigned_driver?.name}]` : ''
+                      }`,
+                    };
+                  }),
+                ]}
+                hint="Mandatory LinkBus Business Rule: Each active driver is permanently paired to one primary coach."
+              />
+            </div>
 
             <div className="sm:col-span-2">
               <TextAreaField

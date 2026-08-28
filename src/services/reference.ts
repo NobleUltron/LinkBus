@@ -33,18 +33,7 @@ export async function getReferenceData(): Promise<ReferenceData> {
     }>('/routes').catch(() => ({ routes: [] })),
     api.get<{ buses: Bus[] }>('/buses').catch(() => ({ buses: [] })),
     api.get<{
-      drivers: Array<{
-        id: number;
-        user_id: number;
-        name: string;
-        email: string;
-        phone: string;
-        license_number: string;
-        license_expiry: string;
-        status: Driver['status'];
-        experience_years: number;
-        notes: string;
-      }>;
+      drivers: Array<Driver & { name: string; email?: string; phone?: string }>;
     }>('/drivers').catch(() => ({ drivers: [] })),
     api.get<{ roles?: Role[]; data?: Role[] }>('/roles').catch(() => ({ roles: DEFAULT_ROLES })),
     api.get<{ users?: User[]; data?: User[] }>('/admin/users').catch(() => ({ users: [] })),

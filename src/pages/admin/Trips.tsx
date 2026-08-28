@@ -39,7 +39,7 @@ import { usePaginated } from '../../hooks/usePaginated';
 import { adminReleaseSeatLock } from '../../services/bookings';
 import { getReferenceData, routeName } from '../../services/reference';
 import { getTripManifestWithHolds, type ManifestHeldSeat, type TicketDetail } from '../../services/tickets';
-import { createTrip, deleteTrip, generateTripSchedules, listTrips, updateTrip } from '../../services/trips';
+import { createTrip, deleteTrip, generateTripSchedules, listTrips, updateTrip, type GenerationSummary } from '../../services/trips';
 import type { TripDetail } from '../../types/api';
 import {
   countdownLabel,
@@ -232,11 +232,16 @@ export function Trips() {
   const totalBookedCount = manifest?.length ?? 0;
   const boardedPct = totalBookedCount > 0 ? Math.round((boardedCount / totalBookedCount) * 100) : 0;
 
+  const [generationSummary, setGenerationSummary] = useState<GenerationSummary | null>(null);
+
   const handleAutoGenerateSchedules = async () => {
     setGenerating(true);
     try {
       const res = await generateTripSchedules(30);
-      toast.success(res.message || '30-Day departure schedules generated successfully.');
+      toast.success(res.message || '30-Day realistic timetable generated successfully.');
+      if (res.summary) {
+        setGenerationSummary(res.summary);
+      }
       state.reload();
     } catch (err) {
       toast.error(errorMessage(err) || 'Failed to auto-generate schedules.');
@@ -883,11 +888,24 @@ export function Trips() {
               required
               value={addForm.bus_id}
               error={addErrors.bus_id}
-              options={buses.map((b) => ({
-                value: String(b.id),
-                label: `${b.plate_number} · ${titleCase(b.bus_type)} (${b.capacity} seats)`,
-              }))}
-              onChange={(e) => setAddForm({ ...addForm, bus_id: e.target.value })}
+              options={[
+                { value: '', label: 'Select Coach' },
+                ...buses.map((b) => ({
+                  value: String(b.id),
+                  label: `${b.plate_number} · ${titleCase(b.bus_type)} (${b.capacity} seats)${
+                    b.assigned_driver ? ` [Driver: ${b.assigned_driver.name}]` : ''
+                  }`,
+                })),
+              ]}
+              onChange={(e) => {
+                const bId = e.target.value;
+                const bus = buses.find((b) => String(b.id) === bId);
+                setAddForm((prev) => ({
+                  ...prev,
+                  bus_id: bId,
+                  driver_id: bus?.assigned_driver ? String(bus.assigned_driver.id) : prev.driver_id,
+                }));
+              }}
             />
 
             <SelectField
@@ -896,11 +914,24 @@ export function Trips() {
               required
               value={addForm.driver_id}
               error={addErrors.driver_id}
-              options={drivers.map((d) => ({
-                value: String(d.id),
-                label: `${d.name} · ${d.license_number}`,
-              }))}
-              onChange={(e) => setAddForm({ ...addForm, driver_id: e.target.value })}
+              options={[
+                { value: '', label: 'Select Driver' },
+                ...drivers.map((d) => ({
+                  value: String(d.id),
+                  label: `${d.name} · ${d.license_number}${
+                    d.assigned_bus ? ` [Coach: ${d.assigned_bus.plate_number}]` : ''
+                  }`,
+                })),
+              ]}
+              onChange={(e) => {
+                const dId = e.target.value;
+                const driver = drivers.find((d) => String(d.id) === dId);
+                setAddForm((prev) => ({
+                  ...prev,
+                  driver_id: dId,
+                  bus_id: driver?.assigned_bus_id ? String(driver.assigned_bus_id) : prev.bus_id,
+                }));
+              }}
             />
           </div>
 
@@ -972,22 +1003,48 @@ export function Trips() {
               id="edit-trip-bus"
               label="Assigned Coach"
               value={editForm.bus_id}
-              options={buses.map((b) => ({
-                value: String(b.id),
-                label: `${b.plate_number} · ${titleCase(b.bus_type)} (${b.capacity} seats)`,
-              }))}
-              onChange={(e) => setEditForm({ ...editForm, bus_id: e.target.value })}
+              options={[
+                { value: '', label: 'Select Coach' },
+                ...buses.map((b) => ({
+                  value: String(b.id),
+                  label: `${b.plate_number} · ${titleCase(b.bus_type)} (${b.capacity} seats)${
+                    b.assigned_driver ? ` [Driver: ${b.assigned_driver.name}]` : ''
+                  }`,
+                })),
+              ]}
+              onChange={(e) => {
+                const bId = e.target.value;
+                const bus = buses.find((b) => String(b.id) === bId);
+                setEditForm((prev) => ({
+                  ...prev,
+                  bus_id: bId,
+                  driver_id: bus?.assigned_driver ? String(bus.assigned_driver.id) : prev.driver_id,
+                }));
+              }}
             />
 
             <SelectField
               id="edit-trip-driver"
               label="Assigned Driver"
               value={editForm.driver_id}
-              options={drivers.map((d) => ({
-                value: String(d.id),
-                label: `${d.name} · ${d.license_number}`,
-              }))}
-              onChange={(e) => setEditForm({ ...editForm, driver_id: e.target.value })}
+              options={[
+                { value: '', label: 'Select Driver' },
+                ...drivers.map((d) => ({
+                  value: String(d.id),
+                  label: `${d.name} · ${d.license_number}${
+                    d.assigned_bus ? ` [Coach: ${d.assigned_bus.plate_number}]` : ''
+                  }`,
+                })),
+              ]}
+              onChange={(e) => {
+                const dId = e.target.value;
+                const driver = drivers.find((d) => String(d.id) === dId);
+                setEditForm((prev) => ({
+                  ...prev,
+                  driver_id: dId,
+                  bus_id: driver?.assigned_bus_id ? String(driver.assigned_bus_id) : prev.bus_id,
+                }));
+              }}
             />
           </div>
 
@@ -1188,6 +1245,76 @@ export function Trips() {
             </>
           )}
         </div>
+      </Modal>
+
+      {/* ── Realistic Timetable Generation Summary Modal ── */}
+      <Modal
+        open={Boolean(generationSummary)}
+        onClose={() => setGenerationSummary(null)}
+        title="Realistic Fleet Timetable Generated"
+        subtitle={
+          generationSummary
+            ? `${generationSummary.start_date} → ${generationSummary.end_date} (${generationSummary.days} Days Rotation)`
+            : undefined
+        }
+        size="md"
+        footer={
+          <Button variant="primary" onClick={() => setGenerationSummary(null)}>
+            Done & View Timetable
+          </Button>
+        }
+      >
+        {generationSummary && (
+          <div className="space-y-4">
+            {/* Key Metrics Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-line bg-surface-2 p-3 text-center">
+                <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">Trips Scheduled</p>
+                <p className="text-2xl font-black text-brand-600 dark:text-brand-400 mt-0.5">
+                  {generationSummary.trips_generated}
+                </p>
+              </div>
+              <div className="rounded-xl border border-line bg-surface-2 p-3 text-center">
+                <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">Coaches Operating</p>
+                <p className="text-2xl font-black text-fg mt-0.5">
+                  {generationSummary.coaches_used_count}
+                </p>
+              </div>
+              <div className="rounded-xl border border-line bg-surface-2 p-3 text-center col-span-2 sm:col-span-1">
+                <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">Captains Assigned</p>
+                <p className="text-2xl font-black text-fg mt-0.5">
+                  {generationSummary.drivers_used_count}
+                </p>
+              </div>
+            </div>
+
+            {/* Integrity Guards */}
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-1.5">
+              <div className="flex items-center gap-2 text-xs font-black text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2Icon className="h-4 w-4" />
+                <span>LinkBus Operational Integrity Rules Enforced:</span>
+              </div>
+              <ul className="text-xs text-muted space-y-1 pl-6 list-disc">
+                <li><strong>One Driver ↔ One Bus Permanent Pairing:</strong> 100% paired with assigned coach.</li>
+                <li><strong>Duplicate Prevention:</strong> {generationSummary.duplicates_prevented} duplicate slots prevented.</li>
+                <li><strong>Turnaround Buffers:</strong> 30-45min driver layovers and 20min coach servicing enforced.</li>
+              </ul>
+            </div>
+
+            {/* Corridor Service Breakdown */}
+            <div className="rounded-xl border border-line bg-surface p-3.5 space-y-2">
+              <p className="text-xs font-black uppercase tracking-wider text-fg">Corridor Service Rotations</p>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto thin-scroll">
+                {Object.entries(generationSummary.corridors_served).map(([corridor, count]) => (
+                  <div key={corridor} className="flex items-center justify-between text-xs py-1 border-b border-line/50 last:border-0">
+                    <span className="font-semibold text-fg">{corridor}</span>
+                    <span className="font-bold tabular-nums text-muted">{count} departures</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* ── Cancel / Delete Dialog ── */}

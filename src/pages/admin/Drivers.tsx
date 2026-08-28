@@ -240,6 +240,30 @@ export function Drivers() {
       },
     },
     {
+      key: 'bus',
+      header: 'Assigned Coach',
+      render: (driver) => {
+        const bus = driver.assigned_bus;
+        if (!bus) {
+          return (
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted/10 border border-line px-2 py-0.5 text-xs font-semibold text-muted">
+              Unassigned
+            </span>
+          );
+        }
+        return (
+          <div>
+            <span className="font-mono text-xs font-extrabold text-brand-600 dark:text-brand-400 block">
+              {bus.plate_number}
+            </span>
+            <p className="text-[0.6875rem] text-muted truncate max-w-[140px]">
+              {bus.model} · {bus.bus_type.toUpperCase()}
+            </p>
+          </div>
+        );
+      },
+    },
+    {
       key: 'status',
       header: 'Duty Status',
       render: (driver) => <StatusPill status={driver.status} />,
@@ -481,6 +505,7 @@ export function Drivers() {
         open={addOpen}
         driver={null}
         users={users}
+        buses={reference.data?.buses || []}
         onClose={() => setAddOpen(false)}
         onSaved={() => {
           reference.reload();
@@ -493,6 +518,7 @@ export function Drivers() {
         open={Boolean(editingDriver)}
         driver={editingDriver}
         users={users}
+        buses={reference.data?.buses || []}
         onClose={() => setEditingDriver(null)}
         onSaved={() => {
           reference.reload();

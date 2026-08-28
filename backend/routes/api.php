@@ -202,6 +202,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Trips scheduling
         Route::get('/trips/check-conflicts',    [TripController::class, 'checkConflicts']);
+        Route::get('/trips/audit',              [TripController::class, 'audit']);
         Route::post('/trips',                   [TripController::class, 'store']);
         Route::post('/trips/generate-schedules',[TripController::class, 'generateSchedules']);
 

@@ -306,10 +306,46 @@ export async function getTripManifest(tripId: number): Promise<TripManifestRespo
   return api.get<TripManifestResponse>(`/trips/${tripId}/manifest`);
 }
 
+export interface GenerationSummary {
+  start_date: string;
+  end_date: string;
+  days: number;
+  trips_generated: number;
+  coaches_used: string[];
+  coaches_used_count: number;
+  drivers_used: string[];
+  drivers_used_count: number;
+  corridors_served: Record<string, number>;
+  conflicts_prevented: number;
+  duplicates_prevented: number;
+}
+
 /** POST /api/trips/generate-schedules (auto-generate upcoming schedules) */
 export async function generateTripSchedules(days: number = 30): Promise<{
   message: string;
   total_scheduled: number;
+  summary?: GenerationSummary;
 }> {
-  return api.post<{ message: string; total_scheduled: number }>('/trips/generate-schedules', { days });
+  return api.post<{ message: string; total_scheduled: number; summary?: GenerationSummary }>('/trips/generate-schedules', { days });
+}
+
+/** GET /api/trips/audit */
+export async function auditTrips(): Promise<{
+  total_inspected: number;
+  invalid_trips_count: number;
+  total_conflicts: number;
+  overlap_conflicts: number;
+  location_conflicts: number;
+  assignment_conflicts: number;
+  invalid_trips: Array<{
+    trip_id: number;
+    departure_time: string;
+    route: string;
+    bus: string;
+    driver: string;
+    bookings_count: number;
+    conflicts: string[];
+  }>;
+}> {
+  return api.get('/trips/audit');
 }

@@ -13,6 +13,7 @@ class Driver extends Model
 
     protected $fillable = [
         'user_id',
+        'assigned_bus_id',
         'license_number',
         'license_expiry',
         'status',
@@ -30,6 +31,11 @@ class Driver extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function assignedBus(): BelongsTo
+    {
+        return $this->belongsTo(Bus::class, 'assigned_bus_id');
     }
 
     public function trips(): HasMany

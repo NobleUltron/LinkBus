@@ -66,11 +66,28 @@ export interface Bus {
   capacity: number;
   status: 'active' | 'maintenance' | 'retired';
   notes: string;
+  assigned_driver?: {
+    id: number;
+    name?: string;
+    license_number?: string;
+    status?: string;
+  } | null;
 }
 
 export interface Driver {
   id: number;
   user_id: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+  assigned_bus_id?: number | null;
+  assigned_bus?: {
+    id: number;
+    plate_number: string;
+    model: string;
+    bus_type: string;
+    capacity: number;
+  } | null;
   license_number: string;
   license_expiry: string;
   status: 'active' | 'suspended' | 'on_leave';

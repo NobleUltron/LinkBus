@@ -321,18 +321,25 @@ class TripSchedulingService
             ];
         }
 
-        // Map bilateral route pairs (Outbound and Inbound)
+        // Map bilateral route pairs (Always Outbound from Kampala Hub first, Return to Kampala)
         $routePairs = [];
         foreach ($routes as $r) {
             $returnRoute = $routes->first(fn($other) => 
                 $other->origin_terminal_id === $r->destination_terminal_id && 
                 $other->destination_terminal_id === $r->origin_terminal_id
             );
-            if ($returnRoute && !isset($routePairs[$returnRoute->id])) {
-                $routePairs[$r->id] = [
-                    'outbound' => $r,
-                    'return'   => $returnRoute,
-                ];
+            if ($returnRoute) {
+                $isKampalaOrigin = str_contains(strtolower($r->originTerminal?->city ?? $r->originTerminal?->name ?? ''), 'kampala');
+                $outbound = $isKampalaOrigin ? $r : $returnRoute;
+                $inbound = $isKampalaOrigin ? $returnRoute : $r;
+
+                $pairKey = min($outbound->id, $inbound->id);
+                if (!isset($routePairs[$pairKey])) {
+                    $routePairs[$pairKey] = [
+                        'outbound' => $outbound,
+                        'return'   => $inbound,
+                    ];
+                }
             }
         }
 

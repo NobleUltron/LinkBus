@@ -297,10 +297,13 @@ export async function openShift(params: {
     });
     if (res && res.shift) {
       localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(res.shift));
+      window.dispatchEvent(new Event('shift_updated'));
       return res.shift;
     }
-  } catch {
-    // Local fallback
+  } catch (err: any) {
+    if (err?.response?.data?.message) {
+      throw new Error(err.response.data.message);
+    }
   }
 
   const shiftId = Date.now();
@@ -388,6 +391,7 @@ export async function logDrawerTransaction(params: {
     });
     if (res && res.shift) {
       localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(res.shift));
+      window.dispatchEvent(new Event('shift_updated'));
       return res.shift;
     }
   } catch (err: any) {

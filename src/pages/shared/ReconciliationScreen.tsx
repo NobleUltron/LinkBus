@@ -113,6 +113,12 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
   }, [applied.date_from, applied.date_to]);
 
   React.useEffect(() => {
+    if (activeMetrics.data) {
+      localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(activeMetrics.data));
+    }
+  }, [activeMetrics.data]);
+
+  React.useEffect(() => {
     const handleUpdate = () => {
       activeMetrics.reload();
       state.reload();
@@ -439,7 +445,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
                   Shift #{activeMetrics.data.shift_code}
                 </span>
                 <span className="text-xs text-muted">
-                  Float: <strong className="text-fg">{money(activeMetrics.data.opening_float || 0)}</strong>
+                  Float: <strong className="text-fg">{money(activeMetrics.data.opening_float ?? activeMetrics.data.starting_cash ?? 0)}</strong>
                 </span>
               </div>
 
@@ -498,10 +504,10 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
                   <BanknoteIcon className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div className="text-2xl font-black font-mono text-emerald-950 dark:text-emerald-100">
-                  {money(activeMetrics.data.system_expected_cash)}
+                  {money(activeMetrics.data.system_expected_cash ?? activeMetrics.data.expected_cash ?? 0)}
                 </div>
                 <span className="text-[0.625rem] text-emerald-700 dark:text-emerald-300 font-medium">
-                  Float ({money(activeMetrics.data.opening_float)}) + Sales - Expenses
+                  Float ({money(activeMetrics.data.opening_float ?? activeMetrics.data.starting_cash ?? 0)}) + Sales - Expenses
                 </span>
               </div>
 

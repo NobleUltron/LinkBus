@@ -77,19 +77,20 @@ export function ShiftTopBadge() {
           <button
             type="button"
             onClick={() => setDropdownOpen((prev) => !prev)}
-            className="flex items-center gap-1.5 sm:gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition-all shadow-2xs group"
+            className="flex items-center whitespace-nowrap gap-1 sm:gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2 sm:px-2.5 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition-all shadow-2xs group"
           >
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-mono text-[0.6875rem] sm:text-xs">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="hidden sm:inline font-mono text-[0.6875rem] sm:text-xs">
               {shift?.shift_code}
             </span>
             <span className="hidden md:inline text-muted font-normal">·</span>
             <span className="hidden md:inline font-mono text-[0.6875rem] text-muted">
               {elapsedTime}
             </span>
-            <span className="text-muted font-normal">·</span>
+            <span className="hidden sm:inline text-muted font-normal">·</span>
             <span className="font-mono font-black text-fg text-[0.6875rem] sm:text-xs">
-              Till: {money(shift?.system_expected_cash ?? shift?.opening_float ?? shift?.starting_cash ?? 0)}
+              <span className="sm:hidden text-emerald-700 dark:text-emerald-300 font-bold mr-0.5">Till: </span>
+              {money(shift?.system_expected_cash ?? shift?.opening_float ?? shift?.starting_cash ?? 0)}
             </span>
           </button>
         ) : (

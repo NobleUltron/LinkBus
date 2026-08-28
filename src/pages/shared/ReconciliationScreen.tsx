@@ -510,10 +510,11 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
               : 'Manage your counter cash register, record float top-ups or safe drops, track your passenger sales, and reconcile your physical till at end of shift.'}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {!activeMetrics.data && (
             <Button
               variant="outline"
+              className="flex-1 sm:flex-initial"
               icon={<PlusIcon className="h-4 w-4" />}
               onClick={() => setOpenShiftModal(true)}
             >
@@ -523,6 +524,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           {isManager && (
             <Button
               variant="outline"
+              className="flex-1 sm:flex-initial"
               icon={<FileSpreadsheetIcon className="h-4 w-4" />}
               onClick={handleExportCSV}
             >
@@ -534,7 +536,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
               icon={<ShieldCheckIcon className="h-4 w-4" />}
               onClick={() => setCloseoutOpen(true)}
               disabled={activeMetrics.loading || !activeMetrics.data}
-              className="bg-brand-600 hover:bg-brand-700 text-white font-bold"
+              className="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white font-bold"
             >
               Reconcile &amp; End Shift
             </Button>
@@ -554,7 +556,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
         ) : activeMetrics.data ? (
           <div className="space-y-4">
             {/* Quick Action Ribbon for Cashier */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-3">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-black text-fg bg-surface-2 px-2.5 py-1 rounded-lg border border-line">
                   Shift #{activeMetrics.data.shift_code}
@@ -564,10 +566,11 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 <Button
                   size="sm"
                   variant="outline"
+                  className="flex-1 sm:flex-initial"
                   icon={<CoinsIcon className="h-3.5 w-3.5 text-emerald-600" />}
                   onClick={() => {
                     setExpenseModalType('cash_in');
@@ -579,6 +582,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
                 <Button
                   size="sm"
                   variant="outline"
+                  className="flex-1 sm:flex-initial"
                   icon={<ArrowDownRightIcon className="h-3.5 w-3.5 text-amber-600" />}
                   onClick={() => {
                     setExpenseModalType('petty_expense');
@@ -590,6 +594,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
                 <Button
                   size="sm"
                   variant="outline"
+                  className="flex-1 sm:flex-initial"
                   icon={<ArrowDownRightIcon className="h-3.5 w-3.5 text-blue-600" />}
                   onClick={() => {
                     setExpenseModalType('safe_drop');
@@ -602,7 +607,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
                   size="sm"
                   icon={<ShieldCheckIcon className="h-3.5 w-3.5 text-white" />}
                   onClick={() => setCloseoutOpen(true)}
-                  className="bg-brand-600 hover:bg-brand-700 text-white font-bold"
+                  className="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white font-bold"
                 >
                   🔒 End Shift / Z-Read
                 </Button>
@@ -703,61 +708,70 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           <div className="rounded-2xl border border-line bg-surface p-3.5 sm:p-4 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               {/* Preset Segment Pills */}
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
                 <span className="mr-1 text-xs font-bold uppercase tracking-wider text-muted hidden sm:inline-block">
                   Presets:
                 </span>
-                {presets.map((preset) => {
-                  const active =
-                    applied.date_from === shiftDays(preset.days) &&
-                    applied.date_to === toDateInput(new Date());
-                  return (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => {
-                        const next = {
-                          date_from: shiftDays(preset.days),
-                          date_to: toDateInput(new Date()),
-                        };
-                        setRange(next);
-                        setApplied(next);
-                      }}
-                      className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
-                        active
-                          ? 'bg-brand-600 text-white shadow-sm'
-                          : 'border border-line bg-surface text-muted hover:bg-surface-2 hover:text-fg'
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  );
-                })}
+                <div className="grid grid-cols-4 sm:flex sm:flex-wrap gap-1.5 w-full sm:w-auto">
+                  {presets.map((preset) => {
+                    const active =
+                      applied.date_from === shiftDays(preset.days) &&
+                      applied.date_to === toDateInput(new Date());
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          const next = {
+                            date_from: shiftDays(preset.days),
+                            date_to: toDateInput(new Date()),
+                          };
+                          setRange(next);
+                          setApplied(next);
+                        }}
+                        className={`text-center rounded-xl px-2.5 sm:px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                          active
+                            ? 'bg-brand-600 text-white shadow-sm'
+                            : 'border border-line bg-surface text-muted hover:bg-surface-2 hover:text-fg'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Custom Date Range Form */}
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-muted">From</span>
-                  <DateInput
-                    id="reconcile-from"
-                    value={range.date_from}
-                    max={range.date_to}
-                    onChange={(e) => setRange({ ...range, date_from: e.target.value })}
-                  />
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <span className="text-xs font-semibold text-muted w-10 sm:w-auto shrink-0">From</span>
+                  <div className="flex-1 sm:flex-initial">
+                    <DateInput
+                      id="reconcile-from"
+                      value={range.date_from}
+                      max={range.date_to}
+                      className="w-full sm:w-auto min-w-0"
+                      onChange={(e) => setRange({ ...range, date_from: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-muted">To</span>
-                  <DateInput
-                    id="reconcile-to"
-                    value={range.date_to}
-                    min={range.date_from}
-                    max={toDateInput(new Date())}
-                    onChange={(e) => setRange({ ...range, date_to: e.target.value })}
-                  />
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <span className="text-xs font-semibold text-muted w-10 sm:w-auto shrink-0">To</span>
+                  <div className="flex-1 sm:flex-initial">
+                    <DateInput
+                      id="reconcile-to"
+                      value={range.date_to}
+                      min={range.date_from}
+                      max={toDateInput(new Date())}
+                      className="w-full sm:w-auto min-w-0"
+                      onChange={(e) => setRange({ ...range, date_to: e.target.value })}
+                    />
+                  </div>
                 </div>
                 <Button
                   size="sm"
+                  className="w-full sm:w-auto min-h-[38px] font-bold shrink-0"
                   onClick={() => setApplied(range)}
                   loading={state.loading}
                 >

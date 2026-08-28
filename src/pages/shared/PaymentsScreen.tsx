@@ -473,62 +473,70 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
       {/* ── Unified Date Range Filter Toolbar ── */}
       <div className="rounded-2xl border border-line bg-surface p-3.5 sm:p-4 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          {/* Preset Segment Pills */}
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
             <span className="mr-1 text-xs font-bold uppercase tracking-wider text-muted hidden sm:inline-block">
               Presets:
             </span>
-            {presets.map((preset) => {
-              const active =
-                applied.date_from === shiftDays(preset.days) &&
-                applied.date_to === toDateInput(new Date());
-              return (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => {
-                    const next = {
-                      date_from: shiftDays(preset.days),
-                      date_to: toDateInput(new Date()),
-                    };
-                    setRange(next);
-                    setApplied(next);
-                  }}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
-                    active
-                      ? 'bg-brand-600 text-white shadow-sm'
-                      : 'border border-line bg-surface text-muted hover:bg-surface-2 hover:text-fg'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
+            <div className="grid grid-cols-4 sm:flex sm:flex-wrap gap-1.5 w-full sm:w-auto">
+              {presets.map((preset) => {
+                const active =
+                  applied.date_from === shiftDays(preset.days) &&
+                  applied.date_to === toDateInput(new Date());
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      const next = {
+                        date_from: shiftDays(preset.days),
+                        date_to: toDateInput(new Date()),
+                      };
+                      setRange(next);
+                      setApplied(next);
+                    }}
+                    className={`text-center rounded-xl px-2.5 sm:px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                      active
+                        ? 'bg-brand-600 text-white shadow-sm'
+                        : 'border border-line bg-surface text-muted hover:bg-surface-2 hover:text-fg'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Custom Date Range Form */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted">From</span>
-              <DateInput
-                id="payment-from"
-                value={range.date_from}
-                max={range.date_to}
-                onChange={(e) => setRange({ ...range, date_from: e.target.value })}
-              />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-xs font-semibold text-muted w-10 sm:w-auto shrink-0">From</span>
+              <div className="flex-1 sm:flex-initial">
+                <DateInput
+                  id="payment-from"
+                  value={range.date_from}
+                  max={range.date_to}
+                  className="w-full sm:w-auto min-w-0"
+                  onChange={(e) => setRange({ ...range, date_from: e.target.value })}
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted">To</span>
-              <DateInput
-                id="payment-to"
-                value={range.date_to}
-                min={range.date_from}
-                max={toDateInput(new Date())}
-                onChange={(e) => setRange({ ...range, date_to: e.target.value })}
-              />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-xs font-semibold text-muted w-10 sm:w-auto shrink-0">To</span>
+              <div className="flex-1 sm:flex-initial">
+                <DateInput
+                  id="payment-to"
+                  value={range.date_to}
+                  min={range.date_from}
+                  max={toDateInput(new Date())}
+                  className="w-full sm:w-auto min-w-0"
+                  onChange={(e) => setRange({ ...range, date_to: e.target.value })}
+                />
+              </div>
             </div>
             <Button
               size="sm"
+              className="w-full sm:w-auto min-h-[38px] font-bold shrink-0"
               onClick={() => setApplied(range)}
               loading={state.loading}
             >

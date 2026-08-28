@@ -113,12 +113,6 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
   }, [applied.date_from, applied.date_to]);
 
   React.useEffect(() => {
-    if (activeMetrics.data) {
-      localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(activeMetrics.data));
-    }
-  }, [activeMetrics.data]);
-
-  React.useEffect(() => {
     const handleUpdate = () => {
       activeMetrics.reload();
       state.reload();

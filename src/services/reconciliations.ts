@@ -26,8 +26,8 @@ export function calculateCountedCash(denominations: CashDenominations): number {
 }
 
 // Local storage cache keys
-const RECONCILIATIONS_KEY = 'linkbus_shift_reconciliations';
-const ACTIVE_SHIFT_KEY = 'linkbus_active_shift_state';
+export const RECONCILIATIONS_KEY = 'linkbus_shift_reconciliations';
+export const ACTIVE_SHIFT_KEY = 'linkbus_active_shift_state';
 
 function getStoredReconciliations(): ShiftReconciliation[] {
   try {

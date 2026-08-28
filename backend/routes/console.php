@@ -11,3 +11,9 @@ Artisan::command('inspire', function () {
 \Illuminate\Support\Facades\Schedule::call(function () {
     \App\Models\SeatLock::where('expires_at', '<', now())->delete();
 })->everyMinute()->name('cleanup-expired-seat-locks');
+
+// Auto-expire stale scheduled/boarding trips every 30 minutes
+\Illuminate\Support\Facades\Schedule::command('trips:expire')
+    ->everyThirtyMinutes()
+    ->name('trips-auto-expire')
+    ->runInBackground();

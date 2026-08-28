@@ -53,16 +53,18 @@ import {
 import { printTripManifest } from '../../utils/printManifest';
 
 const presets = [
-  { label: 'Today', days: 1 },
-  { label: '7 days', days: 7 },
-  { label: '30 days', days: 30 },
-  { label: '90 days', days: 90 },
+  { label: 'Today', daysAhead: 0 },
+  { label: 'Next 7 Days', daysAhead: 7 },
+  { label: 'Next 30 Days', daysAhead: 30 },
+  { label: 'Next 90 Days', daysAhead: 90 },
 ];
 
-function shiftDays(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - (days - 1));
-  return toDateInput(date);
+function today(): string {
+  return toDateInput(new Date());
+}
+
+function daysAhead(n: number): string {
+  return toDateInput(new Date(Date.now() + n * 86400000));
 }
 
 const statusOptions = [
@@ -112,12 +114,12 @@ export function Trips() {
   const [deleting, setDeleting] = useState<TripDetail | null>(null);
   const [deletePending, setDeletePending] = useState(false);
 
-  // Date Range State
+  // Date Range State — default to today → next 30 days (upcoming trips)
   const [range, setRange] = useState({
-    date_from: shiftDays(30),
-    date_to: toDateInput(new Date(Date.now() + 30 * 86400000)),
+    date_from: today(),
+    date_to: daysAhead(30),
   });
-  const [applied, setApplied] = useState(range);
+  const [applied, setApplied] = useState({ date_from: today(), date_to: daysAhead(30) });
 
   // Paginated Trips State
   const state = usePaginated<TripDetail>(({ page, perPage, search, filters }) =>
@@ -675,21 +677,20 @@ export function Trips() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="mr-1 text-xs font-bold uppercase tracking-wider text-muted hidden sm:inline-block">
-              Presets:
+              View:
             </span>
             {presets.map((preset) => {
-              const active =
-                applied.date_from === shiftDays(preset.days) &&
-                applied.date_to === toDateInput(new Date(Date.now() + 30 * 86400000));
+              const fromVal = today();
+              const toVal   = daysAhead(preset.daysAhead || 0);
+              const active  =
+                applied.date_from === fromVal &&
+                applied.date_to   === toVal;
               return (
                 <button
                   key={preset.label}
                   type="button"
                   onClick={() => {
-                    const next = {
-                      date_from: shiftDays(preset.days),
-                      date_to: toDateInput(new Date(Date.now() + 30 * 86400000)),
-                    };
+                    const next = { date_from: fromVal, date_to: toVal };
                     setRange(next);
                     setApplied(next);
                   }}
@@ -703,6 +704,25 @@ export function Trips() {
                 </button>
               );
             })}
+            {/* Past trips toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = {
+                  date_from: toDateInput(new Date(Date.now() - 90 * 86400000)),
+                  date_to:   toDateInput(new Date(Date.now() - 86400000)),
+                };
+                setRange(next);
+                setApplied(next);
+              }}
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                applied.date_to < today()
+                  ? 'bg-amber-500 text-white shadow-sm'
+                  : 'border border-line bg-surface text-muted hover:bg-surface-2 hover:text-fg'
+              }`}
+            >
+              Past 90 Days
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">

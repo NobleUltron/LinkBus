@@ -205,6 +205,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/trips/audit',              [TripController::class, 'audit']);
         Route::post('/trips',                   [TripController::class, 'store']);
         Route::post('/trips/generate-schedules',[TripController::class, 'generateSchedules']);
+        Route::post('/trips/prune-duplicates',  [TripController::class, 'pruneDuplicates']);
 
         // Reports & analytics
         Route::get('/reports/dashboard',            [ReportController::class, 'dashboard']);

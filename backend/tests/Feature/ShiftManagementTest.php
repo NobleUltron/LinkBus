@@ -22,6 +22,8 @@ use Tests\TestCase;
 
 class ShiftManagementTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected User $cashier;
     protected User $supervisor;
     protected Terminal $terminal;

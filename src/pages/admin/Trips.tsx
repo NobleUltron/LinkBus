@@ -39,7 +39,16 @@ import { usePaginated } from '../../hooks/usePaginated';
 import { adminReleaseSeatLock } from '../../services/bookings';
 import { getReferenceData, routeName } from '../../services/reference';
 import { getTripManifestWithHolds, type ManifestHeldSeat, type TicketDetail } from '../../services/tickets';
-import { createTrip, deleteTrip, generateTripSchedules, listTrips, updateTrip, type GenerationSummary } from '../../services/trips';
+import {
+  createTrip,
+  deleteTrip,
+  generateTripSchedules,
+  listTrips,
+  pruneTripDuplicates,
+  updateTrip,
+  type GenerationSummary,
+  type PruneSummary,
+} from '../../services/trips';
 import type { TripDetail } from '../../types/api';
 import {
   countdownLabel,
@@ -233,11 +242,13 @@ export function Trips() {
   const boardedPct = totalBookedCount > 0 ? Math.round((boardedCount / totalBookedCount) * 100) : 0;
 
   const [generationSummary, setGenerationSummary] = useState<GenerationSummary | null>(null);
+  const [pruneSummary, setPruneSummary] = useState<PruneSummary | null>(null);
+  const [pruning, setPruning] = useState(false);
 
   const handleAutoGenerateSchedules = async () => {
     setGenerating(true);
     try {
-      const res = await generateTripSchedules(30);
+      const res = await generateTripSchedules(30, true);
       toast.success(res.message || '30-Day realistic timetable generated successfully.');
       if (res.summary) {
         setGenerationSummary(res.summary);
@@ -247,6 +258,22 @@ export function Trips() {
       toast.error(errorMessage(err) || 'Failed to auto-generate schedules.');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handlePruneDuplicates = async () => {
+    setPruning(true);
+    try {
+      const res = await pruneTripDuplicates(false);
+      toast.success(res.message || 'Duplicate and conflicting trips pruned successfully.');
+      if (res.summary) {
+        setPruneSummary(res.summary);
+      }
+      state.reload();
+    } catch (err) {
+      toast.error(errorMessage(err) || 'Failed to prune duplicate trips.');
+    } finally {
+      setPruning(false);
     }
   };
 
@@ -608,11 +635,21 @@ export function Trips() {
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
+            icon={<Trash2Icon className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+            onClick={handlePruneDuplicates}
+            loading={pruning}
+            title="Clean unbooked duplicates and operational conflicts"
+          >
+            🧹 Prune Duplicates &amp; Conflicts
+          </Button>
+          <Button
+            variant="outline"
             icon={<SparklesIcon className="h-4 w-4 text-brand-600 dark:text-brand-400" />}
             onClick={handleAutoGenerateSchedules}
             loading={generating}
+            title="Regenerate clean 30-day realistic duty rotation timetable"
           >
-            ⚡ Auto-Generate Schedules
+            ⚡ Auto-Generate Timetable
           </Button>
           <Button
             variant="outline"
@@ -1288,6 +1325,18 @@ export function Trips() {
               </div>
             </div>
 
+            {/* Unbooked Purged Banner (if any) */}
+            {typeof generationSummary.unbooked_purged === 'number' && generationSummary.unbooked_purged > 0 && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-center justify-between text-xs">
+                <span className="font-semibold text-amber-900 dark:text-amber-200">
+                  Unbooked legacy &amp; conflicting trips purged:
+                </span>
+                <span className="font-extrabold text-amber-700 dark:text-amber-300">
+                  {generationSummary.unbooked_purged} trips
+                </span>
+              </div>
+            )}
+
             {/* Integrity Guards */}
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-1.5">
               <div className="flex items-center gap-2 text-xs font-black text-emerald-700 dark:text-emerald-400">
@@ -1311,6 +1360,65 @@ export function Trips() {
                     <span className="font-bold tabular-nums text-muted">{count} departures</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Prune Duplicates & Conflicts Summary Modal ── */}
+      <Modal
+        open={Boolean(pruneSummary)}
+        onClose={() => setPruneSummary(null)}
+        title="Deduplication & Conflict Prune Complete"
+        subtitle="Unbooked duplicates removed while 100% preserving booked passenger tickets"
+        size="md"
+        footer={
+          <Button variant="primary" onClick={() => setPruneSummary(null)}>
+            Done &amp; Refresh Table
+          </Button>
+        }
+      >
+        {pruneSummary && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-line bg-surface-2 p-3 text-center">
+                <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">Trips Inspected</p>
+                <p className="text-2xl font-black text-fg mt-0.5">{pruneSummary.total_inspected}</p>
+              </div>
+              <div className="rounded-xl border border-line bg-surface-2 p-3 text-center">
+                <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">Unbooked Pruned</p>
+                <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                  {pruneSummary.unbooked_trips_pruned}
+                </p>
+              </div>
+              <div className="rounded-xl border border-line bg-surface-2 p-3 text-center col-span-2 sm:col-span-1">
+                <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">Bookings Safe</p>
+                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  {pruneSummary.booked_trips_preserved}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-line bg-surface p-3.5 space-y-2 text-xs">
+              <p className="font-bold text-fg uppercase tracking-wider">Breakdown of Pruned Records:</p>
+              <div className="space-y-1.5">
+                <div className="flex justify-between py-1 border-b border-line/50">
+                  <span className="text-muted">Exact duplicate departure slots removed:</span>
+                  <span className="font-bold text-fg">{pruneSummary.exact_duplicates_removed}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-line/50">
+                  <span className="text-muted">Unassigned driver/coach conflicts removed:</span>
+                  <span className="font-bold text-fg">{pruneSummary.assignment_conflicts_removed}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-line/50">
+                  <span className="text-muted">Overlapping driver/bus schedules removed:</span>
+                  <span className="font-bold text-fg">{pruneSummary.overlap_conflicts_removed}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-muted">Location continuity mismatches removed:</span>
+                  <span className="font-bold text-fg">{pruneSummary.location_conflicts_removed}</span>
+                </div>
               </div>
             </div>
           </div>

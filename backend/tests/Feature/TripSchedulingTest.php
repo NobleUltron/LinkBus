@@ -348,16 +348,100 @@ class TripSchedulingTest extends TestCase
         $startDate = Carbon::tomorrow();
 
         // First run
-        $summary1 = $this->schedulingService->generateRealisticTimetable($startDate, 3);
+        $summary1 = $this->schedulingService->generateRealisticTimetable($startDate, 3, purgeUnbooked: false);
         
         $this->assertGreaterThan(0, $summary1['trips_generated'], 'Expected trips generated. Conflicts: ' . $summary1['conflicts_prevented'] . ' Duplicates: ' . $summary1['duplicates_prevented']);
 
         $totalAfterFirst = Trip::count();
 
         // Second run (Idempotency test)
-        $summary2 = $this->schedulingService->generateRealisticTimetable($startDate, 3);
+        $summary2 = $this->schedulingService->generateRealisticTimetable($startDate, 3, purgeUnbooked: false);
         $this->assertEquals(0, $summary2['trips_generated']);
         $this->assertGreaterThan(0, $summary2['duplicates_prevented']);
         $this->assertEquals($totalAfterFirst, Trip::count());
+    }
+
+    public function test_prune_duplicates_removes_unbooked_conflicts_and_preserves_booked_trips(): void
+    {
+        $tomorrow = Carbon::tomorrow()->setTime(8, 0);
+
+        // Valid trip with driverA on assigned busA
+        $validTrip = Trip::create([
+            'route_id'        => $this->routeKJ->id,
+            'bus_id'          => $this->busA->id,
+            'driver_id'       => $this->driverA->id,
+            'departure_time'  => $tomorrow,
+            'arrival_time'    => $tomorrow->copy()->addMinutes(90),
+            'fare'            => 12000,
+            'status'          => 'scheduled',
+            'available_seats' => 44,
+        ]);
+
+        // Duplicate trip on same slot with wrong driver (driverB is assigned to busB, not busA)
+        $duplicateTrip = Trip::create([
+            'route_id'        => $this->routeKJ->id,
+            'bus_id'          => $this->busA->id,
+            'driver_id'       => $this->driverB->id,
+            'departure_time'  => $tomorrow,
+            'arrival_time'    => $tomorrow->copy()->addMinutes(90),
+            'fare'            => 12000,
+            'status'          => 'scheduled',
+            'available_seats' => 44,
+        ]);
+
+        // Conflicting trip on busA overlapping duration
+        $overlappingTrip = Trip::create([
+            'route_id'        => $this->routeKM->id,
+            'bus_id'          => $this->busA->id,
+            'driver_id'       => $this->driverA->id,
+            'departure_time'  => $tomorrow->copy()->addMinutes(30),
+            'arrival_time'    => $tomorrow->copy()->addMinutes(270),
+            'fare'            => 30000,
+            'status'          => 'scheduled',
+            'available_seats' => 44,
+        ]);
+
+        $summary = $this->schedulingService->pruneDuplicateAndConflictingTrips();
+
+        $this->assertGreaterThanOrEqual(2, $summary['unbooked_trips_pruned']);
+        $this->assertTrue(Trip::where('id', $validTrip->id)->exists());
+        $this->assertFalse(Trip::where('id', $duplicateTrip->id)->exists());
+        $this->assertFalse(Trip::where('id', $overlappingTrip->id)->exists());
+    }
+
+    public function test_prune_duplicates_api_endpoint(): void
+    {
+        $tomorrow = Carbon::tomorrow()->setTime(9, 0);
+
+        // Invalid trip: driverA assigned to busB
+        Trip::create([
+            'route_id'        => $this->routeKJ->id,
+            'bus_id'          => $this->busB->id,
+            'driver_id'       => $this->driverA->id,
+            'departure_time'  => $tomorrow,
+            'arrival_time'    => $tomorrow->copy()->addMinutes(90),
+            'fare'            => 12000,
+            'status'          => 'scheduled',
+            'available_seats' => 44,
+        ]);
+
+        $response = $this->actingAs($this->adminUser)->postJson('/api/trips/prune-duplicates', [
+            'dry_run' => false,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'message',
+            'summary' => [
+                'total_inspected',
+                'unbooked_trips_pruned',
+                'exact_duplicates_removed',
+                'assignment_conflicts_removed',
+                'overlap_conflicts_removed',
+                'location_conflicts_removed',
+                'booked_trips_preserved',
+            ],
+        ]);
+        $this->assertGreaterThanOrEqual(1, $response->json('summary.unbooked_trips_pruned'));
     }
 }

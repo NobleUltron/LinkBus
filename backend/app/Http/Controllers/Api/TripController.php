@@ -442,14 +442,31 @@ class TripController extends Controller
     {
         $days = (int) $request->input('days', 30);
         $days = max(1, min(60, $days));
+        $purgeUnbooked = $request->boolean('purge_unbooked', true);
 
-        $summary = $this->schedulingService->generateRealisticTimetable(Carbon::today(), $days);
+        $summary = $this->schedulingService->generateRealisticTimetable(Carbon::today(), $days, $purgeUnbooked);
         $totalScheduled = Trip::where('status', 'scheduled')->where('departure_time', '>=', now())->count();
 
         return response()->json([
             'message'         => "Successfully generated realistic fleet schedules for {$days} days.",
             'total_scheduled' => $totalScheduled,
             'summary'         => $summary,
+        ]);
+    }
+
+    /**
+     * Prune unbooked duplicate and conflicting trips across the database.
+     */
+    public function pruneDuplicates(Request $request): JsonResponse
+    {
+        $dryRun = $request->boolean('dry_run', false);
+        $summary = $this->schedulingService->pruneDuplicateAndConflictingTrips($dryRun);
+
+        return response()->json([
+            'message' => $dryRun
+                ? "Simulated prune: {$summary['unbooked_trips_pruned']} unbooked conflicting/duplicate trips detected."
+                : "Successfully pruned {$summary['unbooked_trips_pruned']} unbooked conflicting/duplicate trips. {$summary['booked_trips_preserved']} booked trips preserved.",
+            'summary' => $summary,
         ]);
     }
 

@@ -310,6 +310,7 @@ export interface GenerationSummary {
   start_date: string;
   end_date: string;
   days: number;
+  unbooked_purged?: number;
   trips_generated: number;
   coaches_used: string[];
   coaches_used_count: number;
@@ -320,13 +321,39 @@ export interface GenerationSummary {
   duplicates_prevented: number;
 }
 
+export interface PruneSummary {
+  total_inspected: number;
+  unbooked_trips_pruned: number;
+  exact_duplicates_removed: number;
+  assignment_conflicts_removed: number;
+  overlap_conflicts_removed: number;
+  location_conflicts_removed: number;
+  booked_trips_preserved: number;
+}
+
 /** POST /api/trips/generate-schedules (auto-generate upcoming schedules) */
-export async function generateTripSchedules(days: number = 30): Promise<{
+export async function generateTripSchedules(
+  days: number = 30,
+  purgeUnbooked: boolean = true,
+): Promise<{
   message: string;
   total_scheduled: number;
   summary?: GenerationSummary;
 }> {
-  return api.post<{ message: string; total_scheduled: number; summary?: GenerationSummary }>('/trips/generate-schedules', { days });
+  return api.post<{ message: string; total_scheduled: number; summary?: GenerationSummary }>(
+    '/trips/generate-schedules',
+    { days, purge_unbooked: purgeUnbooked },
+  );
+}
+
+/** POST /api/trips/prune-duplicates (clean up unbooked duplicates and operational conflicts) */
+export async function pruneTripDuplicates(dryRun: boolean = false): Promise<{
+  message: string;
+  summary: PruneSummary;
+}> {
+  return api.post<{ message: string; summary: PruneSummary }>('/trips/prune-duplicates', {
+    dry_run: dryRun,
+  });
 }
 
 /** GET /api/trips/audit */

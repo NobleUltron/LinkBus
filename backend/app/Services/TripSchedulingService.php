@@ -38,7 +38,7 @@ class TripSchedulingService
      * @param int|null $excludeTripId
      * @return array
      */
-    public function validateTrip(array $data, ?int $excludeTripId = null): array
+    public function validateTrip(array $data, ?int $excludeTripId = null, array $excludeTripIds = []): array
     {
         $conflicts = [];
 
@@ -107,6 +107,7 @@ class TripSchedulingService
                 ->where('driver_id', $driver->id)
                 ->where('status', '!=', 'cancelled')
                 ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
+                ->when(!empty($excludeTripIds), fn($q) => $q->whereNotIn('id', $excludeTripIds))
                 ->where(function ($q) use ($dep, $arr) {
                     $q->where('departure_time', '<', $arr)
                       ->where('arrival_time', '>', $dep);
@@ -126,6 +127,7 @@ class TripSchedulingService
                 ->where('driver_id', $driver->id)
                 ->where('status', '!=', 'cancelled')
                 ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
+                ->when(!empty($excludeTripIds), fn($q) => $q->whereNotIn('id', $excludeTripIds))
                 ->where('arrival_time', '<=', $dep)
                 ->orderBy('arrival_time', 'desc')
                 ->first();
@@ -151,6 +153,7 @@ class TripSchedulingService
                 ->where('driver_id', $driver->id)
                 ->where('status', '!=', 'cancelled')
                 ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
+                ->when(!empty($excludeTripIds), fn($q) => $q->whereNotIn('id', $excludeTripIds))
                 ->where('departure_time', '>=', $arr)
                 ->orderBy('departure_time', 'asc')
                 ->first();
@@ -184,6 +187,7 @@ class TripSchedulingService
                 ->where('bus_id', $bus->id)
                 ->where('status', '!=', 'cancelled')
                 ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
+                ->when(!empty($excludeTripIds), fn($q) => $q->whereNotIn('id', $excludeTripIds))
                 ->where(function ($q) use ($dep, $arr) {
                     $q->where('departure_time', '<', $arr)
                       ->where('arrival_time', '>', $dep);
@@ -203,6 +207,7 @@ class TripSchedulingService
                 ->where('bus_id', $bus->id)
                 ->where('status', '!=', 'cancelled')
                 ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
+                ->when(!empty($excludeTripIds), fn($q) => $q->whereNotIn('id', $excludeTripIds))
                 ->where('arrival_time', '<=', $dep)
                 ->orderBy('arrival_time', 'desc')
                 ->first();
@@ -227,6 +232,7 @@ class TripSchedulingService
                 ->where('bus_id', $bus->id)
                 ->where('status', '!=', 'cancelled')
                 ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
+                ->when(!empty($excludeTripIds), fn($q) => $q->whereNotIn('id', $excludeTripIds))
                 ->where('departure_time', '>=', $arr)
                 ->orderBy('departure_time', 'asc')
                 ->first();
@@ -246,6 +252,7 @@ class TripSchedulingService
             ->where('departure_time', $dep->toDateTimeString())
             ->where('status', '!=', 'cancelled')
             ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
+            ->when(!empty($excludeTripIds), fn($q) => $q->whereNotIn('id', $excludeTripIds))
             ->when($busId, fn($q) => $q->where('bus_id', $busId))
             ->first();
 
@@ -259,8 +266,14 @@ class TripSchedulingService
     /**
      * Generate realistic, operationally feasible bus duty rotations across the fleet.
      * Core Algorithm: Driver ↔ Assigned Coach → Feasible Corridor Duty Rotations.
+     *
+     * @param Carbon $startDate
+     * @param int $days
+     * @param bool $purgeUnbooked When true, cleanly removes unbooked legacy/duplicate trips before regenerating
+     * @param bool $dryRun
+     * @return array
      */
-    public function generateRealisticTimetable(Carbon $startDate, int $days = 30, bool $dryRun = false): array
+    public function generateRealisticTimetable(Carbon $startDate, int $days = 30, bool $purgeUnbooked = false, bool $dryRun = false): array
     {
         $startDate = $startDate->copy()->startOfDay();
         $endDate = $startDate->copy()->addDays($days - 1)->endOfDay();
@@ -275,11 +288,28 @@ class TripSchedulingService
             ->whereHas('assignedBus', fn($b) => $b->where('status', 'active'))
             ->get();
 
+        $unbookedPurged = 0;
+        if ($purgeUnbooked && !$dryRun) {
+            $unbookedTrips = Trip::where('departure_time', '>=', $startDate)
+                ->where('departure_time', '<=', $endDate)
+                ->where('status', 'scheduled')
+                ->doesntHave('bookings')
+                ->get();
+
+            $unbookedIds = $unbookedTrips->pluck('id')->all();
+            if (!empty($unbookedIds)) {
+                TripSeat::whereIn('trip_id', $unbookedIds)->delete();
+                Trip::whereIn('id', $unbookedIds)->delete();
+                $unbookedPurged = count($unbookedIds);
+            }
+        }
+
         if ($drivers->isEmpty() || $routes->isEmpty()) {
             return [
                 'start_date'           => $startDate->format('d M Y'),
                 'end_date'             => $endDate->format('d M Y'),
                 'days'                 => $days,
+                'unbooked_purged'      => $unbookedPurged,
                 'trips_generated'      => 0,
                 'coaches_used'         => [],
                 'coaches_used_count'   => 0,
@@ -322,32 +352,35 @@ class TripSchedulingService
             $ret = $assignedPair['return'];
             $duration = max(60, $out->estimated_duration_minutes ?: 90);
             $corridorTitle = ($out->originTerminal?->city ?? 'Origin') . ' ↔ ' . ($out->destinationTerminal?->city ?? 'Dest') . ' (' . $bus->plate_number . ')';
+            
+            $baseFareOut = $out->base_fare ?: ($duration <= 120 ? 15000 : 30000);
+            $baseFareRet = $ret->base_fare ?: ($duration <= 120 ? 15000 : 30000);
 
-            // Short shuttle (< 120 mins) gets 2 out-and-back round trips per day
+            // Short shuttle (< 120 mins) gets 2 out-and-back round trips per day (4 legs)
             if ($duration <= 120) {
                 $dutyCircuits[] = [
                     'corridor'  => $corridorTitle,
                     'bus'       => $bus,
                     'driver'    => $driver,
                     'legs'      => [
-                        ['route' => $out, 'hour' => 7,  'min' => 30, 'fare' => 12000],
-                        ['route' => $ret, 'hour' => 10, 'min' => 30, 'fare' => 12000],
-                        ['route' => $out, 'hour' => 14, 'min' => 00, 'fare' => 12000],
-                        ['route' => $ret, 'hour' => 17, 'min' => 00, 'fare' => 12000],
+                        ['route' => $out, 'hour' => 7,  'min' => 30, 'fare' => $baseFareOut],
+                        ['route' => $ret, 'hour' => 10, 'min' => 30, 'fare' => $baseFareRet],
+                        ['route' => $out, 'hour' => 14, 'min' => 00, 'fare' => $baseFareOut],
+                        ['route' => $ret, 'hour' => 17, 'min' => 00, 'fare' => $baseFareRet],
                     ],
                 ];
             } else {
-                // Long-haul corridor gets 1 out-and-back round trip per day with 2.5h rest
-                $depHour = 7 + ($index % 3); // Stagger departure times (07:00, 08:00, 09:00)
-                $retHour = max(14, (int) ceil(($depHour * 60 + $duration + 120) / 60));
+                // Long-haul corridor gets 1 out-and-back round trip per day with 2.5h - 3.5h layover
+                $depHour = 7 + ($index % 3); // Stagger morning departures (07:00, 08:00, 09:00)
+                $retHour = max(14, (int) ceil(($depHour * 60 + $duration + 150) / 60));
 
                 $dutyCircuits[] = [
                     'corridor'  => $corridorTitle,
                     'bus'       => $bus,
                     'driver'    => $driver,
                     'legs'      => [
-                        ['route' => $out, 'hour' => $depHour, 'min' => 0,  'fare' => 25000],
-                        ['route' => $ret, 'hour' => $retHour, 'min' => 30, 'fare' => 25000],
+                        ['route' => $out, 'hour' => $depHour, 'min' => 0,  'fare' => $baseFareOut],
+                        ['route' => $ret, 'hour' => $retHour, 'min' => 30, 'fare' => $baseFareRet],
                     ],
                 ];
             }
@@ -456,6 +489,7 @@ class TripSchedulingService
             'start_date'           => $startDate->format('d M Y'),
             'end_date'             => $endDate->format('d M Y'),
             'days'                 => $days,
+            'unbooked_purged'      => $unbookedPurged,
             'trips_generated'      => $tripsGenerated,
             'coaches_used'         => array_keys($coachesUsed),
             'coaches_used_count'   => count($coachesUsed),
@@ -464,6 +498,174 @@ class TripSchedulingService
             'corridors_served'     => $corridorsServed,
             'conflicts_prevented'  => $conflictsPrevented,
             'duplicates_prevented' => $duplicatesPrevented,
+        ];
+    }
+
+    /**
+     * Prune all unbooked duplicate and conflicting trips across the database.
+     * Preserves all trips with passenger bookings (zero data loss).
+     *
+     * @param bool $dryRun
+     * @return array
+     */
+    public function pruneDuplicateAndConflictingTrips(bool $dryRun = false): array
+    {
+        $futureTrips = Trip::with(['route', 'bus.assignedDriver', 'driver.assignedBus', 'bookings'])
+            ->where('departure_time', '>=', now()->subHours(2))
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('departure_time', 'asc')
+            ->get();
+
+        $tripsToDelete = [];
+        $exactDuplicatesCount = 0;
+        $assignmentConflictsCount = 0;
+        $overlapConflictsCount = 0;
+        $locationConflictsCount = 0;
+        $bookedPreservedCount = 0;
+
+        // Step 1: Detect explicit driver-bus assignment conflicts on unbooked trips
+        foreach ($futureTrips as $trip) {
+            if ($trip->bookings->count() === 0 && $trip->driver && $trip->bus) {
+                if ($trip->driver->assigned_bus_id && $trip->driver->assigned_bus_id !== $trip->bus_id) {
+                    $tripsToDelete[$trip->id] = 'assignment_conflict';
+                    $assignmentConflictsCount++;
+                }
+            }
+        }
+
+        // Step 2: Detect exact duplicate slots on same route and departure time
+        $groupedBySlot = $futureTrips->groupBy(fn($t) => $t->route_id . '_' . $t->departure_time->toDateTimeString());
+
+        foreach ($groupedBySlot as $slotKey => $slotTrips) {
+            if ($slotTrips->count() > 1) {
+                // Determine best trip to keep:
+                // 1. A trip with bookings (must keep)
+                // 2. A trip with proper driver ↔ bus permanent pairing
+                // 3. Lowest ID
+                $bookedTrip = $slotTrips->first(fn($t) => $t->bookings->count() > 0);
+                
+                if ($bookedTrip) {
+                    $keepTripId = $bookedTrip->id;
+                } else {
+                    $properPairingTrip = $slotTrips->first(fn($t) => 
+                        $t->driver && $t->bus && $t->driver->assigned_bus_id === $t->bus_id
+                    );
+                    $keepTripId = $properPairingTrip ? $properPairingTrip->id : $slotTrips->first()->id;
+                }
+
+                foreach ($slotTrips as $st) {
+                    if ($st->id !== $keepTripId) {
+                        if ($st->bookings->count() === 0) {
+                            if (!isset($tripsToDelete[$st->id])) {
+                                $tripsToDelete[$st->id] = 'exact_duplicate';
+                                $exactDuplicatesCount++;
+                            }
+                        } else {
+                            $bookedPreservedCount++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Step 3: Progressively validate remaining trips against accepted schedule
+        $keptTrips = [];
+        $minTurnaround = $this->getMinimumTurnaroundMinutes();
+
+        // Seed with all booked trips
+        foreach ($futureTrips as $trip) {
+            if ($trip->bookings->count() > 0) {
+                $keptTrips[$trip->id] = $trip;
+                $bookedPreservedCount++;
+            }
+        }
+
+        // Evaluate unbooked trips in chronological order
+        foreach ($futureTrips as $trip) {
+            if (isset($tripsToDelete[$trip->id]) || isset($keptTrips[$trip->id])) {
+                continue;
+            }
+
+            $dep = $trip->departure_time;
+            $arr = $trip->arrival_time;
+            $driverId = $trip->driver_id;
+            $busId = $trip->bus_id;
+            $originId = $trip->route?->origin_terminal_id;
+            $destId = $trip->route?->destination_terminal_id;
+
+            $hasConflict = false;
+
+            foreach ($keptTrips as $kept) {
+                $keptDep = $kept->departure_time;
+                $keptArr = $kept->arrival_time;
+                $keptDriverId = $kept->driver_id;
+                $keptBusId = $kept->bus_id;
+                $keptOriginId = $kept->route?->origin_terminal_id;
+                $keptDestId = $kept->route?->destination_terminal_id;
+
+                $driverMatches = ($driverId && $keptDriverId && $driverId === $keptDriverId);
+                $busMatches = ($busId && $keptBusId && $busId === $keptBusId);
+
+                if (!$driverMatches && !$busMatches) {
+                    continue;
+                }
+
+                // Check 1: Time overlap
+                if ($dep->lt($keptArr) && $arr->gt($keptDep)) {
+                    $hasConflict = true;
+                    $overlapConflictsCount++;
+                    break;
+                }
+
+                // Check 2: Preceding location & turnaround continuity
+                if ($keptArr->lte($dep)) {
+                    if ($keptDestId && $originId && $keptDestId !== $originId) {
+                        $hasConflict = true;
+                        $locationConflictsCount++;
+                        break;
+                    }
+                    $restMins = $keptArr->diffInMinutes($dep, false);
+                    if ($restMins < 20 && $dep->isSameDay($keptArr)) {
+                        $hasConflict = true;
+                        $overlapConflictsCount++;
+                        break;
+                    }
+                }
+
+                // Check 3: Subsequent location continuity
+                if ($dep->lte($keptDep)) {
+                    if ($destId && $keptOriginId && $destId !== $keptOriginId) {
+                        $hasConflict = true;
+                        $locationConflictsCount++;
+                        break;
+                    }
+                }
+            }
+
+            if ($hasConflict) {
+                $tripsToDelete[$trip->id] = 'operational_conflict';
+            } else {
+                $keptTrips[$trip->id] = $trip;
+            }
+        }
+
+        $deleteIds = array_keys($tripsToDelete);
+
+        if (!$dryRun && !empty($deleteIds)) {
+            DB::transaction(function () use ($deleteIds) {
+                TripSeat::whereIn('trip_id', $deleteIds)->delete();
+                Trip::whereIn('id', $deleteIds)->delete();
+            });
+        }
+
+        return [
+            'total_inspected'              => $futureTrips->count(),
+            'unbooked_trips_pruned'        => count($deleteIds),
+            'exact_duplicates_removed'     => $exactDuplicatesCount,
+            'assignment_conflicts_removed' => $assignmentConflictsCount,
+            'overlap_conflicts_removed'    => $overlapConflictsCount,
+            'location_conflicts_removed'   => $locationConflictsCount,
+            'booked_trips_preserved'       => $bookedPreservedCount,
         ];
     }
 

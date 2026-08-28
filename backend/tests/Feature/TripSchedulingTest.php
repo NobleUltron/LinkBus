@@ -24,6 +24,7 @@ class TripSchedulingTest extends TestCase
     protected BusRoute $routeKJ;
     protected BusRoute $routeJK;
     protected BusRoute $routeKM;
+    protected BusRoute $routeMK;
     protected Bus $busA;
     protected Bus $busB;
     protected Driver $driverA;
@@ -141,6 +142,14 @@ class TripSchedulingTest extends TestCase
         $this->routeKM = BusRoute::create([
             'origin_terminal_id'         => $this->kampala->id,
             'destination_terminal_id'    => $this->mbarara->id,
+            'distance_km'                => 270,
+            'estimated_duration_minutes' => 240,
+            'status'                     => 'active',
+        ]);
+
+        $this->routeMK = BusRoute::create([
+            'origin_terminal_id'         => $this->mbarara->id,
+            'destination_terminal_id'    => $this->kampala->id,
             'distance_km'                => 270,
             'estimated_duration_minutes' => 240,
             'status'                     => 'active',
@@ -443,5 +452,77 @@ class TripSchedulingTest extends TestCase
             ],
         ]);
         $this->assertGreaterThanOrEqual(1, $response->json('summary.unbooked_trips_pruned'));
+    }
+
+    public function test_driver_daily_driving_limit_exceeded_is_rejected(): void
+    {
+        $day = Carbon::tomorrow()->setTime(6, 0);
+
+        // Schedule 2 long trips totaling 9 hours of driving for Driver A
+        Trip::create([
+            'route_id'        => $this->routeKM->id, // Kampala -> Mbarara (4 hours)
+            'bus_id'          => $this->busA->id,
+            'driver_id'       => $this->driverA->id,
+            'departure_time'  => $day->copy()->setTime(6, 0),
+            'arrival_time'    => $day->copy()->setTime(10, 0),
+            'fare'            => 30000,
+            'status'          => 'scheduled',
+            'available_seats' => 44,
+        ]);
+
+        Trip::create([
+            'route_id'        => $this->routeMK->id, // Mbarara -> Kampala (5 hours with layover)
+            'bus_id'          => $this->busA->id,
+            'driver_id'       => $this->driverA->id,
+            'departure_time'  => $day->copy()->setTime(12, 0),
+            'arrival_time'    => $day->copy()->setTime(17, 0),
+            'fare'            => 30000,
+            'status'          => 'scheduled',
+            'available_seats' => 44,
+        ]);
+
+        // Attempt to schedule a 3rd trip of 2 hours on the same day (Total = 4 + 5 + 2 = 11 hours > 10 hour limit)
+        $conflicts = $this->schedulingService->validateTrip([
+            'route_id'       => $this->routeKJ->id,
+            'departure_time' => $day->copy()->setTime(18, 0)->toDateTimeString(),
+            'arrival_time'   => $day->copy()->setTime(20, 0)->toDateTimeString(),
+            'driver_id'      => $this->driverA->id,
+            'bus_id'         => $this->busA->id,
+            'status'         => 'scheduled',
+        ]);
+
+        $this->assertNotEmpty($conflicts);
+        $this->assertTrue(collect($conflicts)->contains(fn($c) => str_contains($c, 'Driver Duty Limit Exceeded')));
+    }
+
+    public function test_driver_overnight_rest_violation_is_rejected(): void
+    {
+        $day1 = Carbon::tomorrow()->setTime(18, 0);
+        $day2 = Carbon::tomorrow()->addDay()->setTime(3, 0);
+
+        // Day 1: Arrives in Kampala at 23:00 (11 PM)
+        Trip::create([
+            'route_id'        => $this->routeJK->id, // Jinja -> Kampala
+            'bus_id'          => $this->busA->id,
+            'driver_id'       => $this->driverA->id,
+            'departure_time'  => $day1->copy()->setTime(21, 30),
+            'arrival_time'    => $day1->copy()->setTime(23, 0),
+            'fare'            => 15000,
+            'status'          => 'scheduled',
+            'available_seats' => 44,
+        ]);
+
+        // Day 2: Attempt to depart at 04:00 AM (only 5.0 hours overnight rest, min 8.0 required)
+        $conflicts = $this->schedulingService->validateTrip([
+            'route_id'       => $this->routeKJ->id, // Kampala -> Jinja
+            'departure_time' => $day2->copy()->setTime(4, 0)->toDateTimeString(),
+            'arrival_time'   => $day2->copy()->setTime(5, 30)->toDateTimeString(),
+            'driver_id'      => $this->driverA->id,
+            'bus_id'         => $this->busA->id,
+            'status'         => 'scheduled',
+        ]);
+
+        $this->assertNotEmpty($conflicts);
+        $this->assertTrue(collect($conflicts)->contains(fn($c) => str_contains($c, 'Driver Overnight Rest Violation')));
     }
 }

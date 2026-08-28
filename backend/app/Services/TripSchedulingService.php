@@ -146,6 +146,12 @@ class TripSchedulingService
                     $earliestDep = $prevArrTime->copy()->addMinutes($minTurnaround)->format('H:i');
                     $conflicts[] = "Driver Turnaround Violation: {$driverName} only has {$restMinutes} min rest after arriving in {$prevDestCity} at {$prevArrTime->format('H:i')}. Minimum {$minTurnaround} min buffer required (Earliest departure: {$earliestDep}).";
                 }
+
+                // Overnight Rest Rule: Minimum 8 hours (480 mins) between consecutive days
+                if ($restMinutes >= 0 && $restMinutes < 480 && !$dep->isSameDay($prevArrTime) && $dep->diffInDays($prevArrTime) <= 1) {
+                    $restHours = round($restMinutes / 60, 1);
+                    $conflicts[] = "Driver Overnight Rest Violation: {$driverName} arrived in {$prevDestCity} at {$prevArrTime->format('d M H:i')}, leaving only {$restHours} hrs of rest before this departure at {$dep->format('d M H:i')}. Minimum 8.0 hrs overnight rest required.";
+                }
             }
 
             // 2.C: Subsequent Trip Location Continuity & Turnaround
@@ -171,6 +177,29 @@ class TripSchedulingService
                 if ($restMinutes >= 0 && $restMinutes < $minTurnaround && $arr->isSameDay($nextDepTime)) {
                     $conflicts[] = "Driver Turnaround Violation: Next trip departs from {$nextOriginCity} at {$nextDepTime->format('H:i')}, leaving only {$restMinutes} min buffer after this trip arrives at {$arr->format('H:i')}. Minimum {$minTurnaround} min required.";
                 }
+            }
+
+            // 2.D: Driver Cumulative Daily Driving Hours Cap (Max 10.0 Hours/Day)
+            $dayStart = $dep->copy()->startOfDay();
+            $dayEnd = $dep->copy()->endOfDay();
+            $dailyTrips = Trip::where('driver_id', $driver->id)
+                ->where('status', '!=', 'cancelled')
+                ->when($excludeTripId, fn($q) => $q->where('id', '!=', $excludeTripId))
+                ->when(!empty($excludeTripIds), fn($q) => $q->whereNotIn('id', $excludeTripIds))
+                ->whereBetween('departure_time', [$dayStart, $dayEnd])
+                ->get();
+
+            $newTripMinutes = $dep->diffInMinutes($arr);
+            $existingDrivingMinutes = 0;
+            foreach ($dailyTrips as $dt) {
+                $existingDrivingMinutes += $dt->departure_time->diffInMinutes($dt->arrival_time);
+            }
+            $totalDailyMinutes = $existingDrivingMinutes + $newTripMinutes;
+            $maxDailyDrivingMinutes = 600; // 10 hours max
+
+            if ($totalDailyMinutes > $maxDailyDrivingMinutes) {
+                $totalHours = round($totalDailyMinutes / 60, 1);
+                $conflicts[] = "Driver Duty Limit Exceeded: Adding this trip would result in {$totalHours} hours of driving for {$driverName} on {$dep->format('d M Y')}. Maximum permitted daily driving limit is 10.0 hours.";
             }
         }
 

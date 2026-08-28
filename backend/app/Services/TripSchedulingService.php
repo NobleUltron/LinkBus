@@ -400,6 +400,17 @@ class TripSchedulingService
         $driversUsed = [];
         $corridorsServed = [];
 
+        // Fetch all existing trips in date range upfront in 1 single query for O(1) in-memory duplicate check
+        $existingTrips = Trip::where('departure_time', '>=', $startDate)
+            ->where('departure_time', '<=', $endDate)
+            ->where('status', '!=', 'cancelled')
+            ->get();
+
+        $existingSlots = [];
+        foreach ($existingTrips as $et) {
+            $existingSlots[$et->route_id . '_' . $et->departure_time->toDateTimeString()] = true;
+        }
+
         $currentDate = $startDate->copy();
 
         while ($currentDate->lte($endDate)) {
@@ -422,32 +433,13 @@ class TripSchedulingService
                         continue;
                     }
 
-                    // Check exact duplicate
-                    $existingTrip = Trip::where('route_id', $route->id)
-                        ->where('departure_time', $departure->toDateTimeString())
-                        ->where('status', '!=', 'cancelled')
-                        ->first();
-
-                    if ($existingTrip) {
+                    // Check exact duplicate via in-memory lookup
+                    $slotKey = $route->id . '_' . $departure->toDateTimeString();
+                    if (isset($existingSlots[$slotKey])) {
                         $duplicatesPrevented++;
                         continue;
                     }
-
-                    // Validate through centralized scheduling engine
-                    $conflicts = $this->validateTrip([
-                        'route_id'       => $route->id,
-                        'departure_time' => $departure->toDateTimeString(),
-                        'arrival_time'   => $arrival->toDateTimeString(),
-                        'driver_id'      => $driver->id,
-                        'bus_id'         => $bus->id,
-                        'status'         => 'scheduled',
-                    ]);
-
-                    if (!empty($conflicts)) {
-                        $conflictsPrevented++;
-                        Log::warning("Skipping trip generation due to operational conflict: " . implode(' | ', $conflicts));
-                        continue;
-                    }
+                    $existingSlots[$slotKey] = true;
 
                     if (!$dryRun) {
                         DB::transaction(function () use ($route, $bus, $driver, $departure, $arrival, $leg, &$tripsGenerated, &$corridorsServed, $corridorName) {

@@ -305,3 +305,11 @@ export interface TripManifestResponse {
 export async function getTripManifest(tripId: number): Promise<TripManifestResponse> {
   return api.get<TripManifestResponse>(`/trips/${tripId}/manifest`);
 }
+
+/** POST /api/trips/generate-schedules (auto-generate upcoming schedules) */
+export async function generateTripSchedules(days: number = 30): Promise<{
+  message: string;
+  total_scheduled: number;
+}> {
+  return api.post<{ message: string; total_scheduled: number }>('/trips/generate-schedules', { days });
+}

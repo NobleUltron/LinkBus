@@ -26,6 +26,8 @@ class TripController extends Controller
             'date'           => 'nullable|date',
         ]);
 
+        self::ensureUpcomingTrips();
+
         $query = Trip::with(['route.originTerminal', 'route.destinationTerminal', 'bus', 'driver.user'])
             ->whereIn('status', ['scheduled', 'boarding'])
             ->whereHas('route', function ($q) use ($request) {
@@ -79,6 +81,8 @@ class TripController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        self::ensureUpcomingTrips();
+
         $query = Trip::with(['route.originTerminal', 'route.destinationTerminal', 'bus', 'driver.user']);
 
         if ($request->filled('status')) {
@@ -448,81 +452,38 @@ class TripController extends Controller
             ->whereIn('status', ['scheduled', 'boarding'])
             ->count();
 
-        if ($upcomingCount >= 30) {
+        if ($upcomingCount >= 50) {
             return;
         }
 
-        $routes = \App\Models\BusRoute::where('status', 'active')->get();
-        $buses = \App\Models\Bus::where('status', 'active')->get();
-        $drivers = \App\Models\Driver::where('status', 'active')->get();
+        try {
+            \Illuminate\Support\Facades\Artisan::call('trips:generate', ['days' => 21]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Artisan trips:generate fallback: " . $e->getMessage());
+        }
+    }
 
-        if ($routes->isEmpty() || $buses->isEmpty() || $drivers->isEmpty()) {
-            return;
+    /**
+     * Web-based trigger to generate schedules for upcoming days without needing SSH/Shell.
+     */
+    public function generateSchedules(Request $request): JsonResponse
+    {
+        $days = (int) $request->input('days', 30);
+        $days = max(1, min(60, $days));
+
+        try {
+            \Illuminate\Support\Facades\Artisan::call('trips:generate', ['days' => $days]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to generate trips: " . $e->getMessage());
+            return response()->json(['message' => 'Failed to generate schedules: ' . $e->getMessage()], 500);
         }
 
-        $schedules = [
-            ['hour' => 6,  'min' => 30],
-            ['hour' => 8,  'min' => 00],
-            ['hour' => 10, 'min' => 00],
-            ['hour' => 12, 'min' => 30],
-            ['hour' => 14, 'min' => 00],
-            ['hour' => 16, 'min' => 30],
-        ];
+        $totalScheduled = Trip::where('status', 'scheduled')->where('departure_time', '>=', now())->count();
 
-        for ($day = 0; $day <= 7; $day++) {
-            $date = now()->addDays($day)->startOfDay();
-            foreach ($routes as $rIndex => $route) {
-                $sched = $schedules[$rIndex % count($schedules)];
-                $dep = $date->copy()->setTime($sched['hour'], $sched['min'], 0);
-                if ($dep->isPast()) {
-                    continue;
-                }
-                $arr = $dep->copy()->addMinutes($route->estimated_duration_minutes ?: 240);
-                $bus = $buses[$rIndex % $buses->count()];
-                $driver = $drivers[$rIndex % $drivers->count()];
-
-                $exists = Trip::where('route_id', $route->id)
-                    ->whereDate('departure_time', $dep->toDateString())
-                    ->whereTime('departure_time', $dep->toTimeString())
-                    ->exists();
-
-                if (!$exists) {
-                    $fare = $route->distance_km > 300 ? 35000 : ($route->distance_km > 150 ? 25000 : 20000);
-                    $trip = Trip::create([
-                        'route_id'        => $route->id,
-                        'bus_id'          => $bus->id,
-                        'driver_id'       => $driver->id,
-                        'departure_time'  => $dep,
-                        'arrival_time'    => $arr,
-                        'fare'            => $fare,
-                        'status'          => 'scheduled',
-                        'available_seats' => $bus->capacity,
-                    ]);
-
-                    $capacity = $bus->capacity;
-                    $seatClass = $bus->bus_type === 'vip' ? 'vip' : 'standard';
-                    $seats = [];
-                    $row = 1;
-                    $generated = 0;
-                    while ($generated < $capacity) {
-                        foreach (['A', 'B', 'C', 'D'] as $letter) {
-                            if ($generated >= $capacity) break;
-                            $seats[] = [
-                                'trip_id'     => $trip->id,
-                                'seat_number' => "{$row}{$letter}",
-                                'seat_class'  => $seatClass,
-                                'status'      => 'available',
-                                'created_at'  => now(),
-                                'updated_at'  => now(),
-                            ];
-                            $generated++;
-                        }
-                        $row++;
-                    }
-                    \App\Models\TripSeat::insert($seats);
-                }
-            }
-        }
+        return response()->json([
+            'message'         => "Successfully scheduled trips across all routes for the next {$days} days.",
+            'total_scheduled' => $totalScheduled,
+        ]);
     }
 
     public static function cleanupExpiredLocks(?int $tripId = null): void

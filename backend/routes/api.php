@@ -203,6 +203,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Trips scheduling
         Route::get('/trips/check-conflicts',    [TripController::class, 'checkConflicts']);
         Route::post('/trips',                   [TripController::class, 'store']);
+        Route::post('/trips/generate-schedules',[TripController::class, 'generateSchedules']);
 
         // Reports & analytics
         Route::get('/reports/dashboard',            [ReportController::class, 'dashboard']);

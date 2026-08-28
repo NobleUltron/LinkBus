@@ -39,7 +39,7 @@ import { usePaginated } from '../../hooks/usePaginated';
 import { adminReleaseSeatLock } from '../../services/bookings';
 import { getReferenceData, routeName } from '../../services/reference';
 import { getTripManifestWithHolds, type ManifestHeldSeat, type TicketDetail } from '../../services/tickets';
-import { createTrip, deleteTrip, listTrips, updateTrip } from '../../services/trips';
+import { createTrip, deleteTrip, generateTripSchedules, listTrips, updateTrip } from '../../services/trips';
 import type { TripDetail } from '../../types/api';
 import {
   countdownLabel,
@@ -83,6 +83,7 @@ export function Trips() {
   const [manifestLoading, setManifestLoading] = useState(false);
   const [manifestFilter, setManifestFilter] = useState<'all' | 'boarded' | 'pending' | 'holds'>('all');
   const [manifestSearch, setManifestSearch] = useState('');
+  const [generating, setGenerating] = useState(false);
 
   // Add Trip Modal State
   const [addOpen, setAddOpen] = useState(false);
@@ -230,6 +231,19 @@ export function Trips() {
   const boardedCount = manifest?.filter((t) => Boolean(t.boarded_at)).length ?? 0;
   const totalBookedCount = manifest?.length ?? 0;
   const boardedPct = totalBookedCount > 0 ? Math.round((boardedCount / totalBookedCount) * 100) : 0;
+
+  const handleAutoGenerateSchedules = async () => {
+    setGenerating(true);
+    try {
+      const res = await generateTripSchedules(30);
+      toast.success(res.message || '30-Day departure schedules generated successfully.');
+      state.reload();
+    } catch (err) {
+      toast.error(errorMessage(err) || 'Failed to auto-generate schedules.');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const submitAddTrip = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -586,7 +600,15 @@ export function Trips() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            icon={<SparklesIcon className="h-4 w-4 text-brand-600 dark:text-brand-400" />}
+            onClick={handleAutoGenerateSchedules}
+            loading={generating}
+          >
+            ⚡ Auto-Generate Schedules
+          </Button>
           <Button
             variant="outline"
             icon={<FileSpreadsheetIcon className="h-4 w-4" />}
@@ -597,6 +619,7 @@ export function Trips() {
           <Button
             icon={<PlusIcon className="h-4 w-4" />}
             onClick={() => setAddOpen(true)}
+            className="bg-brand-600 hover:bg-brand-700 text-white font-bold"
           >
             + Schedule New Departure
           </Button>
@@ -799,7 +822,21 @@ export function Trips() {
                   <Button variant="outline" onClick={state.clearFilters}>
                     Clear filters
                   </Button>
-                ) : undefined
+                ) : (
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Button
+                      icon={<SparklesIcon className="h-4 w-4" />}
+                      onClick={handleAutoGenerateSchedules}
+                      loading={generating}
+                      className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs"
+                    >
+                      ⚡ Auto-Generate 30-Day Schedules
+                    </Button>
+                    <Button variant="outline" onClick={() => setAddOpen(true)} className="text-xs">
+                      + Schedule Manually
+                    </Button>
+                  </div>
+                )
               }
             />
           }

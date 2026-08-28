@@ -216,7 +216,12 @@ class BookingController extends Controller
             }
 
             // Calculate amounts
-            $subtotal = $seats->sum('price');
+            $subtotal = $seats->sum(function ($s) use ($trip) {
+                if ($s->seat_class === 'vip') {
+                    return (int) round($trip->fare * 1.3);
+                }
+                return (int) $trip->fare;
+            });
             $discount = 0;
             $appliedPromoCode = null;
 
@@ -304,6 +309,26 @@ class BookingController extends Controller
                 'status'         => $paymentStatus,
                 'transaction_id' => $isPaid ? Payment::generateTransactionId($data['payment_method']) : null,
             ]);
+
+            // Atomically record in shift transaction ledger if associated with an active shift
+            if ($shiftId && $isPaid) {
+                $shiftModel = \App\Models\Shift::find($shiftId);
+                if ($shiftModel) {
+                    \App\Models\ShiftTransaction::recordEvent($shiftModel, [
+                        'user_id'         => $user->id,
+                        'type'            => 'cash_sale_ticket',
+                        'amount'          => $total,
+                        'direction'       => 'inflow',
+                        'payment_method'  => $data['payment_method'],
+                        'category'        => 'Ticket Sale',
+                        'reason'          => "Counter ticket sale for Booking #{$booking->booking_number} (" . count($data['seats']) . " seats)",
+                        'authorized_by'   => $user->name,
+                        'source_type'     => \App\Models\Booking::class,
+                        'source_id'       => $booking->id,
+                        'idempotency_key' => "booking-{$booking->id}-sale",
+                    ]);
+                }
+            }
 
             // Update trip available seats
             $trip->recomputeAvailableSeats();
@@ -765,7 +790,7 @@ class BookingController extends Controller
             ], 403);
         }
 
-        DB::transaction(function () use ($booking, $activeShift) {
+        DB::transaction(function () use ($booking, $activeShift, $user) {
             $booking->update([
                 'status'   => 'confirmed',
                 'shift_id' => $activeShift->id,
@@ -782,6 +807,21 @@ class BookingController extends Controller
                     'transaction_id' => 'CSH-' . strtoupper(uniqid()),
                 ]
             );
+
+            // Atomically record in shift transaction ledger
+            \App\Models\ShiftTransaction::recordEvent($activeShift, [
+                'user_id'         => $user->id,
+                'type'            => 'cash_sale_ticket',
+                'amount'          => $booking->total_amount,
+                'direction'       => 'inflow',
+                'payment_method'  => 'cash',
+                'category'        => 'Cash Collection',
+                'reason'          => "Station cash payment confirmed for Booking #{$booking->booking_number}",
+                'authorized_by'   => $user->name,
+                'source_type'     => \App\Models\Booking::class,
+                'source_id'       => $booking->id,
+                'idempotency_key' => "booking-{$booking->id}-confirm-cash",
+            ]);
         });
 
         $booking->loadMissing(['trip.route.originTerminal', 'trip.route.destinationTerminal', 'trip.bus', 'tickets.seat', 'payment', 'payments']);

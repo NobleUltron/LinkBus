@@ -7,6 +7,7 @@ use App\Models\Parcel;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ParcelController extends Controller
 {
@@ -148,13 +149,33 @@ class ParcelController extends Controller
             $shiftId = $activeShift->id;
         }
 
-        $parcel = Parcel::create([
-            ...$data,
-            'tracking_number' => Parcel::generateTrackingNumber(),
-            'payment_method'  => $paymentMethod,
-            'shift_id'        => $shiftId,
-            'status'          => 'received',
-        ]);
+        $parcel = DB::transaction(function () use ($data, $paymentMethod, $shiftId, $request, $activeShift) {
+            $p = Parcel::create([
+                ...$data,
+                'tracking_number' => Parcel::generateTrackingNumber(),
+                'payment_method'  => $paymentMethod,
+                'shift_id'        => $shiftId,
+                'status'          => 'received',
+            ]);
+
+            if ($activeShift && ($p->price ?? 0) > 0) {
+                \App\Models\ShiftTransaction::recordEvent($activeShift, [
+                    'user_id'         => $request->user()->id,
+                    'type'            => 'cash_fee_parcel',
+                    'amount'          => (int) $p->price,
+                    'direction'       => 'inflow',
+                    'payment_method'  => $paymentMethod,
+                    'category'        => 'Parcel Freight',
+                    'reason'          => "Courier freight fee for Waybill #{$p->tracking_number} ({$p->weight_kg}kg)",
+                    'authorized_by'   => $request->user()->name,
+                    'source_type'     => \App\Models\Parcel::class,
+                    'source_id'       => $p->id,
+                    'idempotency_key' => "parcel-{$p->id}-fee",
+                ]);
+            }
+
+            return $p;
+        });
 
         $parcel->load(['originTerminal', 'destinationTerminal']);
 

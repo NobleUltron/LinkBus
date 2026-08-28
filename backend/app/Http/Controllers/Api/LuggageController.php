@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class LuggageController extends Controller
 {
@@ -146,31 +147,46 @@ class LuggageController extends Controller
             $shiftId = $activeShift->id;
         }
 
-        // 2. Create the Luggage record
-        $luggage = Luggage::create([
-            ...$data,
-            'tag_number'     => Luggage::generateTagNumber(),
-            'payment_method' => $paymentMethod,
-            'price'          => $excessFee,
-            'shift_id'       => $shiftId,
-            'status'         => 'checked_in',
-        ]);
-
-        // 3. If excess fee is charged, record a completed Payment transaction & update booking total
-        if ($excessFee > 0) {
-            Payment::create([
-                'booking_id'     => $bookingId,
-                'method'         => $paymentMethod,
-                'amount'         => $excessFee,
-                'status'         => 'completed',
-                'transaction_id' => Payment::generateTransactionId($paymentMethod),
+        // 2. Create the Luggage record and atomic ledger entry
+        $luggage = DB::transaction(function () use ($data, $paymentMethod, $excessFee, $shiftId, $bookingId, $request, $activeShift) {
+            $l = Luggage::create([
+                ...$data,
+                'tag_number'     => Luggage::generateTagNumber(),
+                'payment_method' => $paymentMethod,
+                'price'          => $excessFee,
+                'shift_id'       => $shiftId,
+                'status'         => 'checked_in',
             ]);
 
-            $booking = Booking::find($bookingId);
-            if ($booking) {
-                $booking->increment('total_amount', $excessFee);
+            // 3. If excess fee is charged, record a completed Payment transaction
+            if ($excessFee > 0) {
+                Payment::create([
+                    'booking_id'     => $bookingId,
+                    'method'         => $paymentMethod,
+                    'amount'         => $excessFee,
+                    'status'         => 'completed',
+                    'transaction_id' => Payment::generateTransactionId($paymentMethod),
+                ]);
+
+                if ($activeShift) {
+                    \App\Models\ShiftTransaction::recordEvent($activeShift, [
+                        'user_id'         => $request->user()->id,
+                        'type'            => 'cash_fee_luggage',
+                        'amount'          => $excessFee,
+                        'direction'       => 'inflow',
+                        'payment_method'  => $paymentMethod,
+                        'category'        => 'Excess Luggage',
+                        'reason'          => "Excess baggage fee for Tag #{$l->tag_number} ({$l->weight_kg}kg)",
+                        'authorized_by'   => $request->user()->name,
+                        'source_type'     => \App\Models\Luggage::class,
+                        'source_id'       => $l->id,
+                        'idempotency_key' => "luggage-{$l->id}-fee",
+                    ]);
+                }
             }
-        }
+
+            return $l;
+        });
 
         $luggage->load([
             'booking.trip.route.originTerminal',

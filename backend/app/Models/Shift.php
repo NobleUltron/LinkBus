@@ -24,6 +24,7 @@ class Shift extends Model
         'status',
         'opened_at',
         'closed_at',
+        'closed_by_user_id',
         'supervisor_name',
         'variance_reason',
         'closing_notes',
@@ -44,6 +45,11 @@ class Shift extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function closedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'closed_by_user_id');
     }
 
     public function terminal(): BelongsTo
@@ -88,6 +94,11 @@ class Shift extends Model
         return $query->where('status', 'closed');
     }
 
+    public function scopeSuspended($query)
+    {
+        return $query->where('status', 'suspended');
+    }
+
     public function scopeForUser($query, int $userId)
     {
         return $query->where('user_id', $userId);
@@ -97,8 +108,8 @@ class Shift extends Model
 
     /**
      * Calculates the exact expected physical cash sitting in the till.
-     * Expected Cash = Starting Float + Inflows (Cash Tickets + Cash Luggage + Cash Parcels + Cash-In Topups)
-     *               - Outflows (Petty Expenses + Safe Drops + Cash Refunds)
+     * Expected Cash = Starting Float + Inflows (Cash Tickets + Cash Luggage + Cash Parcels + Cash-In Topups + Cash Adjustments)
+     *               - Outflows (Petty Expenses + Safe Drops + Cash Refunds + Cash Out Adjustments)
      */
     public function calculateExpectedCash(): int
     {
@@ -118,25 +129,43 @@ class Shift extends Model
             ->where('payment_method', 'cash')
             ->sum('price');
 
-        // Cash Movements
+        // Cash Movements from Immutable Drawer Transactions
         $cashIn = (int) $this->transactions()
             ->where('type', 'cash_in')
+            ->where('payment_method', 'cash')
             ->sum('amount');
 
         $pettyExpenses = (int) $this->transactions()
             ->where('type', 'petty_expense')
+            ->where('payment_method', 'cash')
             ->sum('amount');
 
         $safeDrops = (int) $this->transactions()
             ->where('type', 'safe_drop')
+            ->where('payment_method', 'cash')
             ->sum('amount');
 
         $refunds = (int) $this->transactions()
             ->where('type', 'refund')
+            ->where('payment_method', 'cash')
             ->sum('amount');
 
-        return ($openingFloat + $ticketCash + $luggageCash + $parcelCash + $cashIn)
-            - ($pettyExpenses + $safeDrops + $refunds);
+        $adjustmentsIn = (int) $this->transactions()
+            ->where('type', 'adjustment')
+            ->where('direction', 'inflow')
+            ->where('payment_method', 'cash')
+            ->sum('amount');
+
+        $adjustmentsOut = (int) $this->transactions()
+            ->where('type', 'adjustment')
+            ->where('direction', 'outflow')
+            ->where('payment_method', 'cash')
+            ->sum('amount');
+
+        $expected = ($openingFloat + $ticketCash + $luggageCash + $parcelCash + $cashIn + $adjustmentsIn)
+            - ($pettyExpenses + $safeDrops + $refunds + $adjustmentsOut);
+
+        return max(0, $expected);
     }
 
     /**
@@ -180,8 +209,7 @@ class Shift extends Model
         $refundsTotal = (int) $txs->where('type', 'refund')->sum('amount');
 
         $openingFloat = (int) $this->starting_cash;
-        $expectedCash = ($openingFloat + $ticketCash + $luggageCash + $parcelCash + $cashInTotal)
-            - ($expensesTotal + $safeDropsTotal + $refundsTotal);
+        $expectedCash = $this->calculateExpectedCash();
 
         $expectedMomo = $ticketMomo + $luggageMomo + $parcelMomo;
         $expectedAirtel = $ticketAirtel + $luggageAirtel + $parcelAirtel;
@@ -200,8 +228,10 @@ class Shift extends Model
             'cashier_id'            => $this->user_id,
             'cashier_name'          => $this->user?->name ?? 'Counter Clerk',
             'supervisor_name'       => $this->supervisor_name ?? 'Station Duty Supervisor',
+            'closed_by_name'        => $this->closedBy?->name ?? null,
 
             'opening_float'         => $openingFloat,
+            'starting_cash'         => $openingFloat,
             'cash_in_total'         => $cashInTotal,
             'cash_out_expenses'     => $expensesTotal,
             'safe_drops_total'      => $safeDropsTotal,
@@ -239,6 +269,7 @@ class Shift extends Model
 
             'actual_counted_cash'   => $this->actual_cash,
             'variance_cash'         => $this->difference,
+            'difference'            => $this->difference,
             'variance_reason'       => $this->variance_reason,
             'closing_notes'         => $this->closing_notes,
             'denominations'         => $this->denominations,

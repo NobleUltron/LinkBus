@@ -171,6 +171,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/shifts/open',                        [ShiftController::class, 'open']);
         Route::post('/shifts/close',                       [ShiftController::class, 'close']);
         Route::post('/shifts/transactions',                [ShiftController::class, 'addTransaction']);
+        Route::post('/shifts/{shift}/reopen',              [ShiftController::class, 'reopen']);
         Route::get('/shifts/history',                      [ShiftController::class, 'history']);
         Route::get('/shifts/{shift}/report',               [ShiftController::class, 'report']);
 

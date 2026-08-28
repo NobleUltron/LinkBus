@@ -268,101 +268,11 @@ export async function getActiveShiftMetrics(terminalId: number = 1): Promise<Act
       return null;
     }
   } catch {
-    // Local fallback
+    // Return cached state if offline/network error
+    return getStoredActiveShift();
   }
 
-  const existing = getStoredActiveShift();
-  if (existing) return existing;
-
-  // Default seed open shift if never initialized
-  const defaultShift: ActiveShiftMetrics = {
-    shift_id: 101,
-    shift_code: 'SHF-ACTIVE-001',
-    status: 'open',
-    opened_at: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-    terminal_id: 1,
-    terminal_name: 'Namayiba / Central Terminal',
-    terminal_city: 'Kampala',
-    cashier_id: 1,
-    cashier_name: 'Counter Cashier',
-    supervisor_name: 'Robert Mugisha (Station Supervisor)',
-
-    opening_float: 100000,
-    cash_in_total: 50000,
-    cash_out_expenses: 25000,
-    safe_drops_total: 0,
-    cash_refunds_total: 0,
-    drawer_transactions: [
-      {
-        id: 1,
-        shift_id: 101,
-        type: 'float_in',
-        amount: 100000,
-        category: 'Opening Float',
-        reason: 'Shift opening till float change',
-        authorized_by: 'Robert Mugisha',
-        created_at: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-      },
-      {
-        id: 2,
-        shift_id: 101,
-        type: 'cash_in',
-        amount: 50000,
-        category: 'Midday Float Top-up',
-        reason: 'Added 50k in small 1k/2k notes for rush hour change',
-        authorized_by: 'Robert Mugisha',
-        created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-      },
-      {
-        id: 3,
-        shift_id: 101,
-        type: 'petty_expense',
-        amount: 25000,
-        category: 'Receipt Paper & Sanitizer',
-        reason: 'Bought POS receipt roll paper',
-        authorized_by: 'Robert Mugisha',
-        created_at: new Date(Date.now() - 1 * 3600 * 1000).toISOString(),
-      },
-    ],
-
-    ticket_sales_cash: 680000,
-    ticket_sales_momo: 340000,
-    ticket_sales_airtel: 150000,
-    ticket_sales_card: 70000,
-    ticket_sales_total: 1240000,
-    ticket_count: 28,
-
-    luggage_fees_cash: 54000,
-    luggage_fees_momo: 18000,
-    luggage_fees_airtel: 8000,
-    luggage_fees_total: 80000,
-    luggage_count: 9,
-
-    parcel_fees_cash: 125000,
-    parcel_fees_momo: 35000,
-    parcel_fees_airtel: 20000,
-    parcel_fees_total: 180000,
-    parcel_count: 8,
-
-    // 100k (float) + 50k (cash-in) + 680k (tickets) + 54k (luggage) + 125k (parcels) - 25k (expense) = 984,000 UGX
-    system_expected_cash: 984000,
-    system_expected_momo: 393000,
-    system_expected_airtel: 178000,
-    system_expected_card: 70000,
-    system_expected_total: 1625000,
-  };
-
-  try {
-    const raw = localStorage.getItem(ACTIVE_SHIFT_KEY);
-    if (raw === null) {
-      localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(defaultShift));
-      return defaultShift;
-    }
-  } catch {
-    // ignore
-  }
-
-  return null;
+  return getStoredActiveShift();
 }
 
 /**
@@ -735,4 +645,19 @@ export function recordParcelToActiveShift(params: {
 
   localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(shift));
   notifyShiftUpdated();
+}
+
+/**
+ * Supervisor / Admin authorized action to reopen a closed shift with audit reason.
+ */
+export async function reopenShift(shiftId: number, reason: string): Promise<ActiveShiftMetrics> {
+  const res = await api.post<{ message: string; shift: ActiveShiftMetrics }>(`/shifts/${shiftId}/reopen`, {
+    reason,
+  });
+  if (res && res.shift) {
+    localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(res.shift));
+    notifyShiftUpdated();
+    return res.shift;
+  }
+  throw new Error('Failed to reopen shift.');
 }

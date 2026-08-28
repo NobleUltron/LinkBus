@@ -53,6 +53,7 @@ import {
 import type { TripDetail } from '../../types/api';
 import {
   countdownLabel,
+  formatDate,
   formatDateTime,
   formatTime,
   money,

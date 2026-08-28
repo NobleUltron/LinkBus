@@ -436,6 +436,135 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
     };
   }, [state.rows, state.meta.total]);
 
+  const renderMobileBookingCard = (booking: BookingDetail) => {
+    const firstTicket = booking.tickets[0];
+    const name = firstTicket?.passenger_name ?? booking.passenger?.name ?? 'Walk-in Passenger';
+    const phone = firstTicket?.passenger_phone ?? booking.passenger?.phone ?? '';
+    const seatsList = booking.seats.map((s) => s.seat_number);
+    const origin = booking.trip?.origin?.city ?? '—';
+    const dest = booking.trip?.destination?.city ?? '—';
+
+    return (
+      <div className="p-4 bg-surface hover:bg-surface-2/60 transition-colors space-y-3">
+        {/* Top row: Booking Ref, Date, Status */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 font-mono text-xs font-black text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line">
+              <TicketIcon className="h-3 w-3 text-brand-600" />
+              #{booking.booking_number}
+            </span>
+            <span className="text-[0.6875rem] text-muted">{formatDateTime(booking.created_at)}</span>
+          </div>
+          <StatusPill status={booking.status} />
+        </div>
+
+        {/* Corridor & Route */}
+        <div className="rounded-xl bg-surface-2/80 p-2.5 border border-line/60">
+          <div className="flex items-center gap-1.5 font-bold text-sm text-fg">
+            <span>{origin}</span>
+            <span className="text-brand-600 font-extrabold">➔</span>
+            <span>{dest}</span>
+          </div>
+          <p className="text-[0.6875rem] text-muted flex items-center gap-1 mt-0.5">
+            <CalendarClockIcon className="h-3 w-3 text-brand-600" />
+            {booking.trip?.departure_time ? formatDateTime(booking.trip.departure_time) : '—'}
+          </p>
+        </div>
+
+        {/* Passenger & Seats */}
+        <div className="flex items-start justify-between gap-2 text-xs">
+          <div className="min-w-0">
+            <p className="font-bold text-fg text-sm truncate">{name}</p>
+            {phone && (
+              <a
+                href={`tel:${phone}`}
+                className="inline-flex items-center gap-1 font-mono text-xs text-muted hover:text-brand-600 mt-0.5"
+              >
+                <PhoneIcon className="h-2.5 w-2.5" />
+                {phone}
+              </a>
+            )}
+          </div>
+          <div className="text-right shrink-0">
+            <span className="text-[0.625rem] text-muted block mb-0.5">Seats</span>
+            <div className="flex flex-wrap justify-end gap-1">
+              {seatsList.map((sn) => (
+                <span
+                  key={sn}
+                  className="inline-flex items-center rounded-md border border-brand-500/30 bg-brand-500/10 px-1.5 py-0.5 font-mono text-[0.6875rem] font-black text-brand-700 dark:text-brand-300"
+                >
+                  {sn}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Payment & Total Amount */}
+        <div className="flex items-center justify-between pt-1 border-t border-line/40">
+          <div className="flex items-center gap-1 text-xs text-muted">
+            {renderPaymentIcon(booking.payment_method)}
+            <span className="capitalize">{titleCase(booking.payment_method.replace(/_/g, ' '))}</span>
+          </div>
+          <div className="text-right">
+            <span className="font-extrabold text-sm tabular-nums text-fg">{money(booking.total_amount)}</span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap items-center justify-end gap-1.5 pt-2 border-t border-line/50">
+          {booking.status === 'pending' && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCashModalBooking(booking);
+              }}
+              className="flex-1 min-h-[38px] inline-flex items-center justify-center gap-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-2 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 active:scale-95 transition-all shadow-2xs"
+            >
+              <BanknoteIcon className="h-3.5 w-3.5" />
+              Collect Cash
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleShareWhatsApp(booking);
+            }}
+            title="Share on WhatsApp"
+            className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl border border-line bg-surface p-2 text-xs font-bold text-muted hover:text-emerald-600 hover:bg-emerald-500/10 active:scale-95 transition-all"
+          >
+            <MessageSquareIcon className="h-4 w-4" aria-hidden />
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setReceipt(booking);
+            }}
+            title="Receipt"
+            className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl border border-line bg-surface p-2 text-xs font-bold text-muted hover:text-fg hover:bg-surface-2 active:scale-95 transition-all"
+          >
+            <ReceiptTextIcon className="h-4 w-4" aria-hidden />
+          </button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => open(booking)}
+            className="min-h-[38px] text-xs font-bold"
+            icon={<EyeIcon className="h-3.5 w-3.5" />}
+          >
+            Manage
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Page Header ── */}
@@ -638,6 +767,7 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
           onRetry={state.reload}
           onRowClick={open}
           caption="Bookings"
+          mobileCardRender={renderMobileBookingCard}
           empty={
             <EmptyState
               icon={<CalendarClockIcon className="h-6 w-6 text-brand-600" aria-hidden />}

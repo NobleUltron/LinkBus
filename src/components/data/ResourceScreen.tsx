@@ -63,6 +63,7 @@ export interface ResourceScreenProps<T extends { id: number }> {
   withDateRange?: boolean;
   dateRangeDirection?: 'past' | 'future';
   renderCards?: (metrics: { rows: T[]; meta: { total: number; current_page: number; last_page: number } }) => React.ReactNode;
+  mobileCardRender?: (row: T) => React.ReactNode;
   renderModal?: (props: {
     open: boolean;
     mode: 'create' | 'edit';
@@ -95,6 +96,7 @@ export function ResourceScreen<T extends { id: number }>({
   withDateRange = false,
   dateRangeDirection = 'past',
   renderCards,
+  mobileCardRender,
   renderModal,
 }: ResourceScreenProps<T>) {
   const isFuture = dateRangeDirection === 'future';
@@ -301,6 +303,7 @@ export function ResourceScreen<T extends { id: number }>({
           error={state.error}
           onRetry={state.reload}
           caption={plural}
+          mobileCardRender={mobileCardRender}
           empty={
             <EmptyState
               title={state.activeFilterCount > 0 ? `No ${plural.toLowerCase()} match those filters` : emptyTitle}

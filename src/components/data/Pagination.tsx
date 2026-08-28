@@ -33,8 +33,8 @@ export function Pagination({
   const pages = pageWindow(currentPage, lastPage);
 
   return (
-    <nav aria-label="Pagination" className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3">
-      <div className="flex flex-wrap items-center gap-4">
+    <nav aria-label="Pagination" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-line px-3 sm:px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2 sm:gap-4 w-full sm:w-auto">
         <p className="text-xs tabular-nums text-muted">
           Showing <span className="font-semibold text-fg">{from}</span>–<span className="font-semibold text-fg">{to}</span> of{' '}
           <span className="font-semibold text-fg">{total.toLocaleString()}</span> {label}
@@ -42,61 +42,71 @@ export function Pagination({
 
         {onPerPageChange && (
           <div className="flex items-center gap-1.5 text-xs text-muted">
-            <span>Show</span>
+            <span className="hidden xs:inline">Show</span>
             <select
               value={perPage}
               onChange={(e) => onPerPageChange(Number(e.target.value))}
-              className="h-7 rounded-lg border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-fg focus:border-brand-600 focus:outline-none"
+              aria-label="Select records per page"
+              className="h-8 rounded-lg border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-fg focus:border-brand-600 focus:outline-none"
             >
               {pageSizeOptions.map((size) => (
                 <option key={size} value={size}>
-                  {size}
+                  {size} / page
                 </option>
               ))}
             </select>
-            <span>per page</span>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between sm:justify-end gap-1 w-full sm:w-auto pt-1 sm:pt-0">
         <button
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
           aria-label="Previous page"
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-9 min-w-[2.25rem] px-2.5 items-center justify-center gap-1 rounded-xl border border-line text-xs font-semibold text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 active:scale-95 touch-manipulation"
         >
           <ChevronLeftIcon className="h-4 w-4" aria-hidden />
+          <span className="inline sm:hidden">Prev</span>
         </button>
 
-        {pages.map((page, index) => {
-          const previous = pages[index - 1];
-          const gap = previous !== undefined && page - previous > 1;
-          return (
-            <React.Fragment key={page}>
-              {gap && <span className="px-1 text-xs text-faint">…</span>}
-              <button
-                type="button"
-                onClick={() => onPageChange(page)}
-                aria-current={page === currentPage ? 'page' : undefined}
-                className={`h-8 min-w-8 rounded-lg px-2 text-xs font-semibold tabular-nums transition-colors duration-150 ${
-                  page === currentPage ? 'bg-brand-600 text-white' : 'border border-line text-muted hover:bg-surface-2 hover:text-fg'
-                }`}
-              >
-                {page}
-              </button>
-            </React.Fragment>
-          );
-        })}
+        {/* Compact Page Indicator on Mobile */}
+        <span className="inline-block sm:hidden text-xs font-bold text-fg tabular-nums px-2">
+          {currentPage} / {lastPage}
+        </span>
+
+        {/* Full Page Pills on Tablet & Desktop */}
+        <div className="hidden sm:flex items-center gap-1">
+          {pages.map((page, index) => {
+            const previous = pages[index - 1];
+            const gap = previous !== undefined && page - previous > 1;
+            return (
+              <React.Fragment key={page}>
+                {gap && <span className="px-1 text-xs text-faint">…</span>}
+                <button
+                  type="button"
+                  onClick={() => onPageChange(page)}
+                  aria-current={page === currentPage ? 'page' : undefined}
+                  className={`h-8 min-w-8 rounded-lg px-2 text-xs font-semibold tabular-nums transition-colors duration-150 active:scale-95 ${
+                    page === currentPage ? 'bg-brand-600 text-white shadow-sm' : 'border border-line text-muted hover:bg-surface-2 hover:text-fg'
+                  }`}
+                >
+                  {page}
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </div>
 
         <button
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= lastPage}
           aria-label="Next page"
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-9 min-w-[2.25rem] px-2.5 items-center justify-center gap-1 rounded-xl border border-line text-xs font-semibold text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 active:scale-95 touch-manipulation"
         >
+          <span className="inline sm:hidden">Next</span>
           <ChevronRightIcon className="h-4 w-4" aria-hidden />
         </button>
       </div>

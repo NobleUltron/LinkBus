@@ -23,6 +23,7 @@ interface DataTableProps<T> {
   caption?: string;
   maxHeight?: string;
   containerClassName?: string;
+  mobileCardRender?: (row: T) => React.ReactNode;
 }
 
 const hideClass = {
@@ -44,18 +45,36 @@ export function DataTable<T>({
   caption,
   maxHeight,
   containerClassName = '',
+  mobileCardRender,
 }: DataTableProps<T>) {
   if (loading) return <SkeletonTable columns={Math.min(columns.length, 6)} />;
   if (error) return <ErrorState message={error} onRetry={onRetry} />;
   if (rows.length === 0) return <>{empty}</>;
 
   return (
-    <div
-      className={`thin-scroll relative w-full max-w-full overflow-x-auto overscroll-x-contain ${
-        maxHeight ? 'overflow-y-auto' : ''
-      } ${containerClassName}`}
-      style={maxHeight ? { maxHeight } : undefined}
-    >
+    <>
+      {/* ── Mobile Card View (< 768px) ── */}
+      {mobileCardRender && (
+        <div className="md:hidden divide-y divide-line/60">
+          {rows.map((row) => (
+            <div
+              key={rowKey(row)}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              className={onRowClick ? 'cursor-pointer' : undefined}
+            >
+              {mobileCardRender(row)}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Desktop & Tablet Table (≥ 768px, or fallback for all viewports) ── */}
+      <div
+        className={`thin-scroll relative w-full max-w-full overflow-x-auto overscroll-x-contain ${
+          mobileCardRender ? 'hidden md:block' : ''
+        } ${maxHeight ? 'overflow-y-auto' : ''} ${containerClassName}`}
+        style={maxHeight ? { maxHeight } : undefined}
+      >
       <table className="data-table w-full min-w-[44rem] border-collapse">
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
@@ -119,5 +138,6 @@ export function DataTable<T>({
         </tbody>
       </table>
     </div>
+    </>
   );
 }

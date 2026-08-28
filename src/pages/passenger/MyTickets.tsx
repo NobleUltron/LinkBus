@@ -187,7 +187,7 @@ export function MyTickets() {
                 </div>
 
                 {/* Ticket Body Content */}
-                <div className="grid grid-cols-[1fr_auto] gap-4 p-5">
+                <div className="flex flex-col-reverse sm:grid sm:grid-cols-[1fr_auto] gap-4 p-4 sm:p-5">
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
                     <div>
                       <dt className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">
@@ -232,9 +232,9 @@ export function MyTickets() {
                   </dl>
 
                   {/* QR Barcode Preview */}
-                  <div className="flex flex-col items-center justify-center border-l border-line/60 pl-4">
+                  <div className="flex flex-row sm:flex-col items-center justify-center border-b sm:border-b-0 sm:border-l border-line/60 pb-3 sm:pb-0 sm:pl-4 gap-3 sm:gap-0">
                     <QrCode value={ticket.qr_code} size={88} />
-                    <span className="text-[0.5625rem] font-mono text-muted mt-1">Scan at Gate</span>
+                    <span className="text-[0.625rem] sm:text-[0.5625rem] font-mono text-muted sm:mt-1">Scan at Departure Gate</span>
                   </div>
                 </div>
 

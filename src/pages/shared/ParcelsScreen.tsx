@@ -565,6 +565,110 @@ export function ParcelsScreen() {
     },
   ];
 
+  const renderMobileParcelCard = (parcel: ParcelDetail) => {
+    return (
+      <div className="p-4 bg-surface hover:bg-surface-2/60 transition-colors space-y-3">
+        {/* Top row: Tracking #, Date, Status */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 font-mono text-xs font-black text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line">
+              <PackageIcon className="h-3 w-3 text-brand-600" />
+              #{parcel.tracking_number}
+            </span>
+            <span className="text-[0.6875rem] text-muted">{formatDateTime(parcel.created_at)}</span>
+          </div>
+          <StatusPill status={parcel.status} />
+        </div>
+
+        {/* Corridor */}
+        <div className="rounded-xl bg-surface-2/80 p-2.5 border border-line/60">
+          <div className="flex items-center gap-1.5 font-bold text-sm text-fg">
+            <span>{parcel.origin_city}</span>
+            <span className="text-brand-600 font-extrabold">➔</span>
+            <span>{parcel.destination_city}</span>
+          </div>
+          {parcel.description && (
+            <p className="text-xs text-muted truncate mt-0.5">{parcel.description}</p>
+          )}
+        </div>
+
+        {/* Sender & Recipient */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-lg border border-line bg-surface p-2">
+            <span className="text-[0.625rem] text-muted block">Sender</span>
+            <p className="font-bold text-fg truncate">{parcel.sender_name}</p>
+            {parcel.sender_phone && (
+              <a href={`tel:${parcel.sender_phone}`} className="text-[0.6875rem] font-mono text-muted hover:text-brand-600 block">
+                {parcel.sender_phone}
+              </a>
+            )}
+          </div>
+          <div className="rounded-lg border border-line bg-surface p-2">
+            <span className="text-[0.625rem] text-muted block">Recipient</span>
+            <p className="font-bold text-fg truncate">{parcel.recipient_name}</p>
+            {parcel.recipient_phone && (
+              <a href={`tel:${parcel.recipient_phone}`} className="text-[0.6875rem] font-mono text-brand-600 dark:text-brand-400 hover:underline block">
+                {parcel.recipient_phone}
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Weight & Price */}
+        <div className="flex items-center justify-between pt-1 border-t border-line/40 text-xs">
+          <span className="text-muted">Weight: <strong className="text-fg font-extrabold">{parcel.weight_kg} kg</strong></span>
+          <span className="font-extrabold text-sm tabular-nums text-fg">{money(parcel.price)}</span>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap items-center justify-end gap-1.5 pt-2 border-t border-line/50">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 min-h-[38px] text-xs font-bold"
+            icon={<PrinterIcon className="h-3.5 w-3.5 text-brand-600" />}
+            onClick={() => setSelectedTag(parcel)}
+          >
+            Waybill Tag
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 min-h-[38px] text-xs font-bold"
+            icon={<PencilIcon className="h-3.5 w-3.5 text-amber-600" />}
+            onClick={() => openEditModal(parcel)}
+          >
+            Edit
+          </Button>
+
+          <select
+            aria-label={`Status for parcel ${parcel.tracking_number}`}
+            value={parcel.status}
+            onChange={(event) =>
+              handleQuickStatusChange(parcel, event.target.value as ParcelDetail['status'])
+            }
+            className="field !h-[38px] w-auto text-xs font-semibold"
+          >
+            {statusOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={() => setDeleting(parcel)}
+            className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 p-2 text-xs font-bold text-red-600 hover:bg-red-500/20 active:scale-95 transition-all"
+          >
+            <Trash2Icon className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   if (terminals.loading) {
     return (
       <Panel bodyClassName="">
@@ -775,6 +879,7 @@ export function ParcelsScreen() {
           error={state.error}
           onRetry={state.reload}
           caption="Courier Shipments"
+          mobileCardRender={renderMobileParcelCard}
           empty={
             <EmptyState
               icon={<PackageIcon className="h-6 w-6 text-brand-600" aria-hidden />}

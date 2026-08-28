@@ -113,6 +113,43 @@ export function StaffDashboard() {
     },
   ];
 
+  const renderMobileTripCard = (row: ScheduleRow) => {
+    const capacity = row.capacity || 50;
+    const booked = row.booked || 0;
+    const pct = capacity === 0 ? 0 : Math.round((booked / capacity) * 100);
+    const isNearlyFull = capacity - booked <= 6;
+
+    return (
+      <div className="p-3.5 bg-surface hover:bg-surface-2/60 transition-colors space-y-2 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono font-bold text-fg bg-surface-2 px-1.5 py-0.5 rounded text-[0.6875rem] border border-line">
+              {formatTime(row.departure_time)}
+            </span>
+            <span className="font-bold text-fg text-xs">{row.route}</span>
+          </div>
+          <StatusPill status={row.status} />
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-[0.6875rem] text-muted">{row.bus}</span>
+          <span className="text-[0.6875rem] font-bold text-fg">
+            Occupancy: {booked}/{capacity} ({pct}%)
+          </span>
+        </div>
+
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2 border border-line">
+          <div
+            className={`h-full rounded-full transition-all ${
+              isNearlyFull ? 'bg-red-500' : pct >= 60 ? 'bg-amber-500' : 'bg-emerald-500'
+            }`}
+            style={{ width: `${Math.min(100, Math.max(4, pct))}%` }}
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Shift KPI Cards ── */}
@@ -176,6 +213,7 @@ export function StaffDashboard() {
             error={error}
             onRetry={reload}
             caption="Today’s schedule"
+            mobileCardRender={renderMobileTripCard}
             empty={
               <EmptyState
                 icon={<BusIcon className="h-5 w-5" aria-hidden />}

@@ -188,6 +188,34 @@ export function AdminDashboard() {
     },
   ];
 
+  const renderMobileBookingCard = (booking: BookingDetail) => {
+    const origin = (booking.trip as any)?.origin?.city ?? (booking.trip as any)?.route?.originTerminal?.city ?? (booking.trip as any)?.route?.origin ?? '';
+    const destination = (booking.trip as any)?.destination?.city ?? (booking.trip as any)?.route?.destinationTerminal?.city ?? (booking.trip as any)?.route?.destination ?? '';
+    const routeName = (booking.trip as any)?.route?.name ?? (origin && destination ? `${origin} → ${destination}` : 'Transit Corridor');
+
+    return (
+      <div className="p-3.5 bg-surface hover:bg-surface-2/60 transition-colors space-y-2 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono font-bold text-fg bg-surface-2 px-1.5 py-0.5 rounded text-[0.6875rem] border border-line">
+              #{booking.booking_number}
+            </span>
+            <span className="text-[0.625rem] text-muted">{formatDateTime(booking.created_at)}</span>
+          </div>
+          <StatusPill status={booking.status} />
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <span className="font-bold text-fg block">{booking.passenger?.name ?? 'Walk-in Customer'}</span>
+            <span className="text-muted text-[0.6875rem]">{routeName}</span>
+          </div>
+          <span className="font-extrabold font-mono tabular-nums text-fg text-sm">{money(booking.total_amount)}</span>
+        </div>
+      </div>
+    );
+  };
+
   if (error) {
     return (
       <Panel>
@@ -636,6 +664,7 @@ export function AdminDashboard() {
             rowKey={(booking) => booking.id}
             loading={loading && !data}
             caption="Recent bookings"
+            mobileCardRender={renderMobileBookingCard}
             empty={
               <EmptyState
                 compact

@@ -370,6 +370,127 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
     },
   ];
 
+  const renderMobileShiftCard = (item: ShiftReconciliation) => {
+    const isZero = Number(item.variance_cash) === 0;
+    const isNegative = Number(item.variance_cash) < 0;
+    const dateStr = item.closed_at
+      ? formatDateTime(item.closed_at)
+      : item.opened_at
+      ? `Started ${formatDateTime(item.opened_at)}`
+      : 'In Progress';
+
+    return (
+      <div className="p-4 bg-surface hover:bg-surface-2/60 transition-colors space-y-3">
+        {/* Top row: Shift Code, Date, Status */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 font-mono text-xs font-black text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line">
+              <ReceiptTextIcon className="h-3 w-3 text-brand-600" />
+              #{item.shift_code}
+            </span>
+            <span className="text-[0.6875rem] text-muted">{dateStr}</span>
+          </div>
+          <StatusPill
+            status={
+              item.status === 'reconciled'
+                ? 'active'
+                : item.status === 'flagged'
+                ? 'suspended'
+                : 'completed'
+            }
+          />
+        </div>
+
+        {/* Terminal & Cashier */}
+        <div className="rounded-xl bg-surface-2/80 p-2.5 border border-line/60 flex items-center justify-between">
+          <div>
+            <span className="font-extrabold text-fg text-xs block">
+              {item.terminal_name}
+            </span>
+            <span className="text-[0.6875rem] text-muted">{item.terminal_city}</span>
+          </div>
+          <div className="text-right">
+            <span className="font-bold text-xs text-fg block">{item.cashier_name}</span>
+            <span className="text-[0.625rem] text-muted">Cashier</span>
+          </div>
+        </div>
+
+        {/* Financials Grid */}
+        <div className="grid grid-cols-3 gap-2 text-xs bg-surface border border-line rounded-xl p-2.5">
+          <div>
+            <span className="text-[0.625rem] text-muted block">Float</span>
+            <span className="font-mono font-bold text-fg text-xs">{money(item.opening_float || 0)}</span>
+          </div>
+          <div>
+            <span className="text-[0.625rem] text-muted block">Expected</span>
+            <span className="font-mono font-bold text-fg text-xs">{money(item.system_expected_cash)}</span>
+          </div>
+          <div>
+            <span className="text-[0.625rem] text-muted block">Actual Till</span>
+            <span className="font-mono font-bold text-fg text-xs">{money(item.actual_counted_cash)}</span>
+          </div>
+        </div>
+
+        {/* Variance Row */}
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-muted">Variance:</span>
+            <span
+              className={`inline-flex items-center gap-1 font-mono text-xs font-black px-2 py-0.5 rounded-full ${
+                isZero
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                  : isNegative
+                  ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+              }`}
+            >
+              {isZero ? (
+                <>
+                  <CheckCircle2Icon className="h-3 w-3" /> Balanced (0)
+                </>
+              ) : isNegative ? (
+                <>
+                  <ArrowDownRightIcon className="h-3 w-3" /> Short {money(Math.abs(item.variance_cash))}
+                </>
+              ) : (
+                <>
+                  <ArrowUpRightIcon className="h-3 w-3" /> Surplus +{money(item.variance_cash)}
+                </>
+              )}
+            </span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap items-center justify-end gap-1.5 pt-2 border-t border-line/50">
+          {isManager && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 min-h-[38px] text-xs font-bold"
+              icon={<EyeIcon className="h-3.5 w-3.5 text-brand-600" />}
+              onClick={() => setPreviewAuditRecord(item)}
+            >
+              Audit Breakdown
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 min-h-[38px] text-xs font-bold"
+            icon={<PrinterIcon className="h-3.5 w-3.5 text-blue-600" />}
+            onClick={() => {
+              setSelectedRecord(item);
+              setPrintOpen(true);
+            }}
+          >
+            Print Z-Report
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Page Top Header ── */}
@@ -774,6 +895,7 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
           loading={state.loading}
           rowKey={(item) => item.id}
           caption="Station shift reconciliations"
+          mobileCardRender={renderMobileShiftCard}
           empty={
             <EmptyState
               icon={<HistoryIcon className="h-6 w-6 text-brand-600" />}

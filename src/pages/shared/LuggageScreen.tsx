@@ -404,6 +404,89 @@ export function LuggageScreen({
     },
   ];
 
+  const renderMobileLuggageCard = (item: LuggageDetail) => {
+    const excess = excessOver(item.weight_kg);
+    return (
+      <div className="p-4 bg-surface hover:bg-surface-2/60 transition-colors space-y-3">
+        {/* Top row: Tag #, Booking, Status */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line">
+              <TagIcon className="h-3 w-3 text-brand-600" />
+              #{item.tag_number}
+            </span>
+            <span className="text-[0.6875rem] text-muted font-mono">BK #{item.booking_number}</span>
+          </div>
+          <StatusPill status={item.status} />
+        </div>
+
+        {/* Passenger & Seat & Route */}
+        <div className="rounded-xl bg-surface-2/80 p-2.5 border border-line/60">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-extrabold text-fg text-sm">{item.passenger_name}</span>
+            <span className="text-xs text-muted">
+              Seat <strong className="text-fg font-bold">{item.seat_number ?? '—'}</strong>
+            </span>
+          </div>
+          <p className="text-xs text-muted mt-1 font-semibold">{item.route}</p>
+          {item.description && (
+            <p className="text-[0.6875rem] text-muted truncate mt-0.5">{item.description}</p>
+          )}
+        </div>
+
+        {/* Weight & Excess Fee */}
+        <div className="flex items-center justify-between pt-1 border-t border-line/40 text-xs">
+          <div>
+            <span className="text-muted">Weight: </span>
+            <strong className="text-fg font-black">{item.weight_kg} kg</strong>
+          </div>
+          <div>
+            {excess > 0 ? (
+              <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                +{money(excess * (settings.excess_luggage_fee_per_kg || 2000))} Excess
+              </span>
+            ) : (
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                ✓ Free Allowance ({settings.free_luggage_kg || 20}kg)
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap items-center justify-end gap-1.5 pt-2 border-t border-line/50">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 min-h-[38px] text-xs font-bold"
+            icon={<PrinterIcon className="h-3.5 w-3.5 text-brand-600" />}
+            onClick={() => setSelectedTag(item)}
+          >
+            Luggage Tag
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 min-h-[38px] text-xs font-bold"
+            icon={<PencilIcon className="h-3.5 w-3.5 text-amber-600" />}
+            onClick={() => openEditModal(item)}
+          >
+            Edit
+          </Button>
+
+          <button
+            type="button"
+            onClick={() => setDeleting(item)}
+            className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 p-2 text-xs font-bold text-red-600 hover:bg-red-500/20 active:scale-95 transition-all"
+          >
+            <Trash2Icon className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const metrics = useMemo(() => {
     const rows = state.rows;
     const totalCount = state.meta.total || rows.length;
@@ -695,6 +778,7 @@ export function LuggageScreen({
           error={state.error}
           onRetry={state.reload}
           caption="Luggage Pieces"
+          mobileCardRender={renderMobileLuggageCard}
           empty={
             <EmptyState
               icon={<LuggageIcon className="h-6 w-6 text-brand-600" aria-hidden />}

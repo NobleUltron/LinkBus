@@ -349,6 +349,73 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
     },
   ];
 
+  const renderMobilePaymentCard = (payment: PaymentDetail) => {
+    return (
+      <div className="p-4 bg-surface hover:bg-surface-2/60 transition-colors space-y-3">
+        {/* Top row: Tx ID, Date, Status */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line">
+              <ReceiptTextIcon className="h-3 w-3 text-brand-600" />
+              {payment.transaction_id}
+            </span>
+            <span className="text-[0.6875rem] text-muted font-mono">{formatDateTime(payment.created_at)}</span>
+          </div>
+          <StatusPill status={payment.status} />
+        </div>
+
+        {/* Category badge & Customer */}
+        <div className="rounded-xl bg-surface-2/80 p-2.5 border border-line/60 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {renderCategoryBadge(payment.category)}
+            <div>
+              <p className="font-bold text-xs text-fg">
+                #{payment.reference_number || payment.booking_number}
+              </p>
+              <p className="text-[0.6875rem] text-muted">
+                {payment.customer_name || payment.passenger_name || 'Walk-in'}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="font-extrabold text-sm tabular-nums text-fg">{money(payment.amount)}</span>
+          </div>
+        </div>
+
+        {/* Corridor & Channel */}
+        <div className="flex items-center justify-between pt-1 border-t border-line/40 text-xs">
+          <span className="text-muted truncate max-w-[180px]">{payment.route || 'General Station Payment'}</span>
+          <div>{renderPaymentBadge(payment.method)}</div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-line/50">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 min-h-[38px] text-xs font-bold"
+            icon={<ReceiptTextIcon className="h-3.5 w-3.5 text-brand-600" />}
+            onClick={() => setReceipt(payment)}
+          >
+            Receipt Voucher
+          </Button>
+
+          {canRefund && payment.status === 'completed' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-[38px] text-xs font-bold text-amber-600 hover:bg-amber-500/10"
+              icon={<Undo2Icon className="h-3.5 w-3.5" />}
+              onClick={() => setRefunding(payment)}
+            >
+              Refund
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const handlePrintVoucher = (voucher: PaymentDetail) => {
     const originalTitle = document.title;
     document.title = `LinkBus-Voucher-${voucher.transaction_id}`;
@@ -578,6 +645,7 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
           error={state.error}
           onRetry={state.reload}
           caption="Payments Ledger"
+          mobileCardRender={renderMobilePaymentCard}
           empty={
             <EmptyState
               icon={<CreditCardIcon className="h-6 w-6 text-brand-600" aria-hidden />}

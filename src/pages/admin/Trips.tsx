@@ -19,6 +19,7 @@ import {
   TrendingUpIcon,
   UnlockIcon,
   UserCheckIcon,
+  UserIcon,
   UsersIcon,
   XIcon,
 } from 'lucide-react';
@@ -623,6 +624,143 @@ export function Trips() {
     },
   ];
 
+  const renderMobileTripCard = (trip: TripDetail) => {
+    const originCity = trip.origin?.city || 'Origin';
+    const destCity = trip.destination?.city || 'Destination';
+    const originStation = trip.origin?.name || originCity;
+    const destStation = trip.destination?.name || destCity;
+    const depTime = formatTime(trip.departure_time);
+    const depDate = formatDate(trip.departure_time);
+    const arrTime = trip.arrival_time ? formatTime(trip.arrival_time) : null;
+    const capacity = trip.bus?.capacity || 44;
+    const booked = Math.max(0, capacity - trip.available_seats);
+    const occupancyPercent = Math.min(100, Math.round((booked / capacity) * 100));
+
+    return (
+      <div className="p-4 bg-surface hover:bg-surface-2/60 transition-colors space-y-3">
+        {/* Top row: Time, Date & Status */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-extrabold text-base text-fg tracking-tight">{depTime}</span>
+            {arrTime && (
+              <span className="text-xs text-muted font-medium">➔ {arrTime}</span>
+            )}
+            <span className="text-[0.6875rem] font-bold text-muted bg-surface-2 px-2 py-0.5 rounded-md border border-line">
+              {depDate}
+            </span>
+          </div>
+          <StatusPill status={trip.status} />
+        </div>
+
+        {/* Corridor Route with Stations */}
+        <div className="rounded-xl bg-surface-2/80 p-2.5 border border-line/60">
+          <div className="flex items-center gap-1.5 font-bold text-sm text-fg">
+            <span>{originCity}</span>
+            <span className="text-brand-600 font-extrabold">➔</span>
+            <span>{destCity}</span>
+          </div>
+          <div className="text-[0.6875rem] text-muted truncate mt-0.5">
+            {originStation} ➔ {destStation}
+          </div>
+        </div>
+
+        {/* Coach & Driver info */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="flex items-center gap-1.5 rounded-lg border border-line bg-surface p-2">
+            <BusIcon className="h-4 w-4 text-brand-600 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-bold text-fg truncate">{trip.bus?.plate_number || 'Unassigned'}</p>
+              <p className="text-[0.625rem] text-muted capitalize">{titleCase(trip.bus?.bus_type || 'Coach')}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-lg border border-line bg-surface p-2">
+            <UserIcon className="h-4 w-4 text-emerald-600 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-bold text-fg truncate">{trip.driver_user?.name || 'Unassigned'}</p>
+              <p className="text-[0.625rem] text-muted">Driver</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Occupancy & Fare */}
+        <div className="flex items-center justify-between gap-4 pt-1">
+          <div className="flex-1">
+            <div className="flex justify-between text-[0.6875rem] font-bold text-muted mb-1">
+              <span>Occupancy</span>
+              <span className="text-fg font-extrabold">{booked} / {capacity} seats ({occupancyPercent}%)</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-line overflow-hidden">
+              <div
+                className={`h-full transition-all ${
+                  occupancyPercent >= 90
+                    ? 'bg-red-500'
+                    : occupancyPercent >= 60
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
+                }`}
+                style={{ width: `${occupancyPercent}%` }}
+              />
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <span className="text-[0.6875rem] text-muted block">Fare</span>
+            <span className="font-extrabold text-sm tabular-nums text-fg">{money(trip.fare)}</span>
+          </div>
+        </div>
+
+        {/* Action buttons row */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-line/50">
+          <div className="flex items-center gap-1.5 flex-1 min-w-[160px]">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 min-h-[38px] text-xs font-bold"
+              icon={<FileTextIcon className="h-3.5 w-3.5 text-brand-600" />}
+              onClick={() => openManifest(trip)}
+            >
+              Manifest
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 min-h-[38px] text-xs font-bold"
+              icon={<PencilIcon className="h-3.5 w-3.5 text-amber-600" />}
+              onClick={() => openEditModal(trip)}
+            >
+              Edit
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <select
+              aria-label={`Status for departure ${trip.id}`}
+              value={trip.status}
+              onChange={(event) =>
+                handleQuickStatusChange(trip, event.target.value as TripDetail['status'])
+              }
+              className="field !h-[38px] w-auto text-xs font-semibold"
+            >
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => setDeleting(trip)}
+              aria-label={`Remove departure ${trip.id}`}
+              className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 p-2 text-xs font-bold text-red-600 hover:bg-red-500/20 active:scale-95 transition-all"
+            >
+              <Trash2Icon className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Page Header ── */}
@@ -850,6 +988,7 @@ export function Trips() {
           error={state.error}
           onRetry={state.reload}
           caption="Scheduled Departures"
+          mobileCardRender={renderMobileTripCard}
           empty={
             <EmptyState
               icon={<CalendarDaysIcon className="h-6 w-6 text-brand-600" aria-hidden />}

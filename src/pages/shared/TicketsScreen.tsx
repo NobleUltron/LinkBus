@@ -548,7 +548,7 @@ export function TicketsScreen({ canVoid = false }: { canVoid?: boolean }) {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="tickets" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="tickets" />
       </Panel>
 
       {/* ── Boarding Pass Modal ── */}

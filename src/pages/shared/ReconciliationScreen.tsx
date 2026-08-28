@@ -784,11 +784,15 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
         />
 
         <Pagination
-          page={state.page}
-          perPage={state.perPage}
-          total={state.total}
+          meta={{
+            total: state.total,
+            per_page: state.perPage,
+            current_page: state.page,
+            last_page: Math.max(1, Math.ceil(state.total / state.perPage)),
+          }}
           onPageChange={state.setPage}
           onPerPageChange={state.setPerPage}
+          label="reconciliations"
         />
       </Panel>
 

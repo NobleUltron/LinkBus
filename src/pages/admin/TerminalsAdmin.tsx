@@ -630,7 +630,7 @@ export function TerminalsAdmin() {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="terminals" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="terminals" />
       </Panel>
 
       {/* ── Register Terminal Modal ── */}

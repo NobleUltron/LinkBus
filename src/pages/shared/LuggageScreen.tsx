@@ -716,7 +716,7 @@ export function LuggageScreen({
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="luggage pieces" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="luggage pieces" />
       </Panel>
 
       {/* ── Add Bag Modal ── */}

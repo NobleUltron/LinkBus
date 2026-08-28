@@ -21,6 +21,8 @@ interface DataTableProps<T> {
   empty?: React.ReactNode;
   onRowClick?: (row: T) => void;
   caption?: string;
+  maxHeight?: string;
+  containerClassName?: string;
 }
 
 const hideClass = {
@@ -40,13 +42,20 @@ export function DataTable<T>({
   empty,
   onRowClick,
   caption,
+  maxHeight,
+  containerClassName = '',
 }: DataTableProps<T>) {
   if (loading) return <SkeletonTable columns={Math.min(columns.length, 6)} />;
   if (error) return <ErrorState message={error} onRetry={onRetry} />;
   if (rows.length === 0) return <>{empty}</>;
 
   return (
-    <div className="thin-scroll overflow-x-auto">
+    <div
+      className={`thin-scroll relative w-full max-w-full overflow-x-auto overscroll-x-contain ${
+        maxHeight ? 'overflow-y-auto' : ''
+      } ${containerClassName}`}
+      style={maxHeight ? { maxHeight } : undefined}
+    >
       <table className="data-table w-full min-w-[44rem] border-collapse">
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead>

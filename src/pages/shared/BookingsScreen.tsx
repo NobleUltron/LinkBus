@@ -661,7 +661,7 @@ export function BookingsScreen({ canRefund = false }: { canRefund?: boolean }) {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="bookings" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="bookings" />
       </Panel>
 
       {/* ── Booking Inspection & Status Modal ── */}

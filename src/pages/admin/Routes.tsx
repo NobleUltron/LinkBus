@@ -686,7 +686,7 @@ export function Routes() {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="corridors" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="corridors" />
       </Panel>
 
       {/* ── Register Corridor Modal ── */}

@@ -798,7 +798,7 @@ export function PromoCodes() {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="campaigns" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="campaigns" />
       </Panel>
 
       {/* ── Create Promo Code Modal ── */}

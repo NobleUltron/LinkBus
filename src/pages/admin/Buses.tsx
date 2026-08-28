@@ -558,7 +558,7 @@ export function Buses() {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="coaches" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="coaches" />
       </Panel>
 
       {/* ── Register New Coach Modal ── */}

@@ -473,7 +473,7 @@ export function Drivers() {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="drivers" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="drivers" />
       </Panel>
 
       {/* ── Add Driver Modal (uses DriverModal) ── */}

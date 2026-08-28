@@ -10,6 +10,8 @@ export interface PaginatedState<T> {
   error: string | null;
   page: number;
   setPage: (page: number) => void;
+  perPage: number;
+  setPerPage: (size: number) => void;
   search: string;
   setSearch: (value: string) => void;
   filters: Record<string, string>;
@@ -29,7 +31,7 @@ export function usePaginated<T>(
   loader: (args: { page: number; perPage: number; search: string; filters: Record<string, string> }) => Promise<Paginated<T>>,
   options: { perPage?: number; initialFilters?: Record<string, string> } = {},
 ): PaginatedState<T> {
-  const perPage = options.perPage ?? 10;
+  const [perPage, setPerPageState] = useState(options.perPage ?? 15);
   const [page, setPage] = useState(1);
   const [search, setSearchValue] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -82,6 +84,16 @@ export function usePaginated<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, perPage, debounced, filterKey, nonce]);
 
+  const setPageWithScroll = useCallback((newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const setPerPage = useCallback((newSize: number) => {
+    setPage(1);
+    setPerPageState(newSize);
+  }, []);
+
   const setFilter = useCallback((key: string, value: string) => {
     setPage(1);
     setFilters((current) => {
@@ -113,7 +125,9 @@ export function usePaginated<T>(
       searching,
       error,
       page,
-      setPage,
+      setPage: setPageWithScroll,
+      perPage,
+      setPerPage,
       search,
       setSearch,
       filters,
@@ -122,6 +136,6 @@ export function usePaginated<T>(
       reload,
       activeFilterCount: Object.keys(filters).length + (search.trim() ? 1 : 0),
     }),
-    [rows, meta, loading, searching, error, page, search, filters, setFilter, setSearch, clearFilters, reload],
+    [rows, meta, loading, searching, error, page, perPage, search, filters, setPageWithScroll, setPerPage, setFilter, setSearch, clearFilters, reload],
   );
 }

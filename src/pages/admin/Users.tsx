@@ -636,7 +636,7 @@ export function Users() {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="users" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="users" />
       </Panel>
 
       {/* ── Register User Modal ── */}

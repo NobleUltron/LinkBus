@@ -798,7 +798,7 @@ export function ParcelsScreen() {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="parcels" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="parcels" />
       </Panel>
 
       {/* ── Accept & Tag New Parcel Modal ── */}

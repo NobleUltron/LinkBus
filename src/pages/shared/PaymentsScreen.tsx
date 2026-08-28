@@ -601,7 +601,7 @@ export function PaymentsScreen({ canRefund = true }: { canRefund?: boolean }) {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="transactions" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="transactions" />
       </Panel>
 
       {/* ── Transaction Voucher Slip Modal ── */}

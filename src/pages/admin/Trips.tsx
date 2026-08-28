@@ -841,7 +841,7 @@ export function Trips() {
             />
           }
         />
-        <Pagination meta={state.meta} onPageChange={state.setPage} label="departures" />
+        <Pagination meta={state.meta} onPageChange={state.setPage} onPerPageChange={state.setPerPage} label="departures" />
       </Panel>
 
       {/* ── Schedule New Departure Modal ── */}

@@ -60,9 +60,9 @@ export function PortalShell({
           </div>}
       </AnimatePresence>
 
-      <div className="lg:pl-[280px]">
+      <div className="min-w-0 max-w-full lg:pl-[280px]">
         <TopBar title={meta.title} subtitle={meta.subtitle} onOpenMenu={() => setDrawerOpen(true)} onOpenCommandPalette={() => setPaletteOpen(true)} />
-        <main className="main-content px-4 pb-24 pt-5 sm:px-6 lg:pb-10">
+        <main className="main-content min-w-0 max-w-full px-4 pb-24 pt-5 sm:px-6 lg:pb-10">
           <Outlet />
         </main>
       </div>

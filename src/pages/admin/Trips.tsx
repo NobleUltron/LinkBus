@@ -131,16 +131,20 @@ export function Trips() {
   });
   const [applied, setApplied] = useState({ date_from: today(), date_to: daysAhead(30) });
 
-  // Paginated Trips State
-  const state = usePaginated<TripDetail>(({ page, perPage, search, filters }) =>
-    listTrips({
-      page,
-      perPage,
-      search,
-      status: filters.status,
-      date_from: applied.date_from,
-      date_to: applied.date_to,
-    })
+  // Paginated Trips State (Nearest upcoming departure first)
+  const state = usePaginated<TripDetail>(
+    ({ page, perPage, search, filters }) =>
+      listTrips({
+        page,
+        perPage,
+        search,
+        status: filters.status,
+        date_from: applied.date_from,
+        date_to: applied.date_to,
+        sort_by: 'departure_time',
+        sort_dir: 'asc',
+      }),
+    { perPage: 10 }
   );
 
   React.useEffect(() => {

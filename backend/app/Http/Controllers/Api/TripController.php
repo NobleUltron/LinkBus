@@ -129,8 +129,19 @@ class TripController extends Controller
             });
         }
 
-        $perPage = (int) $request->input('per_page', 50);
-        $trips = $query->orderBy('departure_time', 'desc')->paginate($perPage);
+        $sortDir = strtolower($request->input('sort_dir', $request->input('dir', 'asc')));
+        $sortBy = $request->input('sort_by', $request->input('sort', 'departure_time'));
+        if (!in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = 'asc';
+        }
+        if (!in_array($sortBy, ['departure_time', 'id', 'fare', 'available_seats'])) {
+            $sortBy = 'departure_time';
+        }
+
+        $perPage = (int) $request->input('per_page', 10);
+        $perPage = max(5, min(100, $perPage));
+
+        $trips = $query->orderBy($sortBy, $sortDir)->paginate($perPage);
 
         return response()->json([
             'trips' => array_map(fn($t) => $this->formatTrip($t, false), $trips->items()),

@@ -168,21 +168,26 @@ export async function listTrips(options: {
   date_to?: string;
   from?: string;
   to?: string;
+  sort_by?: string;
+  sort_dir?: 'asc' | 'desc';
 }): Promise<Paginated<TripDetail>> {
   const data = await api.get<{
     trips: ApiTrip[];
-    meta: { current_page: number; last_page: number; total: number };
+    meta: { current_page: number; last_page: number; per_page: number; total: number };
   }>('/trips', {
     status: options.status,
     date: options.date,
     from: options.from ?? options.date_from,
     to: options.to ?? options.date_to,
     page: options.page,
+    per_page: options.perPage,
+    sort_by: options.sort_by,
+    sort_dir: options.sort_dir ?? 'asc',
   });
 
   let trips = data.trips.map(mapTrip);
 
-  // Client-side search (backend search comes later)
+  // Client-side search fallback
   if (options.search?.trim()) {
     const q = options.search.trim().toLowerCase();
     trips = trips.filter((t) =>
@@ -197,7 +202,7 @@ export async function listTrips(options: {
     data: trips,
     meta: {
       total: meta.total,
-      per_page: 20,
+      per_page: options.perPage ?? meta.per_page ?? 10,
       current_page: meta.current_page,
       last_page: meta.last_page,
     },

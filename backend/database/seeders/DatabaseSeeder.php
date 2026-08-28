@@ -185,8 +185,8 @@ class DatabaseSeeder extends Seeder
             ],
         ];
 
-        // Seed 4 consecutive days: Today (0), Tomorrow (+1), +2, +3
-        for ($dayOffset = 0; $dayOffset <= 3; $dayOffset++) {
+        // Seed 30 consecutive days of recurring departures: Today (0) through +30 days
+        for ($dayOffset = 0; $dayOffset <= 30; $dayOffset++) {
             $date = Carbon::today()->addDays($dayOffset);
 
             foreach ($circuits as $circuit) {
@@ -198,7 +198,7 @@ class DatabaseSeeder extends Seeder
                     $dep = $date->copy()->setTime($leg['hour'], $leg['min'], 0);
                     $arr = $dep->copy()->addMinutes($route->estimated_duration_minutes);
 
-                    // Skip past departures for today if they occurred earlier than right now
+                    // Past departures for today marked completed, future ones scheduled
                     $isPast = $dep->isPast();
 
                     $trip = Trip::create([

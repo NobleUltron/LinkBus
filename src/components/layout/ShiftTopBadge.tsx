@@ -87,9 +87,9 @@ export function ShiftTopBadge() {
             <span className="hidden md:inline font-mono text-[0.6875rem] text-muted">
               {elapsedTime}
             </span>
-            <span className="hidden lg:inline text-muted font-normal">·</span>
-            <span className="hidden lg:inline font-mono font-bold text-fg">
-              {money(shift?.system_expected_cash || 0)}
+            <span className="text-muted font-normal">·</span>
+            <span className="font-mono font-black text-fg text-[0.6875rem] sm:text-xs">
+              Till: {money(shift?.system_expected_cash ?? shift?.opening_float ?? shift?.starting_cash ?? 0)}
             </span>
           </button>
         ) : (

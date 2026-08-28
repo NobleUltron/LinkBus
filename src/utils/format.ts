@@ -11,15 +11,24 @@ export function moneyShort(amount: number): string {
   return money(amount);
 }
 
-export function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+export function formatTime(iso?: string | null): string {
+  if (!iso) return '--:--';
+  const d = new Date(iso);
+  if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return '--:--';
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+export function formatDate(iso?: string | null): string {
+  if (!iso) return 'N/A';
+  const d = new Date(iso);
+  if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return 'N/A';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-export function formatDateTime(iso: string): string {
+export function formatDateTime(iso?: string | null): string {
+  if (!iso) return 'In Progress';
+  const d = new Date(iso);
+  if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return 'In Progress';
   return `${formatDate(iso)} · ${formatTime(iso)}`;
 }
 

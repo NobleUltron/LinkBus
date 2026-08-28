@@ -214,6 +214,8 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
     toast.success('Shift reconciliation ledger exported to CSV.');
   };
 
+  const isManager = mode === 'admin' || user?.role === 'admin' || user?.role === 'manager' || user?.role === 'supervisor';
+
   const terminalFilterOptions = useMemo(() => {
     return (terminals.data || []).map((t) => ({
       value: String(t.id),
@@ -225,17 +227,20 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
     {
       key: 'shift',
       header: 'Shift Code & Date',
-      render: (item) => (
-        <div className="py-1">
-          <span className="inline-flex items-center gap-1 font-mono text-xs font-black text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line shadow-2xs">
-            <ReceiptTextIcon className="h-3 w-3 text-brand-600" />
-            {item.shift_code}
-          </span>
-          <p className="text-[0.6875rem] text-muted mt-0.5">
-            {formatDateTime(item.closed_at)}
-          </p>
-        </div>
-      ),
+      render: (item) => {
+        const dateStr = item.closed_at ? formatDateTime(item.closed_at) : item.opened_at ? `Started ${formatDateTime(item.opened_at)}` : 'In Progress';
+        return (
+          <div className="py-1">
+            <span className="inline-flex items-center gap-1 font-mono text-xs font-black text-fg bg-surface-2 px-2 py-0.5 rounded-md border border-line shadow-2xs">
+              <ReceiptTextIcon className="h-3 w-3 text-brand-600" />
+              {item.shift_code}
+            </span>
+            <p className="text-[0.6875rem] text-muted mt-0.5">
+              {dateStr}
+            </p>
+          </div>
+        );
+      },
     },
     {
       key: 'terminal',
@@ -277,36 +282,51 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
     {
       key: 'reconciliation',
       header: 'Cash Drawer Balance',
-      render: (item) => (
-        <div className="text-xs font-mono">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-muted text-[0.6875rem]">Expected:</span>
-            <strong className="text-fg">{money(item.system_expected_cash)}</strong>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-muted text-[0.6875rem]">Counted:</span>
-            <strong className="text-emerald-700 dark:text-emerald-400">{money(item.actual_counted_cash)}</strong>
-          </div>
-          <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-line/60">
-            <span className="text-[0.6875rem] font-bold">Variance:</span>
-            <span
-              className={`font-black ${
-                item.variance_cash === 0
-                  ? 'text-emerald-600 dark:text-emerald-400'
+      render: (item) => {
+        if (item.status === 'open') {
+          return (
+            <div className="text-xs py-1">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 font-bold border border-blue-500/20 text-[0.6875rem]">
+                <ClockIcon className="h-3 w-3 animate-spin" /> Active · In Progress
+              </span>
+              <p className="text-[0.6875rem] text-muted font-mono mt-0.5">
+                Till: <strong className="text-fg">{money(item.system_expected_cash)}</strong>
+              </p>
+            </div>
+          );
+        }
+
+        return (
+          <div className="text-xs font-mono">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted text-[0.6875rem]">Expected:</span>
+              <strong className="text-fg">{money(item.system_expected_cash)}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted text-[0.6875rem]">Counted:</span>
+              <strong className="text-emerald-700 dark:text-emerald-400">{money(item.actual_counted_cash)}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-line/60">
+              <span className="text-[0.6875rem] font-bold">Variance:</span>
+              <span
+                className={`font-black ${
+                  item.variance_cash === 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : item.variance_cash > 0
+                    ? 'text-blue-600 dark:text-blue-400'
+                    : 'text-rose-600 dark:text-rose-400'
+                }`}
+              >
+                {item.variance_cash === 0
+                  ? 'Balanced (0 UGX)'
                   : item.variance_cash > 0
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-rose-600 dark:text-rose-400'
-              }`}
-            >
-              {item.variance_cash === 0
-                ? 'Balanced (0 UGX)'
-                : item.variance_cash > 0
-                ? `+${money(item.variance_cash)} Over`
-                : `${money(item.variance_cash)} Short`}
-            </span>
+                  ? `+${money(item.variance_cash)} Over`
+                  : `${money(item.variance_cash)} Short`}
+              </span>
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: 'status',
@@ -319,16 +339,18 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
       align: 'right',
       render: (item) => (
         <div className="flex items-center justify-end gap-1.5">
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<EyeIcon className="h-3.5 w-3.5" />}
-            onClick={() => setPreviewAuditRecord(item)}
-            className="text-xs font-semibold"
-            title="View Full Shift Audit Breakdown"
-          >
-            Audit Breakdown
-          </Button>
+          {isManager && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<EyeIcon className="h-3.5 w-3.5" />}
+              onClick={() => setPreviewAuditRecord(item)}
+              className="text-xs font-semibold"
+              title="View Full Shift Audit Breakdown"
+            >
+              Audit Breakdown
+            </Button>
+          )}
 
           <Button
             variant="outline"
@@ -355,39 +377,47 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-fg sm:text-3xl">
-              Cash Drawer &amp; Shift Reconciliations
+              {isManager ? 'Cash Drawer & Shift Reconciliations' : 'My Duty Shift & Cash Drawer'}
             </h1>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-2xs">
-              <StoreIcon className="h-3 w-3" /> Till Management
+              <StoreIcon className="h-3 w-3" /> {isManager ? 'Station Audit' : 'Cash Register'}
             </span>
           </div>
           <p className="mt-1 text-xs text-muted max-w-xl">
-            Audit cashier shift closeouts, verify physical drawer cash counts against starting float + system collections across tickets, excess luggage, and parcel waybills, and print certified settlement slips.
+            {isManager
+              ? 'Audit cashier shift closeouts, verify physical drawer cash counts against starting float + system collections across tickets, excess luggage, and parcel waybills, and print certified settlement slips.'
+              : 'Manage your counter cash register, record float top-ups or safe drops, track your passenger sales, and reconcile your physical till at end of shift.'}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button
-            variant="outline"
-            icon={<PlusIcon className="h-4 w-4" />}
-            onClick={() => setOpenShiftModal(true)}
-          >
-            Open New Shift (Float)
-          </Button>
-          <Button
-            variant="outline"
-            icon={<FileSpreadsheetIcon className="h-4 w-4" />}
-            onClick={handleExportCSV}
-          >
-            Export Ledger CSV
-          </Button>
-          <Button
-            icon={<ShieldCheckIcon className="h-4 w-4" />}
-            onClick={() => setCloseoutOpen(true)}
-            disabled={activeMetrics.loading || !activeMetrics.data}
-            className="bg-brand-600 hover:bg-brand-700 text-white font-bold"
-          >
-            Reconcile &amp; Close Shift
-          </Button>
+          {!activeMetrics.data && (
+            <Button
+              variant="outline"
+              icon={<PlusIcon className="h-4 w-4" />}
+              onClick={() => setOpenShiftModal(true)}
+            >
+              Open New Shift (Float)
+            </Button>
+          )}
+          {isManager && (
+            <Button
+              variant="outline"
+              icon={<FileSpreadsheetIcon className="h-4 w-4" />}
+              onClick={handleExportCSV}
+            >
+              Export Ledger CSV
+            </Button>
+          )}
+          {activeMetrics.data && (
+            <Button
+              icon={<ShieldCheckIcon className="h-4 w-4" />}
+              onClick={() => setCloseoutOpen(true)}
+              disabled={activeMetrics.loading || !activeMetrics.data}
+              className="bg-brand-600 hover:bg-brand-700 text-white font-bold"
+            >
+              Reconcile &amp; End Shift
+            </Button>
+          )}
         </div>
       </div>
 
@@ -446,6 +476,14 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
                   }}
                 >
                   - Mid-Shift Safe Drop
+                </Button>
+                <Button
+                  size="sm"
+                  icon={<ShieldCheckIcon className="h-3.5 w-3.5 text-white" />}
+                  onClick={() => setCloseoutOpen(true)}
+                  className="bg-brand-600 hover:bg-brand-700 text-white font-bold"
+                >
+                  🔒 End Shift / Z-Read
                 </Button>
               </div>
             </div>
@@ -538,160 +576,167 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
         )}
       </Panel>
 
-      {/* ── Unified Date Range Filter Toolbar ── */}
-      <div className="rounded-2xl border border-line bg-surface p-3.5 sm:p-4 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          {/* Preset Segment Pills */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-xs font-bold uppercase tracking-wider text-muted hidden sm:inline-block">
-              Presets:
-            </span>
-            {presets.map((preset) => {
-              const active =
-                applied.date_from === shiftDays(preset.days) &&
-                applied.date_to === toDateInput(new Date());
-              return (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => {
-                    const next = {
-                      date_from: shiftDays(preset.days),
-                      date_to: toDateInput(new Date()),
-                    };
-                    setRange(next);
-                    setApplied(next);
-                  }}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
-                    active
-                      ? 'bg-brand-600 text-white shadow-sm'
-                      : 'border border-line bg-surface text-muted hover:bg-surface-2 hover:text-fg'
-                  }`}
+      {/* ── Unified Date Range Filter Toolbar & KPI Cards (Management View Only) ── */}
+      {isManager && (
+        <>
+          <div className="rounded-2xl border border-line bg-surface p-3.5 sm:p-4 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              {/* Preset Segment Pills */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-xs font-bold uppercase tracking-wider text-muted hidden sm:inline-block">
+                  Presets:
+                </span>
+                {presets.map((preset) => {
+                  const active =
+                    applied.date_from === shiftDays(preset.days) &&
+                    applied.date_to === toDateInput(new Date());
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        const next = {
+                          date_from: shiftDays(preset.days),
+                          date_to: toDateInput(new Date()),
+                        };
+                        setRange(next);
+                        setApplied(next);
+                      }}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                        active
+                          ? 'bg-brand-600 text-white shadow-sm'
+                          : 'border border-line bg-surface text-muted hover:bg-surface-2 hover:text-fg'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Date Range Form */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted">From</span>
+                  <DateInput
+                    id="reconcile-from"
+                    value={range.date_from}
+                    max={range.date_to}
+                    onChange={(e) => setRange({ ...range, date_from: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted">To</span>
+                  <DateInput
+                    id="reconcile-to"
+                    value={range.date_to}
+                    min={range.date_from}
+                    max={toDateInput(new Date())}
+                    onChange={(e) => setRange({ ...range, date_to: e.target.value })}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setApplied(range)}
+                  loading={state.loading}
                 >
-                  {preset.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Custom Date Range Form */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted">From</span>
-              <DateInput
-                id="reconcile-from"
-                value={range.date_from}
-                max={range.date_to}
-                onChange={(e) => setRange({ ...range, date_from: e.target.value })}
-              />
+                  Apply Filter
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted">To</span>
-              <DateInput
-                id="reconcile-to"
-                value={range.date_to}
-                min={range.date_from}
-                max={toDateInput(new Date())}
-                onChange={(e) => setRange({ ...range, date_to: e.target.value })}
-              />
+          </div>
+
+          {/* ── Historical Ledger Summary Scorecards ── */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+                  <ReceiptTextIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg uppercase tracking-wider">
+                  Audited Shifts
+                </span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {ledgerMetrics.totalCount.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Historical closed station shifts</p>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setApplied(range)}
-              loading={state.loading}
-            >
-              Apply Filter
-            </Button>
-          </div>
-        </div>
-      </div>
 
-      {/* ── Historical Ledger Summary Scorecards ── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
-              <ReceiptTextIcon className="h-4 w-4" />
-            </span>
-            <span className="text-xs font-bold text-fg uppercase tracking-wider">
-              Audited Shifts
-            </span>
-          </div>
-          <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
-            {ledgerMetrics.totalCount.toLocaleString()}
-          </p>
-          <p className="text-[0.6875rem] text-muted">Historical closed station shifts</p>
-        </div>
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold">
+                  <CheckCircle2Icon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider">
+                  Balanced Shifts
+                </span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-emerald-950 dark:text-emerald-100 tabular-nums">
+                {ledgerMetrics.balancedCount.toLocaleString()}
+              </p>
+              <p className="text-[0.6875rem] text-emerald-800 dark:text-emerald-300">0 UGX variance balance</p>
+            </div>
 
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-sm hover-lift transition-all">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold">
-              <CheckCircle2Icon className="h-4 w-4" />
-            </span>
-            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider">
-              Balanced Shifts
-            </span>
-          </div>
-          <p className="mt-2 font-extrabold text-2xl text-emerald-950 dark:text-emerald-100 tabular-nums">
-            {ledgerMetrics.balancedCount.toLocaleString()}
-          </p>
-          <p className="text-[0.6875rem] text-emerald-800 dark:text-emerald-300">0 UGX variance balance</p>
-        </div>
-
-        <div className={`rounded-2xl border p-4 shadow-sm hover-lift transition-all ${
-          ledgerMetrics.flaggedCount > 0 ? 'border-amber-500/30 bg-amber-500/10' : 'border-line bg-surface'
-        }`}>
-          <div className="flex items-center gap-2">
-            <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-              ledgerMetrics.flaggedCount > 0 ? 'bg-amber-600 text-white' : 'bg-slate-500/10 text-slate-500'
+            <div className={`rounded-2xl border p-4 shadow-sm hover-lift transition-all ${
+              ledgerMetrics.flaggedCount > 0 ? 'border-amber-500/30 bg-amber-500/10' : 'border-line bg-surface'
             }`}>
-              <AlertTriangleIcon className="h-4 w-4" />
-            </span>
-            <span className={`text-xs font-bold ${
-              ledgerMetrics.flaggedCount > 0 ? 'text-amber-950 dark:text-amber-200 uppercase tracking-wider' : 'text-fg uppercase tracking-wider'
-            }`}>
-              Discrepancies
-            </span>
-          </div>
-          <p className={`mt-2 font-extrabold text-2xl tabular-nums ${
-            ledgerMetrics.flaggedCount > 0 ? 'text-amber-950 dark:text-amber-100' : 'text-fg'
-          }`}>
-            {ledgerMetrics.flaggedCount.toLocaleString()}
-          </p>
-          <p className={`text-[0.6875rem] ${
-            ledgerMetrics.flaggedCount > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-muted'
-          }`}>
-            Over / short discrepancies noted
-          </p>
-        </div>
+              <div className="flex items-center gap-2">
+                <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                  ledgerMetrics.flaggedCount > 0 ? 'bg-amber-600 text-white' : 'bg-slate-500/10 text-slate-500'
+                }`}>
+                  <AlertTriangleIcon className="h-4 w-4" />
+                </span>
+                <span className={`text-xs font-bold ${
+                  ledgerMetrics.flaggedCount > 0 ? 'text-amber-950 dark:text-amber-200 uppercase tracking-wider' : 'text-fg uppercase tracking-wider'
+                }`}>
+                  Discrepancies
+                </span>
+              </div>
+              <p className={`mt-2 font-extrabold text-2xl tabular-nums ${
+                ledgerMetrics.flaggedCount > 0 ? 'text-amber-950 dark:text-amber-100' : 'text-fg'
+              }`}>
+                {ledgerMetrics.flaggedCount.toLocaleString()}
+              </p>
+              <p className={`text-[0.6875rem] ${
+                ledgerMetrics.flaggedCount > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-muted'
+              }`}>
+                Over / short discrepancies noted
+              </p>
+            </div>
 
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
-              <CoinsIcon className="h-4 w-4" />
-            </span>
-            <span className="text-xs font-bold text-fg uppercase tracking-wider">
-              Settled Collections
-            </span>
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm hover-lift transition-all">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
+                  <CoinsIcon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-bold text-fg uppercase tracking-wider">
+                  Settled Collections
+                </span>
+              </div>
+              <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
+                {money(ledgerMetrics.totalVolume)}
+              </p>
+              <p className="text-[0.6875rem] text-muted">Audited cash &amp; digital revenue</p>
+            </div>
           </div>
-          <p className="mt-2 font-extrabold text-2xl text-fg tabular-nums">
-            {money(ledgerMetrics.totalVolume)}
-          </p>
-          <p className="text-[0.6875rem] text-muted">Audited cash &amp; digital revenue</p>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* ── Historical Shift Reconciliations Ledger ── */}
       <Panel
-        title="Station Shift Reconciliation Ledger"
-        subtitle="Audited cashier shift closeouts and historical drawer reconciliation records"
+        title={isManager ? "Station Shift Reconciliation Ledger" : "My Shift Closeout History"}
+        subtitle={isManager 
+          ? "Audited cashier shift closeouts and historical drawer reconciliation records across terminals"
+          : `Your completed cashier shift reconciliations and official closeout receipts for ${user?.name || 'your account'}`
+        }
       >
         <Toolbar
           search={state.search}
           onSearch={state.setSearch}
-          searchPlaceholder="Search shift code, cashier name, terminal..."
+          searchPlaceholder={isManager ? "Search shift code, cashier name, terminal..." : "Search shift code..."}
           searching={state.loading}
-          filters={[
+          filters={isManager ? [
             {
               key: 'terminal',
               label: 'All Terminals',
@@ -705,6 +750,15 @@ export function ReconciliationScreen({ mode = 'staff' }: ReconciliationScreenPro
                 { value: 'reconciled', label: 'Balanced / Reconciled' },
                 { value: 'flagged', label: 'Flagged Discrepancy' },
                 { value: 'audited', label: 'Audited & Signed' },
+              ],
+            },
+          ] : [
+            {
+              key: 'status',
+              label: 'All Statuses',
+              options: [
+                { value: 'reconciled', label: 'Balanced' },
+                { value: 'flagged', label: 'Variance Discrepancy' },
               ],
             },
           ]}

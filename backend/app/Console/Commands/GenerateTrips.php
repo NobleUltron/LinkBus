@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 class GenerateTrips extends Command
 {
     protected $signature = 'trips:generate {days=30 : Number of future days to schedule}';
-    protected $description = 'Generate realistic scheduled departures across all active routes for the specified number of days.';
+    protected $description = 'Generate realistic scheduled departures across all active routes for the specified number of days using conflict-free corridor circuits.';
 
     public function handle(): int
     {
@@ -26,53 +26,114 @@ class GenerateTrips extends Command
 
         $routes = BusRoute::with(['originTerminal', 'destinationTerminal'])
             ->where('status', 'active')
-            ->get();
+            ->get()
+            ->keyBy('id');
 
-        $buses = Bus::where('status', 'active')->get();
-        $drivers = Driver::with('user')->get();
+        $buses = Bus::where('status', 'active')->get()->keyBy('id');
+        $drivers = Driver::with('user')->get()->keyBy('id');
 
         if ($routes->isEmpty() || $buses->isEmpty() || $drivers->isEmpty()) {
             $this->error('No active routes, buses, or drivers found in the database.');
             return Command::FAILURE;
         }
 
-        $routeSchedules = [
-            1  => ['slots' => ['06:00','08:30','11:00','14:00','17:00','20:00'], 'fare' => 7000,  'class_fares' => ['standard'=>7000,  'vip'=>12000, 'sleeper'=>15000]],
-            2  => ['slots' => ['06:00','08:30','11:00','14:00','17:00','20:00'], 'fare' => 7000,  'class_fares' => ['standard'=>7000,  'vip'=>12000, 'sleeper'=>15000]],
-            3  => ['slots' => ['06:00','09:00','12:00','15:00','21:00'],         'fare' => 25000, 'class_fares' => ['standard'=>25000, 'vip'=>38000, 'sleeper'=>50000]],
-            4  => ['slots' => ['06:00','09:00','12:00','15:00','21:00'],         'fare' => 25000, 'class_fares' => ['standard'=>25000, 'vip'=>38000, 'sleeper'=>50000]],
-            5  => ['slots' => ['06:30','10:00','14:00','21:30'],                 'fare' => 35000, 'class_fares' => ['standard'=>35000, 'vip'=>50000, 'sleeper'=>65000]],
-            6  => ['slots' => ['06:30','10:00','14:00','21:30'],                 'fare' => 35000, 'class_fares' => ['standard'=>35000, 'vip'=>50000, 'sleeper'=>65000]],
-            7  => ['slots' => ['07:00','11:00','15:00','22:00'],                 'fare' => 30000, 'class_fares' => ['standard'=>30000, 'vip'=>45000, 'sleeper'=>60000]],
-            8  => ['slots' => ['07:00','11:00','15:00','22:00'],                 'fare' => 30000, 'class_fares' => ['standard'=>30000, 'vip'=>45000, 'sleeper'=>60000]],
-            9  => ['slots' => ['07:00','10:00','14:00','20:00'],                 'fare' => 25000, 'class_fares' => ['standard'=>25000, 'vip'=>38000, 'sleeper'=>50000]],
-            10 => ['slots' => ['07:00','10:00','14:00','20:00'],                 'fare' => 25000, 'class_fares' => ['standard'=>25000, 'vip'=>38000, 'sleeper'=>50000]],
-            11 => ['slots' => ['07:30','10:30','13:30','16:30','19:30'],         'fare' => 15000, 'class_fares' => ['standard'=>15000, 'vip'=>22000, 'sleeper'=>30000]],
-            12 => ['slots' => ['07:30','10:30','13:30','16:30','19:30'],         'fare' => 15000, 'class_fares' => ['standard'=>15000, 'vip'=>22000, 'sleeper'=>30000]],
-            13 => ['slots' => ['08:00','13:00','22:30'],                         'fare' => 25000, 'class_fares' => ['standard'=>25000, 'vip'=>38000, 'sleeper'=>50000]],
+        // 8 Conflict-Free Daily Corridor Circuits:
+        // Each circuit assigns 1 dedicated coach + 1 dedicated driver with guaranteed return legs and 90min+ turnaround buffer.
+        $circuits = [
+            // Circuit 1: Jinja Shuttle A (VIP Bus 1, Driver 1: John Okello)
+            [
+                'bus_id'    => 1,
+                'driver_id' => 1,
+                'legs'      => [
+                    ['route_id' => 1, 'hour' => 7,  'min' => 30, 'fare' => 12000],
+                    ['route_id' => 2, 'hour' => 10, 'min' => 30, 'fare' => 12000],
+                    ['route_id' => 1, 'hour' => 14, 'min' => 00, 'fare' => 12000],
+                    ['route_id' => 2, 'hour' => 17, 'min' => 00, 'fare' => 12000],
+                ],
+            ],
+            // Circuit 2: Jinja Shuttle B (VIP Bus 8, Driver 9: Sseguya Jonathan)
+            [
+                'bus_id'    => 8,
+                'driver_id' => 9,
+                'legs'      => [
+                    ['route_id' => 1, 'hour' => 9,  'min' => 00, 'fare' => 12000],
+                    ['route_id' => 2, 'hour' => 12, 'min' => 00, 'fare' => 12000],
+                    ['route_id' => 1, 'hour' => 15, 'min' => 30, 'fare' => 12000],
+                    ['route_id' => 2, 'hour' => 18, 'min' => 30, 'fare' => 12000],
+                ],
+            ],
+            // Circuit 3: Mbarara Express Morning (Bus 2, Driver 2: Moses Mugisha)
+            [
+                'bus_id'    => 2,
+                'driver_id' => 2,
+                'legs'      => [
+                    ['route_id' => 3, 'hour' => 8,  'min' => 00, 'fare' => 25000],
+                    ['route_id' => 4, 'hour' => 14, 'min' => 30, 'fare' => 25000],
+                ],
+            ],
+            // Circuit 4: Mbarara Afternoon Service (Bus 9, Driver 10: Kabanda Ivan)
+            [
+                'bus_id'    => 9,
+                'driver_id' => 10,
+                'legs'      => [
+                    ['route_id' => 3, 'hour' => 10, 'min' => 00, 'fare' => 25000],
+                    ['route_id' => 4, 'hour' => 16, 'min' => 00, 'fare' => 25000],
+                ],
+            ],
+            // Circuit 5: Gulu Long-Haul (Bus 3, Driver 3: Charles Mugaya)
+            [
+                'bus_id'    => 3,
+                'driver_id' => 3,
+                'legs'      => [
+                    ['route_id' => 5, 'hour' => 7,  'min' => 00, 'fare' => 35000],
+                    ['route_id' => 6, 'hour' => 14, 'min' => 30, 'fare' => 35000],
+                ],
+            ],
+            // Circuit 6: Fort Portal Explorer (Bus 4, Driver 4: Patrick Kato)
+            [
+                'bus_id'    => 4,
+                'driver_id' => 4,
+                'legs'      => [
+                    ['route_id' => 7, 'hour' => 7,  'min' => 30, 'fare' => 30000],
+                    ['route_id' => 8, 'hour' => 14, 'min' => 30, 'fare' => 30000],
+                ],
+            ],
+            // Circuit 7: Mbale Regional (Bus 5, Driver 5: David Ochieng)
+            [
+                'bus_id'    => 5,
+                'driver_id' => 5,
+                'legs'      => [
+                    ['route_id' => 9,  'hour' => 8,  'min' => 00, 'fare' => 25000],
+                    ['route_id' => 10, 'hour' => 14, 'min' => 30, 'fare' => 25000],
+                ],
+            ],
+            // Circuit 8: Mubende Mid-West (Bus 6, Driver 6: Ronald Ssempala)
+            [
+                'bus_id'    => 6,
+                'driver_id' => 6,
+                'legs'      => [
+                    ['route_id' => 11, 'hour' => 8,  'min' => 30, 'fare' => 15000],
+                    ['route_id' => 12, 'hour' => 13, 'min' => 30, 'fare' => 15000],
+                ],
+            ],
         ];
 
-        $busPool = $buses->values();
-        $driverPool = $drivers->values();
-        $bIdx = 0;
-        $dIdx = 0;
         $created = 0;
         $skipped = 0;
-
-        $routesById = $routes->keyBy('id');
         $currentDate = $startDate->copy();
 
         while ($currentDate->lte($endDate)) {
-            $dateStr = $currentDate->format('Y-m-d');
+            foreach ($circuits as $circuit) {
+                $bus = $buses->get($circuit['bus_id']) ?? $buses->first();
+                $driver = $drivers->get($circuit['driver_id']) ?? $drivers->first();
+                if (!$bus || !$driver) continue;
 
-            foreach ($routeSchedules as $routeId => $config) {
-                $route = $routesById->get($routeId);
-                if (!$route) continue;
+                foreach ($circuit['legs'] as $leg) {
+                    $route = $routes->get($leg['route_id']);
+                    if (!$route) continue;
 
-                $durationMinutes = $route->estimated_duration_minutes ?: 240;
-
-                foreach ($config['slots'] as $slot) {
-                    $departure = Carbon::parse("{$dateStr} {$slot}");
+                    $departure = $currentDate->copy()->setTime($leg['hour'], $leg['min'], 0);
+                    $durationMinutes = $route->estimated_duration_minutes ?: 240;
                     $arrival = $departure->copy()->addMinutes($durationMinutes);
 
                     if ($departure->isPast()) {
@@ -80,7 +141,7 @@ class GenerateTrips extends Command
                         continue;
                     }
 
-                    $exists = Trip::where('route_id', $routeId)
+                    $exists = Trip::where('route_id', $route->id)
                         ->where('departure_time', $departure->toDateTimeString())
                         ->exists();
 
@@ -89,17 +150,12 @@ class GenerateTrips extends Command
                         continue;
                     }
 
-                    $bus = $busPool[$bIdx % $busPool->count()];
-                    $bIdx++;
-                    $driver = $driverPool[$dIdx % $driverPool->count()];
-                    $dIdx++;
-
                     $busClass = $bus->bus_type;
-                    $fare = $config['class_fares'][$busClass] ?? $config['fare'];
+                    $fare = $leg['fare'];
 
-                    DB::transaction(function () use ($routeId, $bus, $driver, $departure, $arrival, $fare, &$created) {
+                    DB::transaction(function () use ($route, $bus, $driver, $departure, $arrival, $fare, &$created) {
                         $trip = Trip::create([
-                            'route_id'        => $routeId,
+                            'route_id'        => $route->id,
                             'bus_id'          => $bus->id,
                             'driver_id'       => $driver->id,
                             'departure_time'  => $departure,
@@ -130,7 +186,7 @@ class GenerateTrips extends Command
             $currentDate->addDay();
         }
 
-        $this->info("✅ Successfully generated {$created} new trips ({$skipped} skipped/existing).");
+        $this->info("✅ Successfully generated {$created} new conflict-free trips ({$skipped} skipped/existing).");
         return Command::SUCCESS;
     }
 }

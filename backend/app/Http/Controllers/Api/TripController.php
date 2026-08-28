@@ -689,8 +689,8 @@ class TripController extends Controller
                     $conflicts[] = "Driver Location Mismatch: {$driverName} completes their previous trip in {$prevDestName} (arrives {$prevArrTime->format('d M H:i')}), but this trip departs from {$originName}.";
                 }
 
-                $restMinutes = $dep->diffInMinutes($prevArrTime);
-                if ($restMinutes < 45) {
+                $restMinutes = $prevArrTime->diffInMinutes($dep, false);
+                if ($restMinutes >= 0 && $restMinutes < 45 && $dep->isSameDay($prevArrTime)) {
                     $earliestDep = $prevArrTime->copy()->addMinutes(45)->format('H:i');
                     $conflicts[] = "Driver Turnaround Violation: {$driverName} only has {$restMinutes} min rest after arriving in {$prevDestName} at {$prevArrTime->format('H:i')}. Minimum 45 min buffer required (Earliest departure: {$earliestDep}).";
                 }
@@ -714,8 +714,8 @@ class TripController extends Controller
                     $conflicts[] = "Driver Location Mismatch: This trip arrives in {$destName} at {$arr->format('d M H:i')}, but {$driverName}'s next scheduled trip departs from {$nextOriginName} at {$nextDepTime->format('d M H:i')}.";
                 }
 
-                $restMinutes = $nextDepTime->diffInMinutes($arr);
-                if ($restMinutes < 45) {
+                $restMinutes = $arr->diffInMinutes($nextDepTime, false);
+                if ($restMinutes >= 0 && $restMinutes < 45 && $arr->isSameDay($nextDepTime)) {
                     $conflicts[] = "Driver Turnaround Violation: Next trip departs from {$nextOriginName} at {$nextDepTime->format('H:i')}, leaving only {$restMinutes} min buffer after this trip arrives at {$arr->format('H:i')}. Minimum 45 min required.";
                 }
             }
@@ -767,8 +767,8 @@ class TripController extends Controller
                     $conflicts[] = "Bus Location Mismatch: Bus {$busPlate} arrives in {$prevDestName} (at {$prevArrTime->format('d M H:i')}), but this trip departs from {$originName}.";
                 }
 
-                $bufferMinutes = $dep->diffInMinutes($prevArrTime);
-                if ($bufferMinutes < 30) {
+                $bufferMinutes = $prevArrTime->diffInMinutes($dep, false);
+                if ($bufferMinutes >= 0 && $bufferMinutes < 30 && $dep->isSameDay($prevArrTime)) {
                     $conflicts[] = "Bus Turnaround Violation: Bus {$busPlate} arrives in {$prevDestName} at {$prevArrTime->format('H:i')}. Needs at least 30 min for inspection and cleaning before next departure.";
                 }
             }

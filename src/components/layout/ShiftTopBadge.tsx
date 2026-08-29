@@ -114,7 +114,7 @@ export function ShiftTopBadge() {
               className="fixed inset-0 z-40"
               onClick={() => setDropdownOpen(false)}
             />
-            <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-line bg-surface p-3 shadow-xl z-50 text-xs space-y-2">
+            <div className="absolute left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 top-full mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-line bg-surface p-3 shadow-xl z-50 text-xs space-y-2">
               <div className="border-b border-line pb-2">
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-black text-xs text-fg">

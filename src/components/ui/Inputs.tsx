@@ -105,13 +105,13 @@ export function IconSelect({ icon, value, options, placeholder, active = false, 
 
 interface DateInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'className' | 'value' | 'type'> {
   value: string;
-  label: string;
+  label?: string;
   active?: boolean;
   onClear?: () => void;
   className?: string;
 }
 
-export function DateInput({ value, label, active = false, onClear, className = '', ...rest }: DateInputProps) {
+export function DateInput({ value, label = 'Select date', active = false, onClear, className = '', ...rest }: DateInputProps) {
   const filled = active || (value !== '' && value !== null && value !== undefined);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -147,7 +147,7 @@ export function DateInput({ value, label, active = false, onClear, className = '
         value={value}
         aria-label={label}
         title={label}
-        className={`field field-has-icon w-full cursor-pointer pr-7 ${filled ? ACTIVE_FIELD : 'text-muted'}`}
+        className={`field field-has-icon w-full cursor-pointer pr-7 [appearance:none] [-webkit-appearance:none] ${filled ? ACTIVE_FIELD : 'text-muted'}`}
       />
 
       {filled && onClear && (

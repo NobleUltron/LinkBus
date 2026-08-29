@@ -459,7 +459,38 @@ class BookingController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('bookings.status', $request->status);
+            $status = $request->status;
+            if ($status === 'active') {
+                $query->where(function ($q) {
+                    $q->whereIn('bookings.status', ['confirmed', 'completed'])
+                      ->whereHas('tickets', function ($tq) {
+                          $tq->where('status', 'active');
+                      });
+                });
+            } elseif ($status === 'used' || $status === 'completed') {
+                $query->where(function ($q) {
+                    $q->where('bookings.status', 'completed')
+                      ->orWhereHas('tickets', function ($tq) {
+                          $tq->where('status', 'used');
+                      });
+                });
+            } elseif ($status === 'cancelled') {
+                $query->where(function ($q) {
+                    $q->where('bookings.status', 'cancelled')
+                      ->orWhereHas('tickets', function ($tq) {
+                          $tq->where('status', 'cancelled');
+                      });
+                });
+            } elseif ($status === 'pending' || $status === 'pending_payment') {
+                $query->where(function ($q) {
+                    $q->where('bookings.status', 'pending')
+                      ->orWhereHas('tickets', function ($tq) {
+                          $tq->where('status', 'pending_payment');
+                      });
+                });
+            } else {
+                $query->where('bookings.status', $status);
+            }
         }
         if ($request->filled('trip_id')) {
             $query->where('bookings.trip_id', $request->trip_id);

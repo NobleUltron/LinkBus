@@ -39,6 +39,12 @@ export async function listTickets(query: TicketQuery): Promise<Paginated<TicketD
   const tickets: TicketDetail[] = [];
   bookingsRes.data.forEach((b) => {
     b.tickets.forEach((t) => {
+      if (query.status) {
+        if (query.status === 'active' && t.status !== 'active') return;
+        if ((query.status === 'used' || query.status === 'completed') && t.status !== 'used') return;
+        if (query.status === 'cancelled' && t.status !== 'cancelled') return;
+        if ((query.status === 'pending' || query.status === 'pending_payment') && t.status !== 'pending_payment') return;
+      }
       tickets.push({
         id: t.id,
         booking_id: b.id,

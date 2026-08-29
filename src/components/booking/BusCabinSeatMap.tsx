@@ -24,17 +24,59 @@ export function BusCabinSeatMap({
   heldIds = []
 }: BusCabinSeatMapProps) {
   const rows = useMemo(() => {
-    const grouped = new Map<number, TripSeat[]>();
-    seats.forEach((seat) => {
-      const rowNumber = Number(seat.seat_number.replace(/[A-D]/g, ''));
-      const list = grouped.get(rowNumber) ?? [];
-      list.push(seat);
-      grouped.set(rowNumber, list);
+    if (!seats || seats.length === 0) return [];
+
+    // Check if any seat number has an alphanumeric letter suffix (e.g. '1A', '2B', '14D')
+    const hasLetterSuffix = seats.some((s) => /[A-Za-z]$/.test(s.seat_number.trim()));
+
+    if (hasLetterSuffix) {
+      // Mode A: Alphanumeric (e.g. 1A, 1B, 1C, 1D)
+      const grouped = new Map<number, TripSeat[]>();
+      seats.forEach((seat) => {
+        const match = seat.seat_number.trim().match(/^(\d+)/);
+        const rowNumber = match ? Number(match[1]) : 1;
+        const list = grouped.get(rowNumber) ?? [];
+        list.push(seat);
+        grouped.set(rowNumber, list);
+      });
+
+      return [...grouped.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([rowNumber, rowSeats]) => ({
+          rowNumber,
+          seats: LETTERS.map((letter) =>
+            rowSeats.find((seat) => seat.seat_number.trim().toUpperCase().endsWith(letter)) ?? null
+          ),
+        }));
+    }
+
+    // Mode B: Pure numeric seats (e.g. '1', '2', '3', ... '56')
+    const sortedSeats = [...seats].sort((a, b) => {
+      const numA = parseInt(a.seat_number, 10);
+      const numB = parseInt(b.seat_number, 10);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      return a.seat_number.localeCompare(b.seat_number, undefined, { numeric: true });
     });
-    return [...grouped.entries()].sort((a, b) => a[0] - b[0]).map(([rowNumber, rowSeats]) => ({
-      rowNumber,
-      seats: LETTERS.map((letter) => rowSeats.find((seat) => seat.seat_number.endsWith(letter)) ?? null)
-    }));
+
+    const result: { rowNumber: number; seats: (TripSeat | null)[] }[] = [];
+    const seatsPerRow = 4;
+
+    for (let i = 0; i < sortedSeats.length; i += seatsPerRow) {
+      const rowSeats = sortedSeats.slice(i, i + seatsPerRow);
+      const rowNumber = Math.floor(i / seatsPerRow) + 1;
+
+      result.push({
+        rowNumber,
+        seats: [
+          rowSeats[0] ?? null,
+          rowSeats[1] ?? null,
+          rowSeats[2] ?? null,
+          rowSeats[3] ?? null,
+        ],
+      });
+    }
+
+    return result;
   }, [seats]);
 
   const atLimit = selectedIds.length >= maxSelectable;

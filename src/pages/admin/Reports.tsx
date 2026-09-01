@@ -467,87 +467,87 @@ export function Reports() {
           {loading && !data ? (
             <SkeletonCards count={4} />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 print:grid-cols-4 print:gap-3">
               {/* Gross Revenue */}
-              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover-lift transition-all ring-1 ring-brand-600/20">
+              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 print:p-3.5 print:rounded-xl shadow-sm hover-lift transition-all ring-1 ring-brand-600/20">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
                       Gross Period Revenue
                     </p>
-                    <p className="mt-2 text-2xl sm:text-3xl font-extrabold tabular-nums tracking-tight text-fg">
+                    <p className="mt-2 print:mt-1 text-2xl sm:text-3xl print:text-xl font-extrabold tabular-nums tracking-tight text-fg">
                       {moneyShort(data?.summary.revenue ?? 0)}
                     </p>
-                    <p className="mt-1 text-xs text-muted font-mono">
+                    <p className="mt-1 text-xs text-muted font-mono print:text-[0.625rem]">
                       {applied.date_from} → {applied.date_to}
                     </p>
                   </div>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-600/20 shadow-inner font-bold">
-                    <WalletIcon className="h-5 w-5" />
+                  <span className="flex h-11 w-11 print:h-8 print:w-8 items-center justify-center rounded-2xl print:rounded-lg bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-600/20 shadow-inner font-bold">
+                    <WalletIcon className="h-5 w-5 print:h-4 print:w-4" />
                   </span>
                 </div>
               </div>
 
               {/* Bookings */}
-              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover-lift transition-all">
+              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 print:p-3.5 print:rounded-xl shadow-sm hover-lift transition-all">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
                       Confirmed Bookings
                     </p>
-                    <p className="mt-2 text-2xl sm:text-3xl font-extrabold tabular-nums tracking-tight text-fg">
+                    <p className="mt-2 print:mt-1 text-2xl sm:text-3xl print:text-xl font-extrabold tabular-nums tracking-tight text-fg">
                       {(data?.summary.bookings ?? 0).toLocaleString()}
                     </p>
-                    <p className="mt-1 text-xs text-muted">
+                    <p className="mt-1 text-xs text-muted print:text-[0.625rem]">
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                         {data?.summary.bookings ?? 0} confirmed
                       </span>{' '}
                       · {data?.summary.cancellations ?? 0} refunded
                     </p>
                   </div>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-inner font-bold">
-                    <FileTextIcon className="h-5 w-5" />
+                  <span className="flex h-11 w-11 print:h-8 print:w-8 items-center justify-center rounded-2xl print:rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-inner font-bold">
+                    <FileTextIcon className="h-5 w-5 print:h-4 print:w-4" />
                   </span>
                 </div>
               </div>
 
               {/* Passengers */}
-              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover-lift transition-all">
+              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 print:p-3.5 print:rounded-xl shadow-sm hover-lift transition-all">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
                       Total Passengers
                     </p>
-                    <p className="mt-2 text-2xl sm:text-3xl font-extrabold tabular-nums tracking-tight text-fg">
+                    <p className="mt-2 print:mt-1 text-2xl sm:text-3xl print:text-xl font-extrabold tabular-nums tracking-tight text-fg">
                       {(data?.summary.passengers ?? 0).toLocaleString()}
                     </p>
-                    <p className="mt-1 text-xs text-muted">
+                    <p className="mt-1 text-xs text-muted print:text-[0.625rem]">
                       <strong className="font-semibold text-fg">
                         {data?.summary.occupancy ?? 0}%
                       </strong>{' '}
                       avg fleet load factor
                     </p>
                   </div>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-inner font-bold">
-                    <UsersIcon className="h-5 w-5" />
+                  <span className="flex h-11 w-11 print:h-8 print:w-8 items-center justify-center rounded-2xl print:rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-inner font-bold">
+                    <UsersIcon className="h-5 w-5 print:h-4 print:w-4" />
                   </span>
                 </div>
               </div>
 
               {/* Average Fare */}
-              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover-lift transition-all">
+              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 print:p-3.5 print:rounded-xl shadow-sm hover-lift transition-all">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
                       Average Ticket Fare
                     </p>
-                    <p className="mt-2 text-2xl sm:text-3xl font-extrabold tabular-nums tracking-tight text-fg">
+                    <p className="mt-2 print:mt-1 text-2xl sm:text-3xl print:text-xl font-extrabold tabular-nums tracking-tight text-fg">
                       {moneyShort(data?.summary.average_fare ?? 0)}
                     </p>
-                    <p className="mt-1 text-xs text-muted">Per seat reservation</p>
+                    <p className="mt-1 text-xs text-muted print:text-[0.625rem]">Per seat reservation</p>
                   </div>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-inner font-bold">
-                    <TrendingUpIcon className="h-5 w-5" />
+                  <span className="flex h-11 w-11 print:h-8 print:w-8 items-center justify-center rounded-2xl print:rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-inner font-bold">
+                    <TrendingUpIcon className="h-5 w-5 print:h-4 print:w-4" />
                   </span>
                 </div>
               </div>
@@ -555,11 +555,12 @@ export function Reports() {
           )}
 
           {/* ── Revenue Trend Chart & Payment Method Breakdown ── */}
-          <div className="grid gap-5 xl:grid-cols-[1.8fr_1fr] print:grid-cols-[1.6fr_1fr]">
+          <div className="grid gap-5 xl:grid-cols-[1.8fr_1fr] print:grid-cols-[1.6fr_1fr] print:gap-3.5 print-avoid-break">
             {/* Revenue & Bookings Dual-Axis Combo Chart */}
             <Panel
               title="Revenue & Booking Trajectory"
               subtitle="Daily financial revenue and passenger bookings across the selected date range"
+              className="print:rounded-xl"
             >
               {loading && !data ? (
                 <div className="skeleton h-64 rounded-xl" />
@@ -575,7 +576,7 @@ export function Reports() {
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
                       data={data?.revenue_series ?? []}
-                      margin={{ top: 10, right: 12, bottom: 0, left: 0 }}
+                      margin={{ top: 10, right: 10, bottom: 0, left: -10 }}
                     >
                       <defs>
                         <linearGradient id="reportRevGrad" x1="0" y1="0" x2="0" y2="1">
@@ -597,14 +598,14 @@ export function Reports() {
                         tick={axisStyle}
                         stroke="var(--border-color)"
                         tickFormatter={(v) => moneyShort(Number(v))}
-                        width={72}
+                        width={60}
                       />
                       <YAxis
                         yAxisId="bk"
                         orientation="right"
                         tick={axisStyle}
                         stroke="var(--border-color)"
-                        width={36}
+                        width={30}
                       />
                       <Tooltip
                         cursor={{
@@ -878,6 +879,7 @@ export function Reports() {
           <Panel
             title="Corridor Performance Breakdown"
             subtitle="Ranked performance ledger — departures, passengers, load factor, and gross revenue per route"
+            className="print:rounded-xl print-avoid-break"
             action={
               <div className="no-print print:hidden w-64 max-w-full">
                 <SearchInput
@@ -905,7 +907,7 @@ export function Reports() {
 
             {/* Table Summary Totals Footer */}
             {filteredRows.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-surface-2/50 px-4 py-3 text-xs print:bg-white print:border-slate-300">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-surface-2/50 px-4 py-3 text-xs print:bg-white print:border-slate-300 print:mt-3 print:py-2 print:px-3 print-avoid-break">
                 <div className="flex items-center gap-2 text-muted">
                   <span className="font-semibold text-fg">Summary:</span>
                   <span>{filteredRows.length} Corridors</span>
@@ -937,7 +939,7 @@ export function Reports() {
           </Panel>
 
           {/* Printable Signature & Audit Block (Visible ONLY in print) */}
-          <div className="hidden print:flex items-end justify-between mt-10 pt-6 border-t-2 border-slate-300 text-xs text-slate-700">
+          <div className="hidden print:flex items-end justify-between mt-8 pt-5 border-t-2 border-slate-300 text-xs text-slate-700 print-avoid-break">
             <div className="space-y-1">
               <p className="font-bold text-slate-900">Prepared &amp; Audited By:</p>
               <p>Sarah Nakato — Director of Transit Operations</p>

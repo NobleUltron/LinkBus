@@ -445,12 +445,34 @@ select.field {
   }
   .print-doc .card-surface,
   .print-doc .modal-modern,
-  .print-doc div[data-panel="true"],
-  .print-doc .data-table {
+  .print-doc div[data-panel="true"] {
     border-color: #cbd5e1 !important;
     box-shadow: none !important;
     background: #ffffff !important;
     color: #0f172a !important;
+  }
+  .print-doc .overflow-x-auto,
+  .print-doc div:has(> table),
+  .print-doc .thin-scroll {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    scrollbar-width: none !important;
+  }
+  .print-doc table.data-table {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+  .print-doc table.data-table tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
@@ -458,10 +480,48 @@ select.field {
     background-color: #f8fafc !important;
     color: #334155 !important;
     border-bottom: 2px solid #cbd5e1 !important;
+    padding: 6px 8px !important;
+    font-size: 0.6875rem !important;
   }
   .print-doc td {
     border-bottom: 1px solid #e2e8f0 !important;
     color: #0f172a !important;
+    padding: 6px 8px !important;
+    font-size: 0.75rem !important;
+  }
+  .print-doc table.data-table th:first-child,
+  .print-doc table.data-table td:first-child {
+    width: 34% !important;
+    text-align: left !important;
+  }
+  .print-doc table.data-table th:nth-child(2),
+  .print-doc table.data-table td:nth-child(2) {
+    width: 15% !important;
+    text-align: right !important;
+  }
+  .print-doc table.data-table th:nth-child(3),
+  .print-doc table.data-table td:nth-child(3) {
+    width: 15% !important;
+    text-align: right !important;
+  }
+  .print-doc table.data-table th:nth-child(4),
+  .print-doc table.data-table td:nth-child(4) {
+    width: 18% !important;
+    text-align: right !important;
+  }
+  .print-doc table.data-table th:nth-child(5),
+  .print-doc table.data-table td:nth-child(5) {
+    width: 18% !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+  }
+  .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .print-page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
   }
 
   /* ─── RECEIPT PRINT MODE ─────────────────────────────────────────────────── */

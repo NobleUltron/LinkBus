@@ -348,7 +348,7 @@ select.field {
 @media print {
   @page {
     size: auto;
-    margin: 8mm 10mm;
+    margin: 6mm 8mm;
     background: #ffffff;
   }
 
@@ -361,8 +361,8 @@ select.field {
     --surface-2: #f8fafc !important;
     --border-color: #cbd5e1 !important;
     --text-color: #0f172a !important;
-    --text-muted: #64748b !important;
-    --text-faint: #94a3b8 !important;
+    --text-muted: #475569 !important;
+    --text-faint: #64748b !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #0f172a !important;
@@ -446,10 +446,11 @@ select.field {
   .print-doc .card-surface,
   .print-doc .modal-modern,
   .print-doc div[data-panel="true"] {
-    border-color: #cbd5e1 !important;
+    border-color: #e2e8f0 !important;
     box-shadow: none !important;
     background: #ffffff !important;
     color: #0f172a !important;
+    padding: 10px 14px !important;
   }
   .print-doc .overflow-x-auto,
   .print-doc div:has(> table),
@@ -480,14 +481,14 @@ select.field {
     background-color: #f8fafc !important;
     color: #334155 !important;
     border-bottom: 2px solid #cbd5e1 !important;
-    padding: 6px 8px !important;
-    font-size: 0.6875rem !important;
+    padding: 4px 6px !important;
+    font-size: 0.625rem !important;
   }
   .print-doc td {
     border-bottom: 1px solid #e2e8f0 !important;
     color: #0f172a !important;
-    padding: 6px 8px !important;
-    font-size: 0.75rem !important;
+    padding: 4px 6px !important;
+    font-size: 0.6875rem !important;
   }
   .print-doc table.data-table th:first-child,
   .print-doc table.data-table td:first-child {

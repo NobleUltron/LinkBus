@@ -284,6 +284,63 @@ export function Reports() {
       ? Math.round((activePaymentItem.value / totalPaymentValue) * 100)
       : 0;
 
+  // ── Executive Analytical Insights (Operational Notes) ──
+  const operationalNotes = useMemo(() => {
+    if (!data) return [];
+    const notes: { title: string; body: string }[] = [];
+
+    // 1. Return leg / underperforming corridors
+    const underperforming = (data.rows ?? [])
+      .filter((r) => r.departures > 0 && r.revenue === 0)
+      .map((r) => r.route);
+    if (underperforming.length > 0) {
+      notes.push({
+        title: 'Return-leg bookings are underperforming',
+        body: `${underperforming.slice(0, 4).join(', ')} return corridors closed the period with 0 passengers and UGX 0 revenue, despite running a full outbound departure schedule.`,
+      });
+    } else if ((data.rows ?? []).length > 0) {
+      const topRoute = [...data.rows].sort((a, b) => b.revenue - a.revenue)[0];
+      notes.push({
+        title: 'Leading corridor performance',
+        body: `${topRoute.route} generated the highest revenue in the period with ${money(topRoute.revenue)} (${topRoute.passengers} passengers across ${topRoute.departures} departures).`,
+      });
+    }
+
+    // 2. Revenue concentration & trajectory
+    if ((data.revenue_series ?? []).length > 0) {
+      const maxDaily = Math.max(...data.revenue_series.map((s) => s.revenue), 0);
+      const totalRev = data.summary.revenue ?? 0;
+      notes.push({
+        title: 'Revenue trajectory',
+        body: `Period closed with gross settled revenue of ${money(totalRev)}, with peak single-day revenue reaching ${money(maxDaily)}.`,
+      });
+    }
+
+    // 3. Seat Load Factor
+    notes.push({
+      title: 'Seat load factor',
+      body: `Fleet utilization averaged ${data.summary.occupancy ?? 0}% across all corridors (${(data.summary.passengers ?? 0).toLocaleString()} passengers recorded for ${tableTotals.totalDepartures} scheduled trips).`,
+    });
+
+    // 4. Payment channel dominance
+    const totalPayments = (data.payment_mix ?? []).reduce((sum, item) => sum + (item.value || 0), 0);
+    const momoVal = (data.payment_mix ?? [])
+      .filter((p) => p.label.toLowerCase().includes('mtn') || p.label.toLowerCase().includes('airtel') || p.label.toLowerCase().includes('mobile'))
+      .reduce((sum, item) => sum + item.value, 0);
+    const cashVal = (data.payment_mix ?? [])
+      .filter((p) => p.label.toLowerCase().includes('cash'))
+      .reduce((sum, item) => sum + item.value, 0);
+    const momoPct = totalPayments > 0 ? Math.round((momoVal / totalPayments) * 100) : 0;
+    const cashPct = totalPayments > 0 ? Math.round((cashVal / totalPayments) * 100) : 0;
+
+    notes.push({
+      title: 'Mobile money dominates collections',
+      body: `MTN Mobile Money and Airtel Money together account for ${momoPct}% of settled revenue, ahead of station cash at ${cashPct}%.`,
+    });
+
+    return notes;
+  }, [data, tableTotals.totalDepartures]);
+
   return (
     <div className="space-y-6">
       {/* ── Executive Header & Unified Export Actions (Hidden in Print) ── */}
@@ -425,26 +482,26 @@ export function Reports() {
       )}
 
       {!error && (
-        <div className="print-doc space-y-6">
+        <div className="print-doc space-y-5">
           {/* Printable Document Header (Visible ONLY when printing) */}
-          <div className="hidden print:block mb-6 border-b-2 border-slate-900 pb-4">
+          <div className="hidden print:block mb-4 border-b-2 border-slate-900 pb-3">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-xl bg-emerald-700 flex items-center justify-center text-white font-extrabold text-xl shadow-sm">
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-xl bg-emerald-700 flex items-center justify-center text-white font-extrabold text-lg shadow-sm">
                   LB
                 </div>
                 <div>
-                  <h1 className="text-2xl font-extrabold text-slate-950 tracking-tight">
+                  <h1 className="text-xl font-extrabold text-slate-950 tracking-tight leading-tight">
                     LinkBus Services Ltd
                   </h1>
-                  <p className="text-xs font-semibold text-slate-600">
+                  <p className="text-[0.6875rem] font-semibold text-slate-500">
                     Executive Operational &amp; Financial Ledger Report
                   </p>
                 </div>
               </div>
-              <div className="text-right text-xs text-slate-700 space-y-1">
+              <div className="text-right text-[0.6875rem] text-slate-700 space-y-0.5">
                 <p>
-                  <span className="text-slate-500 font-medium">Reporting Period: </span>
+                  <span className="text-slate-500 font-medium">Reporting period: </span>
                   <strong className="font-bold text-slate-950 font-mono">
                     {applied.date_from} to {applied.date_to}
                   </strong>
@@ -463,102 +520,76 @@ export function Reports() {
             </div>
           </div>
 
-          {/* ── KPI Summary Cards ── */}
+          {/* ── KPI Summary Strip (Executive Unified Container) ── */}
           {loading && !data ? (
             <SkeletonCards count={4} />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 print:grid-cols-4 print:gap-3">
-              {/* Gross Revenue */}
-              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 print:p-3.5 print:rounded-xl shadow-sm hover-lift transition-all ring-1 ring-brand-600/20">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
-                      Gross Period Revenue
-                    </p>
-                    <p className="mt-2 print:mt-1 text-2xl sm:text-3xl print:text-xl font-extrabold tabular-nums tracking-tight text-fg">
-                      {moneyShort(data?.summary.revenue ?? 0)}
-                    </p>
-                    <p className="mt-1 text-xs text-muted font-mono print:text-[0.625rem]">
-                      {applied.date_from} → {applied.date_to}
-                    </p>
-                  </div>
-                  <span className="flex h-11 w-11 print:h-8 print:w-8 items-center justify-center rounded-2xl print:rounded-lg bg-brand-600/10 text-brand-600 dark:text-brand-400 border border-brand-600/20 shadow-inner font-bold">
-                    <WalletIcon className="h-5 w-5 print:h-4 print:w-4" />
-                  </span>
+            <div className="rounded-2xl border border-line bg-surface shadow-sm print:rounded-xl print:border-slate-200 overflow-hidden">
+              <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 divide-line print:grid-cols-4 print:divide-y-0 print:divide-x print:divide-slate-200">
+                {/* Gross Revenue */}
+                <div className="p-4 sm:p-5 print:p-2.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
+                    Gross Period Revenue
+                  </p>
+                  <p className="mt-1 text-2xl sm:text-3xl print:text-lg font-extrabold tabular-nums tracking-tight text-fg print:text-slate-950">
+                    {moneyShort(data?.summary.revenue ?? 0)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted font-mono print:text-[0.5625rem]">
+                    {applied.date_from} → {applied.date_to}
+                  </p>
                 </div>
-              </div>
 
-              {/* Bookings */}
-              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 print:p-3.5 print:rounded-xl shadow-sm hover-lift transition-all">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
-                      Confirmed Bookings
-                    </p>
-                    <p className="mt-2 print:mt-1 text-2xl sm:text-3xl print:text-xl font-extrabold tabular-nums tracking-tight text-fg">
-                      {(data?.summary.bookings ?? 0).toLocaleString()}
-                    </p>
-                    <p className="mt-1 text-xs text-muted print:text-[0.625rem]">
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                        {data?.summary.bookings ?? 0} confirmed
-                      </span>{' '}
-                      · {data?.summary.cancellations ?? 0} refunded
-                    </p>
-                  </div>
-                  <span className="flex h-11 w-11 print:h-8 print:w-8 items-center justify-center rounded-2xl print:rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-inner font-bold">
-                    <FileTextIcon className="h-5 w-5 print:h-4 print:w-4" />
-                  </span>
+                {/* Confirmed Bookings */}
+                <div className="p-4 sm:p-5 print:p-2.5 sm:border-l border-line print:border-slate-200">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
+                    Confirmed Bookings
+                  </p>
+                  <p className="mt-1 text-2xl sm:text-3xl print:text-lg font-extrabold tabular-nums tracking-tight text-fg print:text-slate-950">
+                    {(data?.summary.bookings ?? 0).toLocaleString()}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted print:text-[0.5625rem]">
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400 print:text-emerald-700">
+                      {data?.summary.bookings ?? 0} confirmed
+                    </span>{' '}
+                    · {data?.summary.cancellations ?? 0} refunded
+                  </p>
                 </div>
-              </div>
 
-              {/* Passengers */}
-              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 print:p-3.5 print:rounded-xl shadow-sm hover-lift transition-all">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
-                      Total Passengers
-                    </p>
-                    <p className="mt-2 print:mt-1 text-2xl sm:text-3xl print:text-xl font-extrabold tabular-nums tracking-tight text-fg">
-                      {(data?.summary.passengers ?? 0).toLocaleString()}
-                    </p>
-                    <p className="mt-1 text-xs text-muted print:text-[0.625rem]">
-                      <strong className="font-semibold text-fg">
-                        {data?.summary.occupancy ?? 0}%
-                      </strong>{' '}
-                      avg fleet load factor
-                    </p>
-                  </div>
-                  <span className="flex h-11 w-11 print:h-8 print:w-8 items-center justify-center rounded-2xl print:rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-inner font-bold">
-                    <UsersIcon className="h-5 w-5 print:h-4 print:w-4" />
-                  </span>
+                {/* Total Passengers */}
+                <div className="p-4 sm:p-5 print:p-2.5 lg:border-l border-line print:border-slate-200">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
+                    Total Passengers
+                  </p>
+                  <p className="mt-1 text-2xl sm:text-3xl print:text-lg font-extrabold tabular-nums tracking-tight text-fg print:text-slate-950">
+                    {(data?.summary.passengers ?? 0).toLocaleString()}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted print:text-[0.5625rem]">
+                    <strong className="font-semibold text-fg print:text-slate-900">
+                      {data?.summary.occupancy ?? 0}%
+                    </strong>{' '}
+                    avg fleet load factor
+                  </p>
                 </div>
-              </div>
 
-              {/* Average Fare */}
-              <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 print:p-3.5 print:rounded-xl shadow-sm hover-lift transition-all">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
-                      Average Ticket Fare
-                    </p>
-                    <p className="mt-2 print:mt-1 text-2xl sm:text-3xl print:text-xl font-extrabold tabular-nums tracking-tight text-fg">
-                      {moneyShort(data?.summary.average_fare ?? 0)}
-                    </p>
-                    <p className="mt-1 text-xs text-muted print:text-[0.625rem]">Per seat reservation</p>
-                  </div>
-                  <span className="flex h-11 w-11 print:h-8 print:w-8 items-center justify-center rounded-2xl print:rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-inner font-bold">
-                    <TrendingUpIcon className="h-5 w-5 print:h-4 print:w-4" />
-                  </span>
+                {/* Average Fare */}
+                <div className="p-4 sm:p-5 print:p-2.5 sm:border-l border-line print:border-slate-200">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted print:text-[0.625rem]">
+                    Average Ticket Fare
+                  </p>
+                  <p className="mt-1 text-2xl sm:text-3xl print:text-lg font-extrabold tabular-nums tracking-tight text-fg print:text-slate-950">
+                    {moneyShort(data?.summary.average_fare ?? 0)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted print:text-[0.5625rem]">Per seat reservation</p>
                 </div>
               </div>
             </div>
           )}
 
           {/* ── Revenue Trend Chart & Payment Method Breakdown ── */}
-          <div className="grid gap-5 xl:grid-cols-[1.8fr_1fr] print:grid-cols-[1.6fr_1fr] print:gap-3.5 print-avoid-break">
+          <div className="grid gap-5 xl:grid-cols-[1.6fr_1fr] print:grid-cols-[1.5fr_1fr] print:gap-3.5 print-avoid-break">
             {/* Revenue & Bookings Dual-Axis Combo Chart */}
             <Panel
-              title="Revenue & Booking Trajectory"
+              title="Revenue & booking trajectory"
               subtitle="Daily financial revenue and passenger bookings across the selected date range"
               className="print:rounded-xl"
             >
@@ -572,312 +603,212 @@ export function Reports() {
                   body="No bookings were recorded between those dates. Try selecting a wider timeframe."
                 />
               ) : (
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart
-                      data={data?.revenue_series ?? []}
-                      margin={{ top: 10, right: 10, bottom: 0, left: -10 }}
-                    >
-                      <defs>
-                        <linearGradient id="reportRevGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#16a34a" stopOpacity={0.35} />
-                          <stop offset="60%" stopColor="#16a34a" stopOpacity={0.08} />
-                          <stop offset="100%" stopColor="#16a34a" stopOpacity={0.0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke="var(--border-color)" vertical={false} strokeDasharray="3 3" opacity={0.6} />
-                      <XAxis
-                        dataKey="label"
-                        tick={axisStyle}
-                        stroke="var(--border-color)"
-                        tickMargin={8}
-                        tickFormatter={(d) => formatDateLabel(d)}
-                      />
-                      <YAxis
-                        yAxisId="rev"
-                        tick={axisStyle}
-                        stroke="var(--border-color)"
-                        tickFormatter={(v) => moneyShort(Number(v))}
-                        width={60}
-                      />
-                      <YAxis
-                        yAxisId="bk"
-                        orientation="right"
-                        tick={axisStyle}
-                        stroke="var(--border-color)"
-                        width={30}
-                      />
-                      <Tooltip
-                        cursor={{
-                          stroke: '#16a34a',
-                          strokeWidth: 1.5,
-                          strokeDasharray: '4 4',
-                          strokeOpacity: 0.5,
-                        }}
-                        content={<ChartTooltip />}
-                      />
-                      <Bar
-                        yAxisId="rev"
-                        dataKey="revenue"
-                        fill="url(#reportRevGrad)"
-                        stroke="#16a34a"
-                        strokeOpacity={0.4}
-                        radius={[6, 6, 0, 0]}
-                        maxBarSize={26}
-                        isAnimationActive={true}
-                        animationDuration={800}
-                        animationEasing="ease-out"
-                      />
-                      <Line
-                        yAxisId="rev"
-                        type="monotone"
-                        dataKey="revenue"
-                        stroke="#16a34a"
-                        strokeWidth={2.5}
-                        dot={false}
-                        activeDot={{
-                          r: 5.5,
-                          stroke: '#16a34a',
-                          strokeWidth: 3,
-                          fill: '#ffffff',
-                          style: { filter: 'drop-shadow(0 0 6px rgba(22, 163, 74, 0.7))' },
-                        }}
-                        isAnimationActive={true}
-                        animationDuration={800}
-                      />
-                      <Line
-                        yAxisId="bk"
-                        type="monotone"
-                        dataKey="bookings"
-                        stroke="#eab308"
-                        strokeWidth={2}
-                        dot={false}
-                        strokeDasharray="4 2"
-                        activeDot={{
-                          r: 4.5,
-                          stroke: '#eab308',
-                          strokeWidth: 2,
-                          fill: '#ffffff',
-                        }}
-                        isAnimationActive={true}
-                        animationDuration={800}
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                <div className="w-full">
+                  {/* Top Chart Legend */}
+                  <div className="mb-2 flex items-center justify-end gap-5 text-xs print:text-[0.625rem] text-muted">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <span className="h-2 w-3 rounded-xs bg-emerald-600 inline-block" />
+                      Gross revenue (UGX '000)
+                    </span>
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <span className="h-0.5 w-3 bg-amber-500 inline-block" style={{ borderTop: '2px dashed' }} />
+                      Bookings (tickets)
+                    </span>
+                  </div>
 
-                  {/* Chart Legend */}
-                  <div className="mt-2 flex items-center justify-center gap-6 text-xs text-muted">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block shadow-sm" />
-                      Gross Revenue (UGX)
-                    </span>
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <span className="h-0.5 w-4 rounded-full bg-amber-500 inline-block" style={{ borderTop: '2px dashed' }} />
-                      Bookings (Tickets)
-                    </span>
+                  <div className="h-44 sm:h-52 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart
+                        data={data?.revenue_series ?? []}
+                        margin={{ top: 5, right: 10, bottom: 0, left: -10 }}
+                      >
+                        <defs>
+                          <linearGradient id="reportRevGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#16a34a" stopOpacity={0.35} />
+                            <stop offset="60%" stopColor="#16a34a" stopOpacity={0.08} />
+                            <stop offset="100%" stopColor="#16a34a" stopOpacity={0.0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="var(--border-color)" vertical={false} strokeDasharray="3 3" opacity={0.5} />
+                        <XAxis
+                          dataKey="label"
+                          tick={axisStyle}
+                          stroke="var(--border-color)"
+                          tickMargin={6}
+                          tickFormatter={(d) => formatDateLabel(d)}
+                        />
+                        <YAxis
+                          yAxisId="rev"
+                          tick={axisStyle}
+                          stroke="var(--border-color)"
+                          tickFormatter={(v) => moneyShort(Number(v))}
+                          width={55}
+                        />
+                        <YAxis
+                          yAxisId="bk"
+                          orientation="right"
+                          tick={axisStyle}
+                          stroke="var(--border-color)"
+                          width={25}
+                        />
+                        <Tooltip
+                          cursor={{
+                            stroke: '#16a34a',
+                            strokeWidth: 1.5,
+                            strokeDasharray: '4 4',
+                            strokeOpacity: 0.5,
+                          }}
+                          content={<ChartTooltip />}
+                        />
+                        <Bar
+                          yAxisId="rev"
+                          dataKey="revenue"
+                          fill="url(#reportRevGrad)"
+                          stroke="#16a34a"
+                          strokeOpacity={0.4}
+                          radius={[4, 4, 0, 0]}
+                          maxBarSize={20}
+                          isAnimationActive={true}
+                          animationDuration={800}
+                        />
+                        <Line
+                          yAxisId="rev"
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke="#16a34a"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{
+                            r: 4.5,
+                            stroke: '#16a34a',
+                            strokeWidth: 2,
+                            fill: '#ffffff',
+                          }}
+                          isAnimationActive={true}
+                          animationDuration={800}
+                        />
+                        <Line
+                          yAxisId="bk"
+                          type="monotone"
+                          dataKey="bookings"
+                          stroke="#eab308"
+                          strokeWidth={1.5}
+                          dot={false}
+                          strokeDasharray="3 2"
+                          activeDot={{
+                            r: 3.5,
+                            stroke: '#eab308',
+                            strokeWidth: 2,
+                            fill: '#ffffff',
+                          }}
+                          isAnimationActive={true}
+                          animationDuration={800}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
               )}
             </Panel>
 
-            {/* Payment Method Breakdown: Interactive Donut on Screen, Table Ledger on Print */}
-            <Panel title="Payment Channel Split" subtitle="Revenue breakdown by collection gateway">
+            {/* Payment Method Breakdown (Interactive Donut on Screen, Visual Donut on Print) */}
+            <Panel title="Payment channel split" subtitle="Revenue breakdown by collection gateway" className="print:rounded-xl">
               {loading && !data ? (
                 <div className="skeleton h-64 rounded-xl" />
               ) : (data?.payment_mix.length ?? 0) === 0 ? (
                 <EmptyState compact title="No payments in range" body="Payment split appears once transactions occur." />
               ) : (
-                <>
-                  {/* ── Screen Only View: Interactive Donut Chart & Hover Legend ── */}
-                  <div className="no-print print:hidden">
-                    <div className="relative h-44 w-44 mx-auto shrink-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={data?.payment_mix ?? []}
-                            dataKey="value"
-                            nameKey="label"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius="58%"
-                            outerRadius="86%"
-                            paddingAngle={3}
-                            stroke="none"
-                            activeIndex={activePaymentIndex ?? undefined}
-                            activeShape={renderActiveShape}
-                            onMouseEnter={(_, index) => setActivePaymentIndex(index)}
-                            onMouseLeave={() => setActivePaymentIndex(null)}
-                          >
-                            {(data?.payment_mix ?? []).map((entry, index) => {
-                              const color =
-                                PAYMENT_COLORS[entry.label.toLowerCase().replace(/\s+/g, '_')] ??
-                                DEFAULT_COLOR_PALETTE[index % DEFAULT_COLOR_PALETTE.length];
-                              return (
-                                <Cell
-                                  key={entry.label}
-                                  fill={color}
-                                  className="cursor-pointer transition-opacity duration-150"
-                                  opacity={
-                                    activePaymentIndex === null || activePaymentIndex === index ? 1 : 0.35
-                                  }
-                                />
-                              );
-                            })}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
+                <div>
+                  {/* Donut Chart Container */}
+                  <div className="relative h-36 w-36 print:h-28 print:w-28 mx-auto shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={data?.payment_mix ?? []}
+                          dataKey="value"
+                          nameKey="label"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius="58%"
+                          outerRadius="86%"
+                          paddingAngle={2}
+                          stroke="none"
+                          activeIndex={activePaymentIndex ?? undefined}
+                          activeShape={renderActiveShape}
+                          onMouseEnter={(_, index) => setActivePaymentIndex(index)}
+                          onMouseLeave={() => setActivePaymentIndex(null)}
+                        >
+                          {(data?.payment_mix ?? []).map((entry, index) => {
+                            const color =
+                              PAYMENT_COLORS[entry.label.toLowerCase().replace(/\s+/g, '_')] ??
+                              DEFAULT_COLOR_PALETTE[index % DEFAULT_COLOR_PALETTE.length];
+                            return (
+                              <Cell
+                                key={entry.label}
+                                fill={color}
+                                className="cursor-pointer transition-opacity duration-150"
+                                opacity={
+                                  activePaymentIndex === null || activePaymentIndex === index ? 1 : 0.35
+                                }
+                              />
+                            );
+                          })}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
 
-                      {/* Donut Center Morphing Badge */}
-                      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center px-3">
-                        <AnimatePresence mode="wait">
-                          {activePaymentItem ? (
-                            <motion.div
-                              key={`pay-${activePaymentItem.label}`}
-                              initial={{ opacity: 0, scale: 0.9, y: 2 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.9, y: -2 }}
-                              transition={{ duration: 0.15, ease: 'easeOut' }}
-                              className="flex flex-col items-center justify-center max-w-[115px]"
-                            >
-                              <span
-                                className="truncate text-[0.625rem] font-bold tracking-tight text-brand-600 dark:text-brand-400"
-                                title={titleCase(activePaymentItem.label)}
-                              >
-                                {titleCase(activePaymentItem.label)}
-                              </span>
-                              <span className="text-sm font-extrabold tabular-nums tracking-tight text-fg">
-                                {moneyShort(activePaymentItem.value)}
-                              </span>
-                              <span className="inline-flex items-center text-[0.5625rem] font-bold text-emerald-600 dark:text-emerald-400">
-                                {activePaymentShare}% share
-                              </span>
-                            </motion.div>
-                          ) : (
-                            <motion.div
-                              key="total-pay"
-                              initial={{ opacity: 0, scale: 0.9, y: 2 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.9, y: -2 }}
-                              transition={{ duration: 0.15, ease: 'easeOut' }}
-                              className="flex flex-col items-center justify-center"
-                            >
-                              <span className="text-[0.625rem] font-bold uppercase tracking-wider text-muted">
-                                Total
-                              </span>
-                              <span className="text-sm font-extrabold tabular-nums tracking-tight text-fg">
-                                {moneyShort(totalPaymentValue)}
-                              </span>
-                              <span className="text-[0.625rem] font-semibold text-emerald-600 dark:text-emerald-400">
-                                {data?.payment_mix.length ?? 0} channels
-                              </span>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
+                    {/* Donut Center Label */}
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center px-2">
+                      <span className="text-xs print:text-[0.6875rem] font-extrabold tabular-nums tracking-tight text-fg print:text-slate-950">
+                        {moneyShort(totalPaymentValue)}
+                      </span>
+                      <span className="text-[0.5625rem] print:text-[0.5rem] font-semibold text-muted print:text-slate-500">
+                        {data?.payment_mix.length ?? 0} channels
+                      </span>
                     </div>
+                  </div>
 
-                    {/* Payment Channel Legend List */}
-                    <ul className="mt-3 space-y-1.5 border-t border-line/60 pt-3">
-                      {(data?.payment_mix ?? []).map((entry, index) => {
-                        const sharePct = totalPaymentValue > 0 ? Math.round((entry.value / totalPaymentValue) * 100) : 0;
-                        const color =
-                          PAYMENT_COLORS[entry.label.toLowerCase().replace(/\s+/g, '_')] ??
-                          DEFAULT_COLOR_PALETTE[index % DEFAULT_COLOR_PALETTE.length];
+                  {/* Payment Channel Legend List */}
+                  <ul className="mt-2.5 space-y-1 border-t border-line/60 print:border-slate-200 pt-2 text-xs print:text-[0.625rem]">
+                    {(data?.payment_mix ?? []).map((entry, index) => {
+                      const sharePct = totalPaymentValue > 0 ? Math.round((entry.value / totalPaymentValue) * 100) : 0;
+                      const color =
+                        PAYMENT_COLORS[entry.label.toLowerCase().replace(/\s+/g, '_')] ??
+                        DEFAULT_COLOR_PALETTE[index % DEFAULT_COLOR_PALETTE.length];
 
-                        return (
-                          <li
-                            key={entry.label}
-                            onMouseEnter={() => setActivePaymentIndex(index)}
-                            onMouseLeave={() => setActivePaymentIndex(null)}
-                            className={`flex items-center gap-2 rounded-lg px-2 py-1 text-xs transition-all duration-150 cursor-pointer ${
-                              activePaymentIndex === index
-                                ? 'bg-surface-2 ring-1 ring-brand-500/30 shadow-sm'
-                                : 'hover:bg-surface-2/60'
-                            }`}
-                          >
+                      return (
+                        <li
+                          key={entry.label}
+                          onMouseEnter={() => setActivePaymentIndex(index)}
+                          onMouseLeave={() => setActivePaymentIndex(null)}
+                          className="flex items-center justify-between gap-2 py-0.5"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
                             <span
-                              className="h-2.5 w-2.5 shrink-0 rounded-full transition-transform duration-150"
-                              style={{
-                                background: color,
-                                transform: activePaymentIndex === index ? 'scale(1.3)' : 'scale(1)',
-                              }}
+                              className="h-2 w-2 rounded-xs shrink-0 inline-block"
+                              style={{ background: color }}
                               aria-hidden
                             />
-                            <span
-                              className={`flex-1 truncate font-medium transition-colors ${
-                                activePaymentIndex === index
-                                  ? 'text-brand-600 dark:text-brand-400 font-semibold'
-                                  : 'text-fg'
-                              }`}
-                            >
+                            <span className="truncate font-medium text-fg print:text-slate-900">
                               {titleCase(entry.label)}
                             </span>
-                            <span className="tabular-nums text-muted font-medium">{sharePct}%</span>
-                            <span className="font-bold tabular-nums text-fg">{moneyShort(entry.value)}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-
-                  {/* ── Print Only View: Executive Financial Settlement Table ── */}
-                  <div className="hidden print:block">
-                    <table className="w-full text-xs text-left border-collapse">
-                      <thead>
-                        <tr className="border-b-2 border-slate-300 text-slate-600 font-bold uppercase text-[0.625rem]">
-                          <th className="py-2 pl-1">Payment Gateway / Channel</th>
-                          <th className="py-2 text-center">Share %</th>
-                          <th className="py-2 text-right pr-1">Total Revenue</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {(data?.payment_mix ?? []).map((entry, index) => {
-                          const sharePct = totalPaymentValue > 0 ? Math.round((entry.value / totalPaymentValue) * 100) : 0;
-                          const color =
-                            PAYMENT_COLORS[entry.label.toLowerCase().replace(/\s+/g, '_')] ??
-                            DEFAULT_COLOR_PALETTE[index % DEFAULT_COLOR_PALETTE.length];
-
-                          return (
-                            <tr key={entry.label} className={index % 2 === 1 ? 'bg-slate-50/60' : ''}>
-                              <td className="py-2 pl-1 flex items-center gap-2 font-medium text-slate-900">
-                                <span
-                                  className="h-2 w-2 rounded-full inline-block shrink-0"
-                                  style={{ background: color }}
-                                  aria-hidden
-                                />
-                                {titleCase(entry.label)}
-                              </td>
-                              <td className="py-2 text-center text-slate-600 font-mono font-medium">
-                                {sharePct}%
-                              </td>
-                              <td className="py-2 text-right pr-1 font-bold font-mono text-slate-950">
-                                {money(entry.value)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="border-t-2 border-slate-300 font-bold text-slate-950 bg-slate-50/80">
-                          <td className="py-2 pl-1">
-                            Total Settlement ({data?.payment_mix.length ?? 0} Channels)
-                          </td>
-                          <td className="py-2 text-center font-mono">100%</td>
-                          <td className="py-2 text-right pr-1 font-mono font-extrabold text-sm">
-                            {money(totalPaymentValue)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="tabular-nums text-muted print:text-slate-500 font-mono">{sharePct}%</span>
+                            <span className="font-bold tabular-nums text-fg print:text-slate-950 font-mono">{moneyShort(entry.value)}</span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               )}
             </Panel>
           </div>
 
           {/* ── Corridor Performance Breakdown Table with Search & Totals ── */}
           <Panel
-            title="Corridor Performance Breakdown"
+            title="Corridor performance breakdown"
             subtitle="Ranked performance ledger — departures, passengers, load factor, and gross revenue per route"
             className="print:rounded-xl print-avoid-break"
             action={
@@ -907,29 +838,29 @@ export function Reports() {
 
             {/* Table Summary Totals Footer */}
             {filteredRows.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-surface-2/50 px-4 py-3 text-xs print:bg-white print:border-slate-300 print:mt-3 print:py-2 print:px-3 print-avoid-break">
-                <div className="flex items-center gap-2 text-muted">
-                  <span className="font-semibold text-fg">Summary:</span>
-                  <span>{filteredRows.length} Corridors</span>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-2/50 px-3.5 py-2 text-xs print:bg-slate-50 print:border-slate-200 print:mt-2 print:py-1.5 print:px-2.5 print-avoid-break">
+                <div className="flex items-center gap-1.5 text-muted print:text-slate-600 font-semibold print:text-[0.6875rem]">
+                  <span className="text-fg print:text-slate-900 font-bold">Summary:</span>
+                  <span>{filteredRows.length} corridors</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-6">
-                  <div className="text-right">
-                    <span className="text-muted">Total Trips: </span>
-                    <strong className="font-bold font-mono text-fg">{tableTotals.totalDepartures}</strong>
+                <div className="flex flex-wrap items-center gap-4 print:gap-3 text-xs print:text-[0.6875rem]">
+                  <div>
+                    <span className="text-muted print:text-slate-500">Total trips: </span>
+                    <strong className="font-bold font-mono text-fg print:text-slate-900">{tableTotals.totalDepartures}</strong>
                   </div>
-                  <div className="text-right">
-                    <span className="text-muted">Total Passengers: </span>
-                    <strong className="font-bold font-mono text-fg">{tableTotals.totalPassengers}</strong>
+                  <div>
+                    <span className="text-muted print:text-slate-500">Total passengers: </span>
+                    <strong className="font-bold font-mono text-fg print:text-slate-900">{tableTotals.totalPassengers}</strong>
                   </div>
-                  <div className="text-right">
-                    <span className="text-muted">Avg Load Factor: </span>
-                    <strong className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                  <div>
+                    <span className="text-muted print:text-slate-500">Avg load factor: </span>
+                    <strong className="font-bold font-mono text-emerald-600 dark:text-emerald-400 print:text-emerald-700">
                       {tableTotals.avgOccupancy}%
                     </strong>
                   </div>
-                  <div className="text-right pl-4 border-l border-line print:border-slate-300">
-                    <span className="text-muted">Grand Total: </span>
-                    <strong className="text-sm font-extrabold font-mono text-fg">
+                  <div className="pl-3 border-l border-line print:border-slate-300">
+                    <span className="text-muted print:text-slate-500">Grand total: </span>
+                    <strong className="font-extrabold font-mono text-fg print:text-slate-900">
                       {money(tableTotals.totalRevenue)}
                     </strong>
                   </div>
@@ -938,23 +869,41 @@ export function Reports() {
             )}
           </Panel>
 
-          {/* Printable Signature & Audit Block (Visible ONLY in print) */}
-          <div className="hidden print:flex items-end justify-between mt-8 pt-5 border-t-2 border-slate-300 text-xs text-slate-700 print-avoid-break">
-            <div className="space-y-1">
-              <p className="font-bold text-slate-900">Prepared &amp; Audited By:</p>
-              <p>Sarah Nakato — Director of Transit Operations</p>
-              <p className="text-[0.6875rem] text-slate-500">LinkBus Services Central Operations</p>
+          {/* ── Operational Notes Card (Visible in Print & Screen) ── */}
+          {operationalNotes.length > 0 && (
+            <div className="rounded-xl border border-line bg-surface-2/30 p-3.5 print:bg-slate-50/70 print:border-slate-200 print:p-2.5 print-avoid-break">
+              <h3 className="font-bold text-xs print:text-[0.6875rem] text-fg print:text-slate-900 mb-1">
+                Operational notes
+              </h3>
+              <ul className="space-y-1 text-xs print:text-[0.625rem] text-muted print:text-slate-700 list-disc list-inside leading-relaxed">
+                {operationalNotes.map((note, idx) => (
+                  <li key={idx} className="print:leading-tight">
+                    <span className="font-semibold text-fg print:text-slate-900">{note.title}</span> — {note.body}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="text-center space-y-1">
-              <p className="font-bold text-slate-900">Verification Seal:</p>
-              <div className="h-10 w-24 border border-dashed border-slate-400 rounded flex items-center justify-center text-[0.625rem] text-slate-400">
-                OFFICIAL STAMP
+          )}
+
+          {/* ── Reconciliation Disclaimer & Sign-off Block ── */}
+          <div className="print-avoid-break mt-3 pt-1">
+            <p className="text-[0.625rem] print:text-[0.5625rem] text-muted print:text-slate-400 leading-tight">
+              Figures are reconciled against the payment gateway ledger and fleet seat manifest as of the generation timestamp above. Refunded bookings are excluded from totals. Amounts shown in Ugandan Shillings (UGX).
+            </p>
+
+            <div className="hidden print:flex items-end justify-between mt-3 pt-2 border-t border-slate-200 text-xs text-slate-700">
+              <div className="space-y-0.5">
+                <p className="font-bold text-slate-900 text-[0.6875rem]">Prepared &amp; audited by:</p>
+                <p className="text-[0.625rem] text-slate-800 font-medium">Sarah Nakato — Director of Transit Operations, LinkBus Services Central Operations</p>
+                <p className="text-[0.5625rem] text-slate-400 font-mono">Date: {new Date().toLocaleDateString('en-GB')}</p>
               </div>
-            </div>
-            <div className="text-right space-y-1">
-              <div className="w-48 border-b-2 border-slate-900 mb-1.5" />
-              <p className="font-bold text-slate-900">Executive Authorization Signature</p>
-              <p className="text-[0.6875rem] text-slate-500">Date: {new Date().toLocaleDateString('en-GB')}</p>
+              <div className="text-center">
+                <div className="h-11 w-20 border border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center text-[0.45rem] font-bold text-slate-400 leading-tight">
+                  <span>VERIFICATION</span>
+                  <span>SEAL</span>
+                  <span className="text-[0.4rem] text-slate-300 mt-0.5">OFFICIAL AUDIT</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -52,102 +52,102 @@ import { ScrollToTop } from './components/layout/ScrollToTop';
 
 export function App() {
   return <ThemeProvider>
-      <BrowserRouter>
-        <ScrollToTop />
-        <AuthProvider>
-          <SettingsProvider>
-            <NotificationProvider>
-              <AdvertisementPopup />
-              <Routes>
-                {/* Public site */}
-                <Route element={<PublicLayout />}>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/search" element={<TripSearch />} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/services" element={<Services />} />
-                  <Route path="/terminals" element={<Terminals />} />
-                  <Route path="/terms" element={<Terms />} />
-                  <Route path="/privacy" element={<Privacy />} />
-                  <Route path="/parcels/track" element={<CargoTrack />} />
-                  <Route path="/track" element={<CargoTrack />} />
-                  <Route path="/contact" element={<Contact />} />
-                </Route>
+    <BrowserRouter>
+      <ScrollToTop />
+      <AuthProvider>
+        <SettingsProvider>
+          <NotificationProvider>
+            <AdvertisementPopup />
+            <Routes>
+              {/* Public site */}
+              <Route element={<PublicLayout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/search" element={<TripSearch />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/services" element={<Services />} />
+                <Route path="/terminals" element={<Terminals />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/parcels/track" element={<CargoTrack />} />
+                <Route path="/track" element={<CargoTrack />} />
+                <Route path="/contact" element={<Contact />} />
+              </Route>
 
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
-                {/* Passenger portal */}
-                <Route element={<ProtectedRoute allowedRoles={['admin', 'passenger']}>
-                      <PortalShell portal={passengerPortal} />
-                    </ProtectedRoute>}>
-                  <Route path="/passenger/dashboard" element={<PassengerDashboard />} />
-                  <Route path="/my-tickets" element={<MyTickets />} />
-                  <Route path="/settings" element={<ProfileSettings />} />
-                  <Route path="/book/:tripId" element={<BookTrip />} />
-                  <Route path="/passenger" element={<Navigate to="/passenger/dashboard" replace />} />
-                </Route>
+              {/* Passenger portal */}
+              <Route element={<ProtectedRoute allowedRoles={['admin', 'passenger']}>
+                <PortalShell portal={passengerPortal} />
+              </ProtectedRoute>}>
+                <Route path="/passenger/dashboard" element={<PassengerDashboard />} />
+                <Route path="/my-tickets" element={<MyTickets />} />
+                <Route path="/settings" element={<ProfileSettings />} />
+                <Route path="/book/:tripId" element={<BookTrip />} />
+                <Route path="/passenger" element={<Navigate to="/passenger/dashboard" replace />} />
+              </Route>
 
-                {/* Staff portal */}
-                <Route element={<ProtectedRoute allowedRoles={['admin', 'staff']}>
-                      <PortalShell portal={staffPortal} />
-                    </ProtectedRoute>}>
-                  <Route path="/staff/dashboard" element={<StaffDashboard />} />
-                  <Route path="/staff/check-in" element={<CheckIn />} />
-                  <Route path="/staff/pos" element={<PosTerminal />} />
-                  <Route path="/staff/bookings" element={<BookingsScreen />} />
-                  <Route path="/staff/tickets" element={<TicketsScreen />} />
-                  <Route path="/staff/payments" element={<PaymentsScreen canRefund={false} />} />
-                  <Route path="/staff/reconciliation" element={<ReconciliationScreen mode="staff" />} />
-                  <Route path="/staff/luggage" element={<LuggageScreen mode="staff" />} />
-                  <Route path="/staff/parcels" element={<ParcelsScreen />} />
-                  <Route path="/staff/profile" element={<ProfileSettings />} />
-                  <Route path="/staff" element={<Navigate to="/staff/dashboard" replace />} />
-                </Route>
+              {/* Staff portal */}
+              <Route element={<ProtectedRoute allowedRoles={['admin', 'staff']}>
+                <PortalShell portal={staffPortal} />
+              </ProtectedRoute>}>
+                <Route path="/staff/dashboard" element={<StaffDashboard />} />
+                <Route path="/staff/check-in" element={<CheckIn />} />
+                <Route path="/staff/pos" element={<PosTerminal />} />
+                <Route path="/staff/bookings" element={<BookingsScreen />} />
+                <Route path="/staff/tickets" element={<TicketsScreen />} />
+                <Route path="/staff/payments" element={<PaymentsScreen canRefund={false} />} />
+                <Route path="/staff/reconciliation" element={<ReconciliationScreen mode="staff" />} />
+                <Route path="/staff/luggage" element={<LuggageScreen mode="staff" />} />
+                <Route path="/staff/parcels" element={<ParcelsScreen />} />
+                <Route path="/staff/profile" element={<ProfileSettings />} />
+                <Route path="/staff" element={<Navigate to="/staff/dashboard" replace />} />
+              </Route>
 
-                {/* Driver portal */}
-                <Route element={<ProtectedRoute allowedRoles={['admin', 'driver']}>
-                      <PortalShell portal={driverPortal} />
-                    </ProtectedRoute>}>
-                  <Route path="/driver" element={<DriverDashboard />} />
-                  <Route path="/driver/trips" element={<DriverDashboard />} />
-                  <Route path="/driver/trips/:tripId" element={<DriverTripDetail />} />
-                  <Route path="/driver/profile" element={<ProfileSettings />} />
-                </Route>
+              {/* Driver portal */}
+              <Route element={<ProtectedRoute allowedRoles={['admin', 'driver']}>
+                <PortalShell portal={driverPortal} />
+              </ProtectedRoute>}>
+                <Route path="/driver" element={<DriverDashboard />} />
+                <Route path="/driver/trips" element={<DriverDashboard />} />
+                <Route path="/driver/trips/:tripId" element={<DriverTripDetail />} />
+                <Route path="/driver/profile" element={<ProfileSettings />} />
+              </Route>
 
-                {/* Admin portal */}
-                <Route element={<ProtectedRoute allowedRoles={['admin']}>
-                      <PortalShell portal={adminPortal} />
-                    </ProtectedRoute>}>
-                  <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                  <Route path="/admin/reports" element={<Reports />} />
-                  <Route path="/admin/pos" element={<PosTerminal />} />
-                  <Route path="/admin/bookings" element={<BookingsScreen canRefund />} />
-                  <Route path="/admin/tickets" element={<TicketsScreen canVoid />} />
-                  <Route path="/admin/payments" element={<PaymentsScreen />} />
-                  <Route path="/admin/reconciliations" element={<ReconciliationScreen mode="admin" />} />
-                  <Route path="/admin/promo-codes" element={<PromoCodes />} />
-                  <Route path="/admin/trips" element={<Trips />} />
-                  <Route path="/admin/routes" element={<RoutesAdmin />} />
-                  <Route path="/admin/buses" element={<Buses />} />
-                  <Route path="/admin/terminals" element={<TerminalsAdmin />} />
-                  <Route path="/admin/drivers" element={<Drivers />} />
-                  <Route path="/admin/luggage" element={<LuggageScreen mode="admin" />} />
-                  <Route path="/admin/parcels" element={<ParcelsScreen />} />
-                  <Route path="/admin/users" element={<Users />} />
-                  <Route path="/admin/roles" element={<Roles />} />
-                  <Route path="/admin/advertisements" element={<Advertisements />} />
-                  <Route path="/admin/settings" element={<SystemSettings />} />
-                  <Route path="/admin/profile" element={<ProfileSettings />} />
-                  <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-                </Route>
+              {/* Admin portal */}
+              <Route element={<ProtectedRoute allowedRoles={['admin']}>
+                <PortalShell portal={adminPortal} />
+              </ProtectedRoute>}>
+                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route path="/admin/reports" element={<Reports />} />
+                <Route path="/admin/pos" element={<PosTerminal />} />
+                <Route path="/admin/bookings" element={<BookingsScreen canRefund />} />
+                <Route path="/admin/tickets" element={<TicketsScreen canVoid />} />
+                <Route path="/admin/payments" element={<PaymentsScreen />} />
+                <Route path="/admin/reconciliations" element={<ReconciliationScreen mode="admin" />} />
+                <Route path="/admin/promo-codes" element={<PromoCodes />} />
+                <Route path="/admin/trips" element={<Trips />} />
+                <Route path="/admin/routes" element={<RoutesAdmin />} />
+                <Route path="/admin/buses" element={<Buses />} />
+                <Route path="/admin/terminals" element={<TerminalsAdmin />} />
+                <Route path="/admin/drivers" element={<Drivers />} />
+                <Route path="/admin/luggage" element={<LuggageScreen mode="admin" />} />
+                <Route path="/admin/parcels" element={<ParcelsScreen />} />
+                <Route path="/admin/users" element={<Users />} />
+                <Route path="/admin/roles" element={<Roles />} />
+                <Route path="/admin/advertisements" element={<Advertisements />} />
+                <Route path="/admin/settings" element={<SystemSettings />} />
+                <Route path="/admin/profile" element={<ProfileSettings />} />
+                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+              </Route>
 
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
 
-              <Toaster position="top-right" richColors closeButton />
-            </NotificationProvider>
-          </SettingsProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </ThemeProvider>;
+            <Toaster position="top-right" richColors closeButton />
+          </NotificationProvider>
+        </SettingsProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  </ThemeProvider>;
 }

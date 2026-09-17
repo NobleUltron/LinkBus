@@ -232,15 +232,44 @@ class TripController extends Controller
             'ticket_id' => 'required|exists:tickets,id',
         ]);
 
-        $ticket = \App\Models\Ticket::where('id', $request->ticket_id)
+        $ticket = \App\Models\Ticket::with(['seat', 'booking.user'])
+            ->where('id', $request->ticket_id)
             ->whereHas('booking', fn($q) => $q->where('trip_id', $trip->id))
             ->firstOrFail();
 
         if ($ticket->status === 'used') {
             return response()->json([
                 'message' => "Passenger {$ticket->passenger_name} was already boarded at " . ($ticket->boarded_at ? $ticket->boarded_at->format('H:i') : 'earlier') . '.',
-                'ticket'  => $ticket,
+                'ticket'  => [
+                    'id'              => $ticket->id,
+                    'booking_id'      => $ticket->booking_id,
+                    'trip_seat_id'    => $ticket->trip_seat_id,
+                    'passenger_name'  => $ticket->passenger_name,
+                    'passenger_phone' => $ticket->passenger_phone,
+                    'ticket_number'   => $ticket->ticket_number,
+                    'qr_code'         => $ticket->qr_code,
+                    'status'          => $ticket->status,
+                    'boarded_at'      => $ticket->boarded_at?->toISOString(),
+                    'seat'            => [
+                        'id'          => $ticket->seat?->id ?? 0,
+                        'trip_id'     => $trip->id,
+                        'seat_number' => $ticket->seat?->seat_number ?? '—',
+                        'seat_class'  => $ticket->seat?->seat_class ?? 'standard',
+                        'status'      => 'booked',
+                    ],
+                ],
             ]);
+        }
+
+        if ($ticket->status === 'cancelled') {
+            return response()->json(['message' => 'Ticket is cancelled and cannot be boarded.'], 422);
+        }
+
+        if ($ticket->status === 'pending_payment' || $ticket->booking?->status === 'pending') {
+            $amt = number_format($ticket->booking?->total_amount ?? 0);
+            return response()->json([
+                'message' => "Cannot board passenger: Payment of UGX {$amt} is pending. Please direct passenger to the ticket counter.",
+            ], 422);
         }
 
         $ticket->update([
@@ -248,7 +277,16 @@ class TripController extends Controller
             'boarded_at' => now(),
         ]);
 
-        $ticket->load('seat', 'booking.user');
+        $ticket->refresh()->load('seat', 'booking.user');
+
+        // Trigger boarding notification
+        try {
+            $this->notificationService->notifyPassengerBoarded($ticket);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Passenger boarding notification error: " . $e->getMessage());
+        }
+
+        $trip->loadMissing('bus');
 
         return response()->json([
             'message' => "Passenger {$ticket->passenger_name} successfully boarded onto Coach {$trip->bus?->plate_number} (Seat {$ticket->seat?->seat_number}).",
@@ -272,6 +310,7 @@ class TripController extends Controller
             ],
         ]);
     }
+
 
     public function show(Trip $trip): JsonResponse
     {

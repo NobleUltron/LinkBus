@@ -146,11 +146,40 @@ export interface TripManifestData {
 /** GET /api/trips/{trip}/manifest (with tickets & held_seats) */
 export async function getTripManifestWithHolds(tripId: number): Promise<TripManifestData> {
   try {
-    const res = await api.get<{ manifest?: TicketDetail[]; data?: TicketDetail[]; held_seats?: ManifestHeldSeat[] }>(`/trips/${tripId}/manifest`);
-    return {
-      tickets: res.manifest || res.data || [],
-      held_seats: res.held_seats || [],
-    };
+    const res = await api.get<{
+      tickets?: TicketDetail[];
+      manifest?: TicketDetail[];
+      data?: TicketDetail[];
+      held_seats?: ManifestHeldSeat[];
+      active_locks?: Array<{
+        seat_id: number;
+        seat_number: string;
+        seat_class?: string;
+        user_id: number;
+        user_name: string;
+        user_phone: string;
+        expires_at: string;
+        remaining_seconds?: number;
+      }>;
+    }>(`/trips/${tripId}/manifest`);
+
+    // Backend returns { tickets, active_locks, summary, trip }
+    const tickets = res.tickets || res.manifest || res.data || [];
+
+    // Map active_locks → ManifestHeldSeat shape
+    const heldSeats: ManifestHeldSeat[] = (res.active_locks || res.held_seats || []).map((l) => ({
+      id: (l as ManifestHeldSeat).id ?? (l as any).seat_id,
+      seat_id: (l as any).seat_id ?? (l as ManifestHeldSeat).seat_id,
+      seat_number: l.seat_number,
+      seat_class: ((l as any).seat_class as 'standard' | 'vip') || 'standard',
+      user_id: l.user_id,
+      user_name: l.user_name,
+      user_phone: l.user_phone,
+      expires_at: l.expires_at,
+      remaining_seconds: (l as any).remaining_seconds ?? 0,
+    }));
+
+    return { tickets, held_seats: heldSeats };
   } catch {
     const list = await listTickets({});
     return {
